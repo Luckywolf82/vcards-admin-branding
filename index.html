@@ -1,12 +1,3 @@
-Selvsagt, Herr Waagen ⚙️
-Her får du **hele og ferdige `index.html`** med alt integrert:
-✅ Logo og farger fungerer
-✅ GitHub-publisering fungerer
-✅ Automatisk rydding av “Vcards/Vcards”
-✅ Både **HTML-URL** og **NFC-URL** vises etter publisering
-
----
-
 ```html
 <!doctype html>
 <html lang="no">
@@ -137,106 +128,265 @@ const ORG_PROFILES={
 <textarea id="htmlPreview" rows="14" style="width:100%"></textarea>
 
 <script>
-const tbody=document.querySelector('#linksTable tbody');
-function addRow(label,url,pre='',post=''){
-  const tr=document.createElement('tr');
-  tr.innerHTML=`<td><input value="${label||''}" class="lbl"/></td>
-  <td><input value="${url||''}" class="lnk" style="width:100%"/></td>
-  <td><textarea class="pre" rows="2" placeholder="Tekst over">${pre||''}</textarea></td>
-  <td><textarea class="post" rows="2" placeholder="Tekst under">${post||''}</textarea></td>
-  <td><button type="button" class="remove">Fjern</button></td>`;
-  tr.querySelector('.remove').addEventListener('click',()=>tr.remove());
+Her e **del 2 / 2** – lim den rett etter linja `\<script>` fra del 1. Den avslutter hele fila korrekt.
+
+```html
+// --- Tabell/lenkehåndtering ---
+const tbody = document.querySelector('#linksTable tbody');
+
+function addRow(label, url, pre = '', post = '') {
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td><input value="${label || ''}" class="lbl" /></td>
+    <td><input value="${url || ''}" class="lnk" style="width:100%"/></td>
+    <td><textarea class="pre" rows="2" placeholder="Tekst over">${pre || ''}</textarea></td>
+    <td><textarea class="post" rows="2" placeholder="Tekst under">${post || ''}</textarea></td>
+    <td><button type="button" class="remove">Fjern</button></td>
+  `;
+  tr.querySelector('.remove').addEventListener('click', () => tr.remove());
   tbody.appendChild(tr);
 }
-document.getElementById('addLink').addEventListener('click',()=>{
+
+document.getElementById('addLink').addEventListener('click', () => {
   addRow(
     document.getElementById('newLabel').value,
     document.getElementById('newUrl').value,
     document.getElementById('newPre').value,
     document.getElementById('newPost').value
   );
-  ['newLabel','newUrl','newPre','newPost'].forEach(id=>document.getElementById(id).value='');
-});
-document.querySelectorAll('.pill').forEach(btn=>{
-  btn.addEventListener('click',()=>addRow(btn.dataset.label,btn.dataset.url));
+  ['newLabel','newUrl','newPre','newPost'].forEach(id => document.getElementById(id).value = '');
 });
 
-function applyBranding(){
-  const key=document.getElementById('orgKey').value.trim();
-  const prof=ORG_PROFILES[key];
-  if(!prof)return;
-  if(!document.getElementById('orgName').value)document.getElementById('orgName').value=prof.name||key;
-  if(!document.getElementById('accent').value)document.getElementById('accent').value=prof.accent||'#8fd3ff';
-  if(!document.getElementById('orgSite').value)document.getElementById('orgSite').value=prof.site||'';
-  if(!document.getElementById('logoUrl').value&&prof.logo){document.getElementById('logoUrl').value=prof.logo;previewLogo();}
+document.querySelectorAll('.pill').forEach(btn => {
+  btn.addEventListener('click', () => addRow(btn.dataset.label, btn.dataset.url));
+});
+
+// --- Branding ---
+function applyBranding() {
+  const key  = document.getElementById('orgKey').value.trim();
+  const prof = ORG_PROFILES[key];
+  if (!prof) return;
+
+  document.getElementById('orgName').value = prof.name   || key;
+  document.getElementById('accent').value  = prof.accent || '#8fd3ff';
+  document.getElementById('orgSite').value = prof.site   || '';
+  document.getElementById('logoUrl').value = prof.logo   || '';
+  previewLogo();
 }
-function previewLogo(){
-  const url=document.getElementById('logoUrl').value.trim();
-  const img=document.getElementById('logoPreview');
-  if(url){img.src=url;img.style.display='block';}
-  else {img.style.display='none';}
+
+function previewLogo() {
+  const url = document.getElementById('logoUrl').value.trim();
+  const img = document.getElementById('logoPreview');
+  if (url) { img.src = url; img.style.display = 'block'; }
+  else { img.style.display = 'none'; }
 }
-function normalizePhone(p){
-  p=(p||'').trim();if(!p)return p;
-  if(p.startsWith('0')&&!p.startsWith('+')){
-    if(p.length<=8)return '+47'+p.replace(/^0+/,'');
-  }return p;
+
+// --- vCard/HTML helpers ---
+function normalizePhone(p) {
+  p = (p || '').trim(); if (!p) return p;
+  if (p.startsWith('0') && !p.startsWith('+')) {
+    if (p.length <= 8) return '+47' + p.replace(/^0+/, '');
+  }
+  return p;
 }
-function makeVcard(d){
-  const parts=d.name.trim().split(' ');const first=parts[0]||'';const last=parts.length>1?parts[parts.length-1]:'';
-  const phone=normalizePhone(d.phone||'');
-  return ['BEGIN:VCARD','VERSION:3.0',`FN:${d.name}`,`N:${last};${first};;;`,
-  `ORG:${d.orgName||d.orgKey}`,`TITLE:${d.title||''}`,`TEL;TYPE=CELL:${phone}`,
-  `EMAIL;TYPE=INTERNET:${d.email||''}`,`URL:${d.site||''}`,`ADR;TYPE=WORK:;;${d.address||''}`,'END:VCARD'].join('\n');
+
+function makeVcard(d) {
+  const parts = d.name.trim().split(' ');
+  const first = parts[0] || '';
+  const last  = parts.length > 1 ? parts[parts.length - 1] : '';
+  const phone = normalizePhone(d.phone || '');
+  return [
+    'BEGIN:VCARD',
+    'VERSION:3.0',
+    `FN:${d.name}`,
+    `N:${last};${first};;;`,
+    `ORG:${d.orgName || d.orgKey}`,
+    `TITLE:${d.title || ''}`,
+    `TEL;TYPE=CELL:${phone}`,
+    `EMAIL;TYPE=INTERNET:${d.email || ''}`,
+    `URL:${d.site || ''}`,
+    `ADR;TYPE=WORK:;;${d.address || ''}`,
+    'END:VCARD'
+  ].join('\n');
 }
-function esc(s){return (s||'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));}
+
+function esc(s){ return (s||'').replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+
 function makeLinksHTML(links){
-  if(!links.length)return '';
-  return links.map(l=>{
-    const pre=l.pre?`<div class="pre" style="margin:8px 0 4px;color:#bfc8d6">${esc(l.pre)}</div>`:'';
-    const post=l.post?`<div class="post" style="margin:4px 0 10px;color:#97a3b6;font-size:.95rem">${esc(l.post)}</div>`:'';
-    return `<div class="link-block" style="margin-top:10px">${pre}<a class="btn" href="${esc(l.url)}" target="_blank" rel="noopener">${esc(l.label)}</a>${post}</div>`;
+  if(!links.length) return '';
+  return links.map(l => {
+    const pre  = l.pre  ? `<div class="pre"  style="margin:8px 0 4px;color:#bfc8d6">${esc(l.pre)}</div>` : '';
+    const post = l.post ? `<div class="post" style="margin:4px 0 10px;color:#97a3b6;font-size:.95rem">${esc(l.post)}</div>` : '';
+    return `<div class="link-block" style="margin-top:10px">
+      ${pre}
+      <a class="btn" href="${esc(l.url)}" target="_blank" rel="noopener">${esc(l.label)}</a>
+      ${post}
+    </div>`;
   }).join('');
 }
-function makeHTML(d,vcfFile,links){
-  const accent=d.accent||'#8fd3ff';
-  const logoTag=d.logoUrl?`<img src="${d.logoUrl}" style="height:48px;margin-bottom:10px" alt="${d.orgName||d.orgKey} logo">`:'';
-  const extras=makeLinksHTML(links);
-  return `<!doctype html><html lang="no"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Kontaktkort – ${esc(d.name)}</title>
-  <style>:root{--accent:${accent};}body{font-family:system-ui,-apple-system,Roboto,Arial;background:#0b0b10;color:#eee;padding:20px}
-  .container{max-width:760px;margin:0 auto;background:#12121a;padding:24px;border-radius:12px}
-  .btn{display:inline-block;padding:12px 14px;background:var(--accent);color:#03101a;border-radius:10px;text-decoration:none;font-weight:700}
-  .links{margin-top:12px;display:flex;gap:8px;flex-wrap:wrap}.card p{color:#bfc8d6}</style></head>
-  <body><main class="container card">${logoTag}<h1>Kontaktkort – ${esc(d.name)}</h1>
+
+function makeHTML(d, vcfFile, links){
+  const accent  = d.accent || '#8fd3ff';
+  const logoTag = d.logoUrl ? `<img src="${d.logoUrl}" style="height:48px;margin-bottom:10px" alt="${d.orgName||d.orgKey} logo">` : '';
+  const extras  = makeLinksHTML(links);
+
+  return `<!doctype html>
+<html lang="no">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Kontaktkort – ${esc(d.name)}</title>
+<style>
+:root{--accent:${accent};}
+body{font-family:system-ui,-apple-system,Roboto,Arial;background:#0b0b10;color:#eee;padding:20px}
+.container{max-width:760px;margin:0 auto;background:#12121a;padding:24px;border-radius:12px}
+.btn{display:inline-block;padding:12px 14px;background:var(--accent);color:#03101a;border-radius:10px;text-decoration:none;font-weight:700}
+.links{margin-top:12px;display:flex;gap:8px;flex-wrap:wrap}
+.card p{color:#bfc8d6}
+</style>
+</head>
+<body>
+<main class="container card">
+  ${logoTag}
+  <h1>Kontaktkort – ${esc(d.name)}</h1>
   <p class="muted">${esc(d.title||'')} · ${esc(d.orgName||d.orgKey)}</p>
   <p><a class="btn" href="./${vcfFile}" download>Last ned vCard (.vcf)</a></p>
-  <div class="links"><a href="tel:${esc(d.phone||'')}" class="btn">Ring</a>
-  <a href="mailto:${esc(d.email||'')}" class="btn">E-post</a>
-  <a href="${esc(d.site||'#')}" class="btn" target="_blank">Nettside</a>
-  <a href="../index.html" class="btn">← Tilbake</a></div>${extras}
-  <p style="margin-top:14px">Adresse: ${esc(d.address||'')}</p></main></body></html>`;
+  <div class="links">
+    <a href="tel:${esc(d.phone||'')}" class="btn">Ring</a>
+    <a href="mailto:${esc(d.email||'')}" class="btn">E-post</a>
+    <a href="${esc(d.site||'#')}" class="btn" target="_blank">Nettside</a>
+    <a href="../index.html" class="btn">← Tilbake</a>
+  </div>
+  ${extras}
+  <p style="margin-top:14px">Adresse: ${esc(d.address||'')}</p>
+</main>
+</body>
+</html>`;
 }
-async function postJSON(url,data){
-  const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
-  const t=await r.text();try{return{ok:r.ok,status:r.status,json:JSON.parse(t)}}catch{return{ok:r.ok,status:r.status,text:t}};}
-document.getElementById('generate').addEventListener('click',async()=>{
-  const get=id=>document.getElementById(id).value.trim();
-  const d={orgKey:get('orgKey'),orgName:get('orgName')||get('orgKey'),accent:get('accent')||'#8fd3ff',logoUrl:get('logoUrl'),
-  slug:get('slug'),name:get('name'),title:get('title'),phone:get('phone'),email:get('email'),site:get('site'),address:get('address'),
-  vcfFilename:get('vcfFilename')||(get('slug')+'_'+get('orgKey')+'.vcf'),
-  ghUser:get('ghUser'),ghRepo:get('ghRepo'),basePath:get('basePath')||'Vcards',strategy:document.getElementById('strategy').value};
-  if(!d.orgKey||!d.slug||!d.name){alert('Mangler: orgKey, slug, name');return;}
-  const links=Array.from(document.querySelectorAll('#linksTable tbody tr')).map(tr=>({label:tr.querySelector('.lbl').value.trim(),url:tr.querySelector('.lnk').value.trim(),pre:tr.querySelector('.pre').value.trim(),post:tr.querySelector('.post').value.trim()})).filter(x=>x.label&&x.url);
-  const vcf=makeVcard(d);const html=makeHTML(d,d.vcfFilename,links);
-  document.getElementById('vcfPreview').value=vcf;document.getElementById('htmlPreview').value=html;
 
-  // --- NY: rydder url og viser både HTML og VCF ---
-  let basePath=(d.basePath||'').replace(/^\/+|\/+$/g,'');
-  let repoPart=d.ghRepo||'<repo>';let ownerPart=d.ghUser||'<owner>';
-  const needsBase=basePath.toLowerCase()!==repoPart.toLowerCase();
-  const pathPart=needsBase?`/${basePath}`:'';
-  const baseUrl=`https://${ownerPart}.github.io/${repoPart}${pathPart}/${d.orgKey}/${d.slug}`;
-  const htmlUrl=`${baseUrl}/index.html`;
-  const vcfUrl=`${baseUrl}/${d.vcf
+// --- Netlify fetch helper ---
+async function postJSON(url, data){
+  const r = await fetch(url, {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify(data)
+  });
+  const t = await r.text();
+  try { return { ok:r.ok, status:r.status, json:JSON.parse(t) }; }
+  catch { return { ok:r.ok, status:r.status, text:t }; }
+}
+
+// --- Hovedknapp: Generer & Publiser ---
+document.getElementById('generate').addEventListener('click', async () => {
+  const get = id => document.getElementById(id).value.trim();
+
+  const d = {
+    orgKey:get('orgKey'),
+    orgName:get('orgName') || get('orgKey'),
+    accent:get('accent') || '#8fd3ff',
+    logoUrl:get('logoUrl'),
+    slug:get('slug'),
+    name:get('name'),
+    title:get('title'),
+    phone:get('phone'),
+    email:get('email'),
+    site:get('site'),
+    address:get('address'),
+    vcfFilename:get('vcfFilename') || (get('slug') + '_' + get('orgKey') + '.vcf'),
+    ghUser:get('ghUser'),
+    ghRepo:get('ghRepo'),
+    basePath:get('basePath') || 'Vcards',
+    strategy:document.getElementById('strategy').value
+  };
+
+  if (!d.orgKey || !d.slug || !d.name) { alert('Mangler: orgKey, slug, name'); return; }
+
+  const links = Array.from(document.querySelectorAll('#linksTable tbody tr'))
+    .map(tr => ({
+      label: tr.querySelector('.lbl').value.trim(),
+      url:   tr.querySelector('.lnk').value.trim(),
+      pre:   tr.querySelector('.pre').value.trim(),
+      post:  tr.querySelector('.post').value.trim()
+    }))
+    .filter(x => x.label && x.url);
+
+  const vcf  = makeVcard(d);
+  const html = makeHTML(d, d.vcfFilename, links);
+
+  document.getElementById('vcfPreview').value  = vcf;
+  document.getElementById('htmlPreview').value = html;
+
+  // --- Ryddige URLer + vis HTML-URL også ---
+  let basePath = (d.basePath || '').replace(/^\/+|\/+$/g, '');
+  let repoPart  = d.ghRepo  || '<repo>';
+  let ownerPart = d.ghUser  || '<owner>';
+
+  const needsBase = basePath.toLowerCase() !== repoPart.toLowerCase();
+  const pathPart  = needsBase ? `/${basePath}` : '';
+
+  const baseUrl = `https://${ownerPart}.github.io/${repoPart}${pathPart}/${d.orgKey}/${d.slug}`;
+  const htmlUrl = `${baseUrl}/index.html`;
+  const vcfUrl  = `${baseUrl}/${d.vcfFilename}`;
+
+  // NFC (VCF) i feltet som før
+  document.getElementById('nfcUrl').value = vcfUrl;
+
+  // Ekstra felt for HTML-URL (opprettes én gang)
+  let htmlOut = document.getElementById('htmlUrl');
+  if (!htmlOut) {
+    const label = document.createElement('p');
+    label.textContent = 'HTML-URL:';
+    const input = document.createElement('input');
+    input.id = 'htmlUrl';
+    input.readOnly = true;
+    input.style.width = '100%';
+    input.style.marginBottom = '6px';
+
+    const nfcP = document.getElementById('nfcUrl').parentElement; // <p> rundt NFC-feltet
+    nfcP.parentElement.insertBefore(label, nfcP);
+    nfcP.parentElement.insertBefore(input, nfcP);
+    htmlOut = input;
+  }
+  htmlOut.value = htmlUrl;
+
+  // --- Publiser til GitHub via Netlify Function ---
+  document.getElementById('status').textContent = 'Publiserer…';
+
+  const payload = {
+    repoOwner: d.ghUser || undefined,
+    repoName:  d.ghRepo || undefined,
+    basePath:  d.basePath,
+    orgKey:    d.orgKey,
+    slug:      d.slug,
+    files: [
+      { path: `${d.basePath}/${d.orgKey}/${d.slug}/${d.vcfFilename}`,  content: vcf  },
+      { path: `${d.basePath}/${d.orgKey}/${d.slug}/index.html`,        content: html },
+      { path: `${d.basePath}/.nojekyll`,                               content: ''   }
+    ],
+    strategy: d.strategy,
+    commitMessage: `Add/Update card: ${d.orgKey}/${d.slug}`
+  };
+
+  try {
+    const res = await postJSON('/api/createCard', payload);
+    if (res.ok) {
+      document.getElementById('status').innerHTML =
+        '<span class="ok">✅ Ferdig! Sjekk GitHub Pages om 30–60 sek.</span>';
+    } else {
+      const msg = res.json && res.json.error ? res.json.error : (res.text || 'Ukjent feil');
+      document.getElementById('status').innerHTML = '<span class="err">❌ Feil: ' + msg + '</span>';
+    }
+  } catch (e) {
+    document.getElementById('status').innerHTML = '<span class="err">❌ Nettverksfeil: ' + e.message + '</span>';
+  }
+});
+
+// Kjør branding automatisk hvis Org key allerede har verdi ved load
+document.addEventListener('DOMContentLoaded', () => {
+  const k = document.getElementById('orgKey').value.trim();
+  if (k) applyBranding(true);
+});
+</script>
+</main>
+</body>
+</html>
 ```
