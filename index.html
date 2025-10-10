@@ -312,5 +312,12 @@ document.getElementById('generate').addEventListener('click', async ()=>{
 });
 </script>
 </main>
+  <script>
+document.addEventListener('DOMContentLoaded', () => {
+  const k = document.getElementById('orgKey').value.trim();
+  if (k) applyBranding(true);
+});
+</script>
+
 </body>
 </html>
