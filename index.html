@@ -17,8 +17,9 @@
     .links-table th,.links-table td{border-bottom:1px solid #e3e3e3;padding:.3rem;vertical-align:top}
     .muted{color:#76808f}
     code{background:#0d1117;color:#d1e7ff;padding:.2em .4em;border-radius:6px}
-    .logo-prev{height:40px;display:none;margin-left:8px}
-    .inline{display:flex;align-items:center;gap:10px}
+    .inline{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+    .logo-prev{height:36px;max-width:220px;object-fit:contain;margin-left:8px}
+    @media (max-width:640px){.logo-prev{height:28px}}
     .btn{display:inline-block;padding:12px 14px;border-radius:10px;text-decoration:none;font-weight:700}
   </style>
 </head>
@@ -61,10 +62,14 @@
 
   <h2>Organisasjon</h2>
   <div class="row">
-    <label class="inline">Org key (mappe – case sensitive)
-      <input id="orgKey" placeholder="Wayback" required oninput="applyBranding(true)">
-      <img id="logoPreview" class="logo-prev" alt="logo">
-    </label>
+    <div class="inline">
+      <label style="flex:1">Org key (mappe – case sensitive)
+        <input id="orgKey" placeholder="Wayback" required oninput="applyBranding(true)">
+      </label>
+      <div style="display:flex;align-items:center;justify-content:flex-start;min-width:200px">
+        <img id="logoPreview" class="logo-prev" alt="logo">
+      </div>
+    </div>
     <label>Org navn (visning)
       <input id="orgName" placeholder="Wayback">
     </label>
@@ -193,7 +198,7 @@ document.querySelectorAll('.pill').forEach(btn=>{
   btn.addEventListener('click', ()=> addRow(btn.dataset.label, btn.dataset.url));
 });
 
-// --- Branding: tving alltid profilverdier inn i feltene
+// --- Branding: tving profilverdier inn i feltene
 function applyBranding(force = true){
   const key  = document.getElementById('orgKey').value.trim();
   const prof = ORG_PROFILES[key];
@@ -249,7 +254,7 @@ function makeLinksHTML(links){
 
 function makeHTML(d, vcfFile, links){
   const accent = d.accent || '#8fd3ff';
-  const logoTag = d.logoUrl ? `<img src="${d.logoUrl}" style="height:48px;margin-bottom:10px" alt="${d.orgName||d.orgKey} logo">` : '';
+  const logoTag = d.logoUrl ? `<img class="brand-logo" src="${d.logoUrl}" alt="${d.orgName||d.orgKey} logo">` : '';
   const extras = makeLinksHTML(links);
   return `<!doctype html>
 <html lang="no">
@@ -262,6 +267,7 @@ body{font-family:system-ui,-apple-system,Roboto,Arial;background:#0b0b10;color:#
 .links{margin-top:12px;display:flex;gap:8px;flex-wrap:wrap}
 .card p{color:#bfc8d6}
 code{background:#0d1117;padding:.2em .4em;border-radius:6px}
+.brand-logo{max-height:56px;max-width:280px;object-fit:contain;margin:0 0 12px 0;display:block}
 </style>
 </head>
 <body>
