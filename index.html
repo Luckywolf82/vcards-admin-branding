@@ -1,14 +1,13 @@
-```html
 <!doctype html>
 <html lang="no">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>vCards Admin – Multi-tenant med branding</title>
+  <title>vCards Admin – Branding + Tekst pr. knapp</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/water.css@2/out/water.css">
   <style>
     .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-    @media(max-width:920px){.row{grid-template-columns:1fr}}
+    @media (max-width:920px){.row{grid-template-columns:1fr}}
     textarea{font-family:monospace}
     .ok{color:#0a0;font-weight:700}
     .err{color:#a00;font-weight:700}
@@ -16,153 +15,191 @@
     .pill{display:inline-block;padding:.15rem .5rem;border-radius:999px;background:#eef;color:#334;margin-right:.3rem;font-size:.8rem;cursor:pointer;border:none}
     .links-table{width:100%;border-collapse:collapse}
     .links-table th,.links-table td{border-bottom:1px solid #e3e3e3;padding:.3rem;vertical-align:top}
+    .muted{color:#76808f}
     code{background:#0d1117;color:#d1e7ff;padding:.2em .4em;border-radius:6px}
-    .logo-prev{height:40px;display:none;margin-left:8px}
-    .inline{display:flex;align-items:center;gap:10px}
+    .inline{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+    .logo-prev{height:36px;max-width:220px;object-fit:contain;margin-left:8px}
+    @media (max-width:640px){.logo-prev{height:28px}}
+    .btn{display:inline-block;padding:12px 14px;border-radius:10px;text-decoration:none;font-weight:700}
   </style>
 </head>
 <body>
 <main>
-<h1>vCards Admin – Multi-tenant med branding</h1>
-<p class="note">Auto-fyll logo/farger fra organisasjonsprofil. Legg til ubegrensa lenker og tekst over/under hver knapp.</p>
+  <h1>vCards Admin – Multi-tenant med branding</h1>
+  <p class="note">Auto-fyll logo/farger fra organisasjonsprofil. Legg til ubegrensa lenker og <b>tekst over/under hver knapp</b>.</p>
 
-<details>
-  <summary>Oppsett (engang):</summary>
-  <ol>
-    <li>Deploy på Netlify. Sett env-vars <code>GITHUB_TOKEN</code> (+ valgfritt <code>GITHUB_OWNER</code>, <code>GITHUB_REPO</code>, <code>BASE_PATH</code>).</li>
-    <li>Rediger <code>ORG_PROFILES</code> i denne fila for å legge inn standard logo/farger per organisasjon.</li>
-  </ol>
-</details>
+  <details>
+    <summary>Oppsett (engang):</summary>
+    <ol>
+      <li>Deploy på Netlify. Sett env-vars <code>GITHUB_TOKEN</code> (+ valgfritt <code>GITHUB_OWNER</code>, <code>GITHUB_REPO</code>, <code>BASE_PATH</code>).</li>
+      <li>Rediger <code>ORG_PROFILES</code> i denne fila for å legge inn standard logo/farger per organisasjon.</li>
+    </ol>
+  </details>
 
-<script>
-const ORG_PROFILES={
-  "Wayback":{name:"Wayback",accent:"#8fd3ff",logo:"https://www.wayback.no/wp-content/uploads/2017/12/logo.png",site:"https://wayback.no"},
-  "MollerBil":{name:"Møller Bil",accent:"#002244",logo:"",site:"https://mollerbil.no"},
-  "JarwsonsKjokken":{name:"Jarwsons kjøkken",accent:"#ee5500",logo:"",site:"https://jarwsons.no"}
-};
-</script>
+  <script>
+  // === Branding-profiler per organisasjon (rediger/utvid her) ===
+  const ORG_PROFILES = {
+    "Wayback": {
+      name: "Wayback",
+      accent: "#8fd3ff",
+      logo: "https://www.wayback.no/wp-content/uploads/2017/12/logo.png",
+      site: "https://wayback.no"
+    },
+    "MollerBil": {
+      name: "Møller Bil",
+      accent: "#002244",
+      logo: "",
+      site: "https://www.mollerbil.no"
+    },
+    "JarwsonsKjokken": {
+      name: "Jarwsons kjøkken",
+      accent: "#ee5500",
+      logo: "",
+      site: "https://jarwsons.no"
+    }
+  };
+  </script>
 
-<h2>Organisasjon</h2>
-<div class="row">
-  <label class="inline">Org key (mappe – case sensitive)
-    <input id="orgKey" placeholder="Wayback" required oninput="applyBranding(true)">
-    <img id="logoPreview" class="logo-prev" alt="logo">
-  </label>
-  <label>Org navn (visning)
-    <input id="orgName" placeholder="Wayback">
-  </label>
-  <label>Accent farge (hex)
-    <input id="accent" placeholder="#8fd3ff">
-  </label>
-  <label>Org nettside
-    <input id="orgSite" placeholder="https://wayback.no">
-  </label>
-  <label>Logo URL (valgfri)
-    <input id="logoUrl" placeholder="https://.../logo.png" oninput="previewLogo()">
-  </label>
-</div>
-
-<h2>Person</h2>
-<div class="row">
-  <label>Slug (mappe/URL uten æøå/mellomrom)<input id="slug" placeholder="Trygve" required></label>
-  <label>Navn <input id="name" placeholder="Trygve Eiulf Waagen" required></label>
-  <label>Tittel <input id="title" placeholder="Daglig leder"></label>
-  <label>Telefon (E.164) <input id="phone" placeholder="+47 47731087"></label>
-  <label>E-post <input id="email" placeholder="trygve@wayback.no"></label>
-  <label>Nettside <input id="site" placeholder="https://wayback.no"></label>
-  <label>Adresse <input id="address" placeholder="Kongens gate 46, 7012 Trondheim"></label>
-  <label>VCF-filnavn (valgfri)<input id="vcfFilename" placeholder="trygve_wayback.vcf"></label>
-</div>
-
-<h2>Lenker og tekster</h2>
-<div class="row">
-  <label>Forhåndsvalg</label>
-  <div>
-    <button type="button" class="pill" data-label="LinkedIn" data-url="https://linkedin.com/in/">LinkedIn</button>
-    <button type="button" class="pill" data-label="Instagram" data-url="https://instagram.com/">Instagram</button>
-    <button type="button" class="pill" data-label="Facebook" data-url="https://facebook.com/">Facebook</button>
-    <button type="button" class="pill" data-label="YouTube" data-url="https://youtube.com/@">YouTube</button>
-    <button type="button" class="pill" data-label="TikTok" data-url="https://www.tiktok.com/@">TikTok</button>
-    <button type="button" class="pill" data-label="GitHub" data-url="https://github.com/">GitHub</button>
-    <button type="button" class="pill" data-label="Nettside" data-url="https://">Nettside</button>
-    <button type="button" class="pill" data-label="Kalender" data-url="https://cal.com/">Kalender</button>
-    <button type="button" class="pill" data-label="WhatsApp" data-url="https://wa.me/">WhatsApp</button>
+  <h2>Organisasjon</h2>
+  <div class="row">
+    <div class="inline">
+      <label style="flex:1">Org key (mappe – case sensitive)
+        <input id="orgKey" placeholder="Wayback" required oninput="applyBranding(true)">
+      </label>
+      <div style="display:flex;align-items:center;justify-content:flex-start;min-width:200px">
+        <img id="logoPreview" class="logo-prev" alt="logo">
+      </div>
+    </div>
+    <label>Org navn (visning)
+      <input id="orgName" placeholder="Wayback">
+    </label>
+    <label>Accent farge (hex)
+      <input id="accent" placeholder="#8fd3ff">
+    </label>
+    <label>Org nettside
+      <input id="orgSite" placeholder="https://wayback.no">
+    </label>
+    <label>Logo URL (valgfri)
+      <input id="logoUrl" placeholder="https://.../logo.png" oninput="previewLogo()">
+    </label>
   </div>
-</div>
 
-<table class="links-table" id="linksTable">
-  <thead><tr><th>Label</th><th>URL</th><th>Tekst over</th><th>Tekst under</th><th></th></tr></thead>
-  <tbody></tbody>
-</table>
-<div class="row">
-  <label>Ny label <input id="newLabel" placeholder="LinkedIn"></label>
-  <label>Ny URL <input id="newUrl" placeholder="https://linkedin.com/in/..."></label>
-  <label>Tekst over <input id="newPre" placeholder="Følg meg på LinkedIn"></label>
-  <label>Tekst under <input id="newPost" placeholder="@brukernavn (daglig oppdatert)"></label>
-  <div><button type="button" id="addLink">Legg til</button></div>
-</div>
+  <h2>Person</h2>
+  <div class="row">
+    <label>Slug (mappe/URL uten æøå/mellomrom)
+      <input id="slug" placeholder="Trygve" required>
+    </label>
+    <label>Navn
+      <input id="name" placeholder="Trygve Eiulf Waagen" required>
+    </label>
+    <label>Tittel
+      <input id="title" placeholder="Daglig leder">
+    </label>
+    <label>Telefon (E.164)
+      <input id="phone" placeholder="+47 47731087">
+    </label>
+    <label>E-post
+      <input id="email" placeholder="trygve@wayback.no">
+    </label>
+    <label>Nettside
+      <input id="site" placeholder="https://wayback.no">
+    </label>
+    <label>Adresse
+      <input id="address" placeholder="Kongens gate 46, 7012 Trondheim, Norge">
+    </label>
+    <label>VCF-filnavn (valgfri)
+      <input id="vcfFilename" placeholder="trygve_wayback.vcf">
+    </label>
+  </div>
 
-<h2>Publisering</h2>
-<div class="row">
-  <label>GitHub owner <input id="ghUser" placeholder="Luckywolf82"></label>
-  <label>Repo-navn <input id="ghRepo" placeholder="Vcards"></label>
-  <label>BASE_PATH (Pages-rotmappe)<input id="basePath" placeholder="Vcards" value="Vcards"></label>
-  <label>Commit-strategi
-    <select id="strategy">
-      <option value="pr">Lage branch + Pull Request (anbefalt)</option>
-      <option value="direct">Direkte til main</option>
-    </select>
-  </label>
-</div>
+  <h2>Lenker og tekster</h2>
+  <div class="row">
+    <label>Forhåndsvalg (klikk for å legge til)</label>
+    <div>
+      <button type="button" class="pill" data-label="LinkedIn" data-url="https://www.linkedin.com/in/">LinkedIn</button>
+      <button type="button" class="pill" data-label="Instagram" data-url="https://instagram.com/">Instagram</button>
+      <button type="button" class="pill" data-label="Facebook" data-url="https://facebook.com/">Facebook</button>
+      <button type="button" class="pill" data-label="YouTube" data-url="https://youtube.com/@">YouTube</button>
+      <button type="button" class="pill" data-label="TikTok" data-url="https://www.tiktok.com/@">TikTok</button>
+      <button type="button" class="pill" data-label="GitHub" data-url="https://github.com/">GitHub</button>
+      <button type="button" class="pill" data-label="Nettside" data-url="https://">Nettside</button>
+      <button type="button" class="pill" data-label="Kalender" data-url="https://cal.com/">Kalender</button>
+      <button type="button" class="pill" data-label="WhatsApp" data-url="https://wa.me/">WhatsApp</button>
+    </div>
+  </div>
+  <table class="links-table" id="linksTable">
+    <thead><tr><th>Label</th><th>URL</th><th>Tekst over</th><th>Tekst under</th><th></th></tr></thead>
+    <tbody></tbody>
+  </table>
+  <div class="row">
+    <label>Ny label<input id="newLabel" placeholder="LinkedIn"></label>
+    <label>Ny URL<input id="newUrl" placeholder="https://linkedin.com/in/..."></label>
+    <label>Tekst over<input id="newPre" placeholder="Følg meg på LinkedIn"></label>
+    <label>Tekst under<input id="newPost" placeholder="@brukernavn (daglig oppdatert)"></label>
+    <div><button type="button" id="addLink">Legg til</button></div>
+  </div>
 
-<button id="generate">Generer & Publiser</button>
-<span id="status"></span>
+  <h2>Publisering</h2>
+  <div class="row">
+    <label>GitHub owner (kan overskrive Netlify default)
+      <input id="ghUser" placeholder="Luckywolf82">
+    </label>
+    <label>Repo-navn (case sensitive)
+      <input id="ghRepo" placeholder="Vcards">
+    </label>
+    <label>BASE_PATH (Pages-rotmappe)
+      <input id="basePath" placeholder="Vcards" value="Vcards">
+    </label>
+    <label>Commit-strategi
+      <select id="strategy">
+        <option value="pr">Lage branch + Pull Request (anbefalt)</option>
+        <option value="direct">Direkte til main</option>
+      </select>
+    </label>
+  </div>
 
-<h3>Resultat</h3>
-<p>NFC-URL: <input id="nfcUrl" style="width:100%" readonly></p>
+  <button id="generate">Generer & Publiser</button>
+  <span id="status"></span>
 
-<h4>vCard</h4>
-<textarea id="vcfPreview" rows="8" style="width:100%"></textarea>
+  <h3>Resultat</h3>
+  <p>NFC-URL: <input id="nfcUrl" style="width:100%" readonly></p>
 
-<h4>index.html</h4>
-<textarea id="htmlPreview" rows="14" style="width:100%"></textarea>
+  <h4>vCard</h4>
+  <textarea id="vcfPreview" rows="8" style="width:100%"></textarea>
+
+  <h4>index.html</h4>
+  <textarea id="htmlPreview" rows="14" style="width:100%"></textarea>
 
 <script>
-Her e **del 2 / 2** – lim den rett etter linja `\<script>` fra del 1. Den avslutter hele fila korrekt.
-
-```html
-// --- Tabell/lenkehåndtering ---
 const tbody = document.querySelector('#linksTable tbody');
 
-function addRow(label, url, pre = '', post = '') {
+function addRow(label, url, pre='', post=''){
   const tr = document.createElement('tr');
-  tr.innerHTML = `
-    <td><input value="${label || ''}" class="lbl" /></td>
-    <td><input value="${url || ''}" class="lnk" style="width:100%"/></td>
-    <td><textarea class="pre" rows="2" placeholder="Tekst over">${pre || ''}</textarea></td>
-    <td><textarea class="post" rows="2" placeholder="Tekst under">${post || ''}</textarea></td>
-    <td><button type="button" class="remove">Fjern</button></td>
-  `;
-  tr.querySelector('.remove').addEventListener('click', () => tr.remove());
+  tr.innerHTML = `<td><input value="${label||''}" class="lbl" /></td>
+                   <td><input value="${url||''}" class="lnk" style="width:100%"/></td>
+                   <td><textarea class="pre" rows="2" placeholder="Tekst over">${pre||''}</textarea></td>
+                   <td><textarea class="post" rows="2" placeholder="Tekst under">${post||''}</textarea></td>
+                   <td><button type="button" class="remove">Fjern</button></td>`;
+  tr.querySelector('.remove').addEventListener('click', ()=>tr.remove());
   tbody.appendChild(tr);
 }
 
-document.getElementById('addLink').addEventListener('click', () => {
+document.getElementById('addLink').addEventListener('click', ()=>{
   addRow(
     document.getElementById('newLabel').value,
     document.getElementById('newUrl').value,
     document.getElementById('newPre').value,
     document.getElementById('newPost').value
   );
-  ['newLabel','newUrl','newPre','newPost'].forEach(id => document.getElementById(id).value = '');
+  ['newLabel','newUrl','newPre','newPost'].forEach(id=>document.getElementById(id).value='');
 });
 
-document.querySelectorAll('.pill').forEach(btn => {
-  btn.addEventListener('click', () => addRow(btn.dataset.label, btn.dataset.url));
+document.querySelectorAll('.pill').forEach(btn=>{
+  btn.addEventListener('click', ()=> addRow(btn.dataset.label, btn.dataset.url));
 });
 
-// --- Branding ---
-function applyBranding() {
+// --- Branding: tving profilverdier inn i feltene
+function applyBranding(force = true){
   const key  = document.getElementById('orgKey').value.trim();
   const prof = ORG_PROFILES[key];
   if (!prof) return;
@@ -174,39 +211,29 @@ function applyBranding() {
   previewLogo();
 }
 
-function previewLogo() {
+function previewLogo(){
   const url = document.getElementById('logoUrl').value.trim();
   const img = document.getElementById('logoPreview');
-  if (url) { img.src = url; img.style.display = 'block'; }
-  else { img.style.display = 'none'; }
+  if(url){ img.src = url; img.style.display='block'; }
+  else { img.style.display='none'; }
 }
 
-// --- vCard/HTML helpers ---
-function normalizePhone(p) {
-  p = (p || '').trim(); if (!p) return p;
-  if (p.startsWith('0') && !p.startsWith('+')) {
-    if (p.length <= 8) return '+47' + p.replace(/^0+/, '');
+function normalizePhone(p){
+  p = (p||'').trim(); if(!p) return p;
+  if(p.startsWith('0') && !p.startsWith('+')){
+    if(p.length <= 8) return '+47' + p.replace(/^0+/, '');
   }
   return p;
 }
 
-function makeVcard(d) {
+function makeVcard(d){
   const parts = d.name.trim().split(' ');
-  const first = parts[0] || '';
-  const last  = parts.length > 1 ? parts[parts.length - 1] : '';
-  const phone = normalizePhone(d.phone || '');
+  const first = parts[0] || ''; const last = parts.length>1 ? parts[parts.length-1] : '';
+  const phone = normalizePhone(d.phone||'');
   return [
-    'BEGIN:VCARD',
-    'VERSION:3.0',
-    `FN:${d.name}`,
-    `N:${last};${first};;;`,
-    `ORG:${d.orgName || d.orgKey}`,
-    `TITLE:${d.title || ''}`,
-    `TEL;TYPE=CELL:${phone}`,
-    `EMAIL;TYPE=INTERNET:${d.email || ''}`,
-    `URL:${d.site || ''}`,
-    `ADR;TYPE=WORK:;;${d.address || ''}`,
-    'END:VCARD'
+    'BEGIN:VCARD','VERSION:3.0',`FN:${d.name}`,`N:${last};${first};;;`,
+    `ORG:${d.orgName||d.orgKey}`,`TITLE:${d.title||''}`,`TEL;TYPE=CELL:${phone}`,
+    `EMAIL;TYPE=INTERNET:${d.email||''}`,`URL:${d.site||''}`,`ADR;TYPE=WORK:;;${d.address||''}`,'END:VCARD'
   ].join('\n');
 }
 
@@ -215,7 +242,7 @@ function esc(s){ return (s||'').replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;',
 function makeLinksHTML(links){
   if(!links.length) return '';
   return links.map(l => {
-    const pre  = l.pre  ? `<div class="pre"  style="margin:8px 0 4px;color:#bfc8d6">${esc(l.pre)}</div>` : '';
+    const pre = l.pre ? `<div class="pre" style="margin:8px 0 4px;color:#bfc8d6">${esc(l.pre)}</div>` : '';
     const post = l.post ? `<div class="post" style="margin:4px 0 10px;color:#97a3b6;font-size:.95rem">${esc(l.post)}</div>` : '';
     return `<div class="link-block" style="margin-top:10px">
       ${pre}
@@ -226,15 +253,12 @@ function makeLinksHTML(links){
 }
 
 function makeHTML(d, vcfFile, links){
-  const accent  = d.accent || '#8fd3ff';
-  const logoTag = d.logoUrl ? `<img src="${d.logoUrl}" style="height:48px;margin-bottom:10px" alt="${d.orgName||d.orgKey} logo">` : '';
-  const extras  = makeLinksHTML(links);
-
+  const accent = d.accent || '#8fd3ff';
+  const logoTag = d.logoUrl ? `<img class="brand-logo" src="${d.logoUrl}" alt="${d.orgName||d.orgKey} logo">` : '';
+  const extras = makeLinksHTML(links);
   return `<!doctype html>
 <html lang="no">
-<head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Kontaktkort – ${esc(d.name)}</title>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Kontaktkort – ${esc(d.name)}</title>
 <style>
 :root{--accent:${accent};}
 body{font-family:system-ui,-apple-system,Roboto,Arial;background:#0b0b10;color:#eee;padding:20px}
@@ -242,6 +266,8 @@ body{font-family:system-ui,-apple-system,Roboto,Arial;background:#0b0b10;color:#
 .btn{display:inline-block;padding:12px 14px;background:var(--accent);color:#03101a;border-radius:10px;text-decoration:none;font-weight:700}
 .links{margin-top:12px;display:flex;gap:8px;flex-wrap:wrap}
 .card p{color:#bfc8d6}
+code{background:#0d1117;padding:.2em .4em;border-radius:6px}
+.brand-logo{max-height:56px;max-width:280px;object-fit:contain;margin:0 0 12px 0;display:block}
 </style>
 </head>
 <body>
@@ -253,134 +279,78 @@ body{font-family:system-ui,-apple-system,Roboto,Arial;background:#0b0b10;color:#
   <div class="links">
     <a href="tel:${esc(d.phone||'')}" class="btn">Ring</a>
     <a href="mailto:${esc(d.email||'')}" class="btn">E-post</a>
-    <a href="${esc(d.site||'#')}" class="btn" target="_blank">Nettside</a>
+    <a href="${esc(d.site||'#')}" class="btn" target="_blank">Besøk nettside</a>
     <a href="../index.html" class="btn">← Tilbake</a>
   </div>
   ${extras}
   <p style="margin-top:14px">Adresse: ${esc(d.address||'')}</p>
+  <p style="margin-top:8px;font-size:0.9rem;color:#9aa6b2">NFC-URL: <code id="nfcInline"></code></p>
 </main>
 </body>
 </html>`;
 }
 
-// --- Netlify fetch helper ---
 async function postJSON(url, data){
-  const r = await fetch(url, {
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body:JSON.stringify(data)
-  });
-  const t = await r.text();
-  try { return { ok:r.ok, status:r.status, json:JSON.parse(t) }; }
-  catch { return { ok:r.ok, status:r.status, text:t }; }
+  const r = await fetch(url, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data)});
+  const t = await r.text(); try{return {ok:r.ok,status:r.status,json:JSON.parse(t)}}catch{return {ok:r.ok,status:r.status,text:t}};
 }
 
-// --- Hovedknapp: Generer & Publiser ---
-document.getElementById('generate').addEventListener('click', async () => {
+document.getElementById('generate').addEventListener('click', async ()=>{
   const get = id => document.getElementById(id).value.trim();
-
   const d = {
-    orgKey:get('orgKey'),
-    orgName:get('orgName') || get('orgKey'),
-    accent:get('accent') || '#8fd3ff',
-    logoUrl:get('logoUrl'),
-    slug:get('slug'),
-    name:get('name'),
-    title:get('title'),
-    phone:get('phone'),
-    email:get('email'),
-    site:get('site'),
-    address:get('address'),
+    orgKey:get('orgKey'), orgName:get('orgName')||get('orgKey'), accent:get('accent')||'#8fd3ff',
+    logoUrl:get('logoUrl'), slug:get('slug'), name:get('name'), title:get('title'), phone:get('phone'),
+    email:get('email'), site:get('site'), address:get('address'),
     vcfFilename:get('vcfFilename') || (get('slug') + '_' + get('orgKey') + '.vcf'),
-    ghUser:get('ghUser'),
-    ghRepo:get('ghRepo'),
-    basePath:get('basePath') || 'Vcards',
+    ghUser:get('ghUser'), ghRepo:get('ghRepo'), basePath:get('basePath')||'Vcards',
     strategy:document.getElementById('strategy').value
   };
+  if(!d.orgKey || !d.slug || !d.name){ alert('Mangler: orgKey, slug, name'); return; }
 
-  if (!d.orgKey || !d.slug || !d.name) { alert('Mangler: orgKey, slug, name'); return; }
+  const links = Array.from(document.querySelectorAll('#linksTable tbody tr')).map(tr=>({
+    label: tr.querySelector('.lbl').value.trim(),
+    url: tr.querySelector('.lnk').value.trim(),
+    pre: tr.querySelector('.pre').value.trim(),
+    post: tr.querySelector('.post').value.trim()
+  })).filter(x=>x.label && x.url);
 
-  const links = Array.from(document.querySelectorAll('#linksTable tbody tr'))
-    .map(tr => ({
-      label: tr.querySelector('.lbl').value.trim(),
-      url:   tr.querySelector('.lnk').value.trim(),
-      pre:   tr.querySelector('.pre').value.trim(),
-      post:  tr.querySelector('.post').value.trim()
-    }))
-    .filter(x => x.label && x.url);
-
-  const vcf  = makeVcard(d);
+  const vcf = makeVcard(d);
   const html = makeHTML(d, d.vcfFilename, links);
-
-  document.getElementById('vcfPreview').value  = vcf;
+  document.getElementById('vcfPreview').value = vcf;
   document.getElementById('htmlPreview').value = html;
 
-  // --- Ryddige URLer + vis HTML-URL også ---
-  let basePath = (d.basePath || '').replace(/^\/+|\/+$/g, '');
-  let repoPart  = d.ghRepo  || '<repo>';
-  let ownerPart = d.ghUser  || '<owner>';
+  const owner = d.ghUser || '<owner>';
+  const repo  = d.ghRepo || '<repo>';
+  const nfc = `https://${owner}.github.io/${repo}/${d.basePath}/${d.orgKey}/${d.slug}/${d.vcfFilename}`;
+  document.getElementById('nfcUrl').value = nfc;
 
-  const needsBase = basePath.toLowerCase() !== repoPart.toLowerCase();
-  const pathPart  = needsBase ? `/${basePath}` : '';
-
-  const baseUrl = `https://${ownerPart}.github.io/${repoPart}${pathPart}/${d.orgKey}/${d.slug}`;
-  const htmlUrl = `${baseUrl}/index.html`;
-  const vcfUrl  = `${baseUrl}/${d.vcfFilename}`;
-
-  // NFC (VCF) i feltet som før
-  document.getElementById('nfcUrl').value = vcfUrl;
-
-  // Ekstra felt for HTML-URL (opprettes én gang)
-  let htmlOut = document.getElementById('htmlUrl');
-  if (!htmlOut) {
-    const label = document.createElement('p');
-    label.textContent = 'HTML-URL:';
-    const input = document.createElement('input');
-    input.id = 'htmlUrl';
-    input.readOnly = true;
-    input.style.width = '100%';
-    input.style.marginBottom = '6px';
-
-    const nfcP = document.getElementById('nfcUrl').parentElement; // <p> rundt NFC-feltet
-    nfcP.parentElement.insertBefore(label, nfcP);
-    nfcP.parentElement.insertBefore(input, nfcP);
-    htmlOut = input;
-  }
-  htmlOut.value = htmlUrl;
-
-  // --- Publiser til GitHub via Netlify Function ---
   document.getElementById('status').textContent = 'Publiserer…';
-
   const payload = {
     repoOwner: d.ghUser || undefined,
-    repoName:  d.ghRepo || undefined,
-    basePath:  d.basePath,
-    orgKey:    d.orgKey,
-    slug:      d.slug,
+    repoName: d.ghRepo || undefined,
+    basePath: d.basePath, orgKey: d.orgKey, slug: d.slug,
     files: [
-      { path: `${d.basePath}/${d.orgKey}/${d.slug}/${d.vcfFilename}`,  content: vcf  },
-      { path: `${d.basePath}/${d.orgKey}/${d.slug}/index.html`,        content: html },
-      { path: `${d.basePath}/.nojekyll`,                               content: ''   }
+      { path: `${d.basePath}/${d.orgKey}/${d.slug}/${d.vcfFilename}`, content: vcf },
+      { path: `${d.basePath}/${d.orgKey}/${d.slug}/index.html`, content: html },
+      { path: `${d.basePath}/.nojekyll`, content: "" }
     ],
     strategy: d.strategy,
     commitMessage: `Add/Update card: ${d.orgKey}/${d.slug}`
   };
-
-  try {
+  try{
     const res = await postJSON('/api/createCard', payload);
-    if (res.ok) {
-      document.getElementById('status').innerHTML =
-        '<span class="ok">✅ Ferdig! Sjekk GitHub Pages om 30–60 sek.</span>';
+    if(res.ok){
+      document.getElementById('status').innerHTML = '<span class="ok">✅ Ferdig! Sjekk GitHub Pages om 30–60 sek.</span>';
     } else {
       const msg = res.json && res.json.error ? res.json.error : (res.text || 'Ukjent feil');
-      document.getElementById('status').innerHTML = '<span class="err">❌ Feil: ' + msg + '</span>';
+      document.getElementById('status').innerHTML = '<span class="err">❌ Feil: '+msg+'</span>';
     }
-  } catch (e) {
-    document.getElementById('status').innerHTML = '<span class="err">❌ Nettverksfeil: ' + e.message + '</span>';
+  }catch(e){
+    document.getElementById('status').innerHTML = '<span class="err">❌ Nettverksfeil: '+e.message+'</span>';
   }
 });
 
-// Kjør branding automatisk hvis Org key allerede har verdi ved load
+// Kjør branding med en gang siden lastes hvis orgKey har verdi
 document.addEventListener('DOMContentLoaded', () => {
   const k = document.getElementById('orgKey').value.trim();
   if (k) applyBranding(true);
@@ -389,4 +359,3 @@ document.addEventListener('DOMContentLoaded', () => {
 </main>
 </body>
 </html>
-```
