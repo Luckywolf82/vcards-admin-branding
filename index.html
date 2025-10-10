@@ -19,12 +19,13 @@
     code{background:#0d1117;color:#d1e7ff;padding:.2em .4em;border-radius:6px}
     .logo-prev{height:40px;display:none;margin-left:8px}
     .inline{display:flex;align-items:center;gap:10px}
+    .btn{display:inline-block;padding:12px 14px;border-radius:10px;text-decoration:none;font-weight:700}
   </style>
 </head>
 <body>
 <main>
   <h1>vCards Admin – Multi-tenant med branding</h1>
-  <p class="note">Auto-fyll logo/farger fra organisasjonsprofil. Legg til ubegrensa lenker og **tekst over/under hver knapp**.</p>
+  <p class="note">Auto-fyll logo/farger fra organisasjonsprofil. Legg til ubegrensa lenker og <b>tekst over/under hver knapp</b>.</p>
 
   <details>
     <summary>Oppsett (engang):</summary>
@@ -37,9 +38,24 @@
   <script>
   // === Branding-profiler per organisasjon (rediger/utvid her) ===
   const ORG_PROFILES = {
-    "Wayback": { name:"Wayback", accent:"#8fd3ff", logo:"https://www.wayback.no/wp-content/uploads/2017/12/logo.png", site:"https://wayback.no" },
-    "MollerBil": { name:"Møller Bil", accent:"#002244", logo:"", site:"https://www.mollerbil.no" },
-    "JarwsonsKjokken": { name:"Jarwsons kjøkken", accent:"#ee5500", logo:"", site:"https://jarwsons.no" }
+    "Wayback": {
+      name: "Wayback",
+      accent: "#8fd3ff",
+      logo: "https://www.wayback.no/wp-content/uploads/2017/12/logo.png",
+      site: "https://wayback.no"
+    },
+    "MollerBil": {
+      name: "Møller Bil",
+      accent: "#002244",
+      logo: "",
+      site: "https://www.mollerbil.no"
+    },
+    "JarwsonsKjokken": {
+      name: "Jarwsons kjøkken",
+      accent: "#ee5500",
+      logo: "",
+      site: "https://jarwsons.no"
+    }
   };
   </script>
 
@@ -151,49 +167,45 @@
 
 <script>
 const tbody = document.querySelector('#linksTable tbody');
+
 function addRow(label, url, pre='', post=''){
   const tr = document.createElement('tr');
-  tr.innerHTML = \`<td><input value="\${label||''}" class="lbl" /></td>
-                   <td><input value="\${url||''}" class="lnk" style="width:100%"/></td>
-                   <td><textarea class="pre" rows="2" placeholder="Tekst over">\${pre||''}</textarea></td>
-                   <td><textarea class="post" rows="2" placeholder="Tekst under">\${post||''}</textarea></td>
-                   <td><button type="button" class="remove">Fjern</button></td>\`;
+  tr.innerHTML = `<td><input value="${label||''}" class="lbl" /></td>
+                   <td><input value="${url||''}" class="lnk" style="width:100%"/></td>
+                   <td><textarea class="pre" rows="2" placeholder="Tekst over">${pre||''}</textarea></td>
+                   <td><textarea class="post" rows="2" placeholder="Tekst under">${post||''}</textarea></td>
+                   <td><button type="button" class="remove">Fjern</button></td>`;
   tr.querySelector('.remove').addEventListener('click', ()=>tr.remove());
   tbody.appendChild(tr);
 }
+
 document.getElementById('addLink').addEventListener('click', ()=>{
-  addRow(document.getElementById('newLabel').value, document.getElementById('newUrl').value, document.getElementById('newPre').value, document.getElementById('newPost').value);
+  addRow(
+    document.getElementById('newLabel').value,
+    document.getElementById('newUrl').value,
+    document.getElementById('newPre').value,
+    document.getElementById('newPost').value
+  );
   ['newLabel','newUrl','newPre','newPost'].forEach(id=>document.getElementById(id).value='');
 });
+
 document.querySelectorAll('.pill').forEach(btn=>{
   btn.addEventListener('click', ()=> addRow(btn.dataset.label, btn.dataset.url));
 });
 
-<script>
+// --- Branding: tving alltid profilverdier inn i feltene
 function applyBranding(force = true){
   const key  = document.getElementById('orgKey').value.trim();
   const prof = ORG_PROFILES[key];
   if (!prof) return;
 
-  // Overstyr ALT fra profilen – uansett hva som står fra før
   document.getElementById('orgName').value = prof.name   || key;
   document.getElementById('accent').value  = prof.accent || '#8fd3ff';
   document.getElementById('orgSite').value = prof.site   || '';
   document.getElementById('logoUrl').value = prof.logo   || '';
-
-  // Vis logoen med en gang
   previewLogo();
 }
-</script>
 
-  const key = document.getElementById('orgKey').value.trim();
-  const prof = ORG_PROFILES[key];
-  if(!prof) return;
-  if(!document.getElementById('orgName').value) document.getElementById('orgName').value = prof.name || key;
-  if(!document.getElementById('accent').value) document.getElementById('accent').value = prof.accent || '#8fd3ff';
-  if(!document.getElementById('orgSite').value) document.getElementById('orgSite').value = prof.site || '';
-  if(!document.getElementById('logoUrl').value && prof.logo){ document.getElementById('logoUrl').value = prof.logo; previewLogo(); }
-}
 function previewLogo(){
   const url = document.getElementById('logoUrl').value.trim();
   const img = document.getElementById('logoPreview');
@@ -204,43 +216,47 @@ function previewLogo(){
 function normalizePhone(p){
   p = (p||'').trim(); if(!p) return p;
   if(p.startsWith('0') && !p.startsWith('+')){
-    if(p.length <= 8) return '+47' + p.replace(/^0+/,'');
+    if(p.length <= 8) return '+47' + p.replace(/^0+/, '');
   }
   return p;
 }
+
 function makeVcard(d){
   const parts = d.name.trim().split(' ');
   const first = parts[0] || ''; const last = parts.length>1 ? parts[parts.length-1] : '';
   const phone = normalizePhone(d.phone||'');
   return [
-    'BEGIN:VCARD','VERSION:3.0',\`FN:\${d.name}\`,\`N:\${last};\${first};;;\`,
-    \`ORG:\${d.orgName||d.orgKey}\`,\`TITLE:\${d.title||''}\`,\`TEL;TYPE=CELL:\${phone}\`,
-    \`EMAIL;TYPE=INTERNET:\${d.email||''}\`,\`URL:\${d.site||''}\`,\`ADR;TYPE=WORK:;;\${d.address||''}\`,'END:VCARD'
+    'BEGIN:VCARD','VERSION:3.0',`FN:${d.name}`,`N:${last};${first};;;`,
+    `ORG:${d.orgName||d.orgKey}`,`TITLE:${d.title||''}`,`TEL;TYPE=CELL:${phone}`,
+    `EMAIL;TYPE=INTERNET:${d.email||''}`,`URL:${d.site||''}`,`ADR;TYPE=WORK:;;${d.address||''}`,'END:VCARD'
   ].join('\n');
 }
+
 function esc(s){ return (s||'').replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+
 function makeLinksHTML(links){
   if(!links.length) return '';
   return links.map(l => {
-    const pre = l.pre ? \`<div class="pre" style="margin:8px 0 4px;color:#bfc8d6">\${esc(l.pre)}</div>\` : '';
-    const post = l.post ? \`<div class="post" style="margin:4px 0 10px;color:#97a3b6;font-size:.95rem">\${esc(l.post)}</div>\` : '';
-    return \`<div class="link-block" style="margin-top:10px">
-      \${pre}
-      <a class="btn" href="\${esc(l.url)}" target="_blank" rel="noopener">\${esc(l.label)}</a>
-      \${post}
-    </div>\`;
+    const pre = l.pre ? `<div class="pre" style="margin:8px 0 4px;color:#bfc8d6">${esc(l.pre)}</div>` : '';
+    const post = l.post ? `<div class="post" style="margin:4px 0 10px;color:#97a3b6;font-size:.95rem">${esc(l.post)}</div>` : '';
+    return `<div class="link-block" style="margin-top:10px">
+      ${pre}
+      <a class="btn" href="${esc(l.url)}" target="_blank" rel="noopener">${esc(l.label)}</a>
+      ${post}
+    </div>`;
   }).join('');
 }
+
 function makeHTML(d, vcfFile, links){
   const accent = d.accent || '#8fd3ff';
-  const logoTag = d.logoUrl ? \`<img src="\${d.logoUrl}" style="height:48px;margin-bottom:10px" alt="\${d.orgName||d.orgKey} logo">\` : '';
+  const logoTag = d.logoUrl ? `<img src="${d.logoUrl}" style="height:48px;margin-bottom:10px" alt="${d.orgName||d.orgKey} logo">` : '';
   const extras = makeLinksHTML(links);
-  return \`<!doctype html>
+  return `<!doctype html>
 <html lang="no">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Kontaktkort – \${esc(d.name)}</title>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Kontaktkort – ${esc(d.name)}</title>
 <style>
-:root{--accent:\${accent};}
-body{font-family:system-ui, -apple-system, Roboto, Arial; background:#0b0b10;color:#eee;padding:20px}
+:root{--accent:${accent};}
+body{font-family:system-ui,-apple-system,Roboto,Arial;background:#0b0b10;color:#eee;padding:20px}
 .container{max-width:760px;margin:0 auto;background:#12121a;padding:24px;border-radius:12px}
 .btn{display:inline-block;padding:12px 14px;background:var(--accent);color:#03101a;border-radius:10px;text-decoration:none;font-weight:700}
 .links{margin-top:12px;display:flex;gap:8px;flex-wrap:wrap}
@@ -250,23 +266,24 @@ code{background:#0d1117;padding:.2em .4em;border-radius:6px}
 </head>
 <body>
 <main class="container card">
-  \${logoTag}
-  <h1>Kontaktkort – \${esc(d.name)}</h1>
-  <p class="muted">\${esc(d.title||'')} · \${esc(d.orgName||d.orgKey)}</p>
-  <p><a class="btn" href="./\${vcfFile}" download>Last ned vCard (.vcf)</a></p>
+  ${logoTag}
+  <h1>Kontaktkort – ${esc(d.name)}</h1>
+  <p class="muted">${esc(d.title||'')} · ${esc(d.orgName||d.orgKey)}</p>
+  <p><a class="btn" href="./${vcfFile}" download>Last ned vCard (.vcf)</a></p>
   <div class="links">
-    <a href="tel:\${esc(d.phone||'')}" class="btn">Ring</a>
-    <a href="mailto:\${esc(d.email||'')}" class="btn">E-post</a>
-    <a href="\${esc(d.site||'#')}" class="btn" target="_blank">Besøk nettside</a>
+    <a href="tel:${esc(d.phone||'')}" class="btn">Ring</a>
+    <a href="mailto:${esc(d.email||'')}" class="btn">E-post</a>
+    <a href="${esc(d.site||'#')}" class="btn" target="_blank">Besøk nettside</a>
     <a href="../index.html" class="btn">← Tilbake</a>
   </div>
-  \${extras}
-  <p style="margin-top:14px">Adresse: \${esc(d.address||'')}</p>
+  ${extras}
+  <p style="margin-top:14px">Adresse: ${esc(d.address||'')}</p>
   <p style="margin-top:8px;font-size:0.9rem;color:#9aa6b2">NFC-URL: <code id="nfcInline"></code></p>
 </main>
 </body>
-</html>\`;
+</html>`;
 }
+
 async function postJSON(url, data){
   const r = await fetch(url, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data)});
   const t = await r.text(); try{return {ok:r.ok,status:r.status,json:JSON.parse(t)}}catch{return {ok:r.ok,status:r.status,text:t}};
@@ -297,7 +314,7 @@ document.getElementById('generate').addEventListener('click', async ()=>{
   document.getElementById('htmlPreview').value = html;
 
   const owner = d.ghUser || '<owner>';
-  const repo = d.ghRepo || '<repo>';
+  const repo  = d.ghRepo || '<repo>';
   const nfc = `https://${owner}.github.io/${repo}/${d.basePath}/${d.orgKey}/${d.slug}/${d.vcfFilename}`;
   document.getElementById('nfcUrl').value = nfc;
 
@@ -326,14 +343,13 @@ document.getElementById('generate').addEventListener('click', async ()=>{
     document.getElementById('status').innerHTML = '<span class="err">❌ Nettverksfeil: '+e.message+'</span>';
   }
 });
-</script>
-</main>
-  <script>
+
+// Kjør branding med en gang siden lastes hvis orgKey har verdi
 document.addEventListener('DOMContentLoaded', () => {
   const k = document.getElementById('orgKey').value.trim();
   if (k) applyBranding(true);
 });
 </script>
-
+</main>
 </body>
 </html>
