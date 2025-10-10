@@ -169,7 +169,23 @@ document.querySelectorAll('.pill').forEach(btn=>{
   btn.addEventListener('click', ()=> addRow(btn.dataset.label, btn.dataset.url));
 });
 
-function applyBranding(){
+<script>
+function applyBranding(force = true){
+  const key  = document.getElementById('orgKey').value.trim();
+  const prof = ORG_PROFILES[key];
+  if (!prof) return;
+
+  // Overstyr ALT fra profilen – uansett hva som står fra før
+  document.getElementById('orgName').value = prof.name   || key;
+  document.getElementById('accent').value  = prof.accent || '#8fd3ff';
+  document.getElementById('orgSite').value = prof.site   || '';
+  document.getElementById('logoUrl').value = prof.logo   || '';
+
+  // Vis logoen med en gang
+  previewLogo();
+}
+</script>
+
   const key = document.getElementById('orgKey').value.trim();
   const prof = ORG_PROFILES[key];
   if(!prof) return;
