@@ -25,16 +25,20 @@
 </head>
 <body>
 <main>
+  <main>
+  <div style="text-align:center;margin-bottom:20px;">
+    <img src="https://luckywolf82.github.io/Vcards/assets/NFCKING_dark.png" 
+         alt="NFCKING logo" 
+         style="max-width:240px;height:auto;filter:drop-shadow(0 0 6px #3fffd2);">
+  </div>
+
+  <h1>NFCKING Admin – Digitalt kontaktkort</h1>
+  <p class="note">Bygg, merk og publiser dine egne NFC-kort med stil. 👑</p>
+
   <h1>vCards Admin – Multi-tenant med branding</h1>
   <p class="note">Auto-fyll logo/farger fra organisasjonsprofil. Legg til ubegrensa lenker og <b>tekst over/under hver knapp</b>.</p>
 
-  <details>
-    <summary>Oppsett (engang):</summary>
-    <ol>
-      <li>Deploy på Netlify. Sett env-vars <code>GITHUB_TOKEN</code> (+ valgfritt <code>GITHUB_OWNER</code>, <code>GITHUB_REPO</code>, <code>BASE_PATH</code>).</li>
-      <li>Rediger <code>ORG_PROFILES</code> i denne fila for å legge inn standard logo/farger per organisasjon.</li>
-    </ol>
-  </details>
+
 
   <script>
   // === Branding-profiler per organisasjon (rediger/utvid her) ===
@@ -555,6 +559,10 @@ document.getElementById('openPreviewBtn')?.addEventListener('click', ()=>{
   const html = document.getElementById('htmlPreview').value;
   openPreviewInNewTab(html);
 });
+  <footer style="margin-top:40px;text-align:center;color:#777;font-size:0.9rem;">
+  <p>NFCKING – Kongen av kontaktløs</p>
+</footer>
+
 </script>
 </main>
 </body>
