@@ -320,7 +320,8 @@ function makeLinksHTML(links){
 
 function makeHTML(d, vcfFile, links){
   const accent  = d.accent || '#8fd3ff';
-  const logoTag = d.logoUrl ? `<img class="brand-logo" src="${d.logoUrl}" alt="${d.orgName||d.orgKey} logo">` : '';
+  const bgStyle = d.logoBg ? `background:${d.logoBg};border-radius:8px;padding:6px;` : '';
+const logoTag = d.logoUrl ? `<img class="brand-logo" src="${d.logoUrl}" style="${bgStyle}" alt="${d.orgName||d.orgKey} logo">` : '';
   const extras  = makeLinksHTML(links);
 
   return `<!doctype html>
