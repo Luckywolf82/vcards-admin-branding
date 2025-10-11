@@ -577,14 +577,11 @@ htmlOut.value = htmlUrl;
 });
 
 // Auto-apply branding hvis orgKey allerede er angitt ved load
-// Auto-apply branding hvis orgKey allerede er angitt ved load
 document.addEventListener('DOMContentLoaded', () => {
   const k = document.getElementById('orgKey')?.value.trim();
-  if (k) {
-    // første gang: auto (beholder det du evt. har lagra i feltene)
-    applyBranding('auto');
-  }
+  if (k) applyBranding('auto'); // bruk 'force' hvis du vil overstyre alt ved hver innlasting
 });
+
 
     // === LIVE PREVIEW-FUNKSJONER ===
 function updateLivePreview(html) {
