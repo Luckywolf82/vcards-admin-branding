@@ -230,6 +230,54 @@
     <canvas id="qrCanvas" width="192" height="192" style="background:#fff;border-radius:6px"></canvas>
     <div><button type="button" id="qrDownload" class="pill">Last ned QR (PNG)</button></div>
   </div>
+<script>
+async function handleLogoUpload(evt){
+  const file = evt.target.files?.[0];
+  if(!file){ return; }
+
+  // Sjekk at vi har orgKey til mappestruktur
+  const orgKey = (document.getElementById('orgKey').value || '').trim() || 'Common';
+  const ghUser = (document.getElementById('ghUser').value || '').trim();
+  const ghRepo = (document.getElementById('ghRepo').value || '').trim();
+  const basePath = (document.getElementById('basePath').value || 'Vcards').trim();
+
+  // Les og base64-enkode
+  const arrBuf = await file.arrayBuffer();
+  const base64 = btoa(String.fromCharCode(...new Uint8Array(arrBuf)));
+
+  // Foreslå filnavn (ren, liten)
+  const cleanOrg = orgKey.replace(/[^A-Za-z0-9_-]/g, '');
+  const ts = Date.now();
+  const ext = (file.name.split('.').pop() || 'png').toLowerCase().replace(/[^a-z0-9]/g,'') || 'png';
+  const safeName = `${cleanOrg}_logo_${ts}.${ext}`;
+
+  // Kall Netlify-funksjon
+  const res = await fetch('/api/uploadLogo', {
+    method: 'POST',
+    headers: { 'Content-Type':'application/json' },
+    body: JSON.stringify({
+      repoOwner: ghUser || undefined,   // kan uteslates → bruker env
+      repoName: ghRepo || undefined,
+      basePath,                         // "Vcards"
+      orgKey: cleanOrg,
+      filename: safeName,
+      contentBase64: base64
+    })
+  });
+
+  const out = await res.json().catch(()=> ({}));
+  if(!res.ok || !out.url){
+    console.error('Upload error:', out);
+    alert('Kunne ikke laste opp logo. Sjekk Netlify logs.');
+    return;
+  }
+
+  // Sett ferdig URL til logo + vis preview
+  const urlInput = document.getElementById('logoUrl');
+  urlInput.value = out.url;
+  previewLogo();
+}
+</script>
 
   <h4>vCard</h4>
   <textarea id="vcfPreview" rows="8" style="width:100%"></textarea>
