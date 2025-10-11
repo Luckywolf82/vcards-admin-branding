@@ -108,9 +108,12 @@
     <label>Org nettside
       <input id="orgSite" placeholder="https://wayback.no">
     </label>
-    <label>Logo URL
-      <input id="logoUrl" placeholder="https://.../logo.png" oninput="previewLogo()">
-    </label>
+    <label>Logo URL (eller last opp)
+  <div style="display:flex;gap:6px;align-items:center">
+    <input id="logoUrl" placeholder="https://.../logo.png" oninput="previewLogo()" style="flex:1">
+    <input type="file" id="logoFile" accept="image/*" onchange="handleLogoUpload(event)">
+  </div>
+</label>
     <label>Logo bakgrunn
       <input id="logoBg" placeholder="#ffffff (tom = auto)">
     </label>
