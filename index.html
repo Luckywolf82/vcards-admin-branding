@@ -304,109 +304,15 @@
 
   <script>
   // === Dropdowns: Organisasjon & Ansatt ===
-function populateOrgSelect(){
-  const orgSelect = document.getElementById('orgSelect');
-  if (!orgSelect) return;
-
-  orgSelect.innerHTML = '';
-  const keys = Object.keys(ORG_PROFILES || {});
-  keys.forEach(key=>{
-    const opt = document.createElement('option');
-    opt.value = key;
-    opt.textContent = (ORG_PROFILES[key] && ORG_PROFILES[key].name) || key;
-    orgSelect.appendChild(opt);
-  });
-}
-
-function syncOrgKeyFromSelect(){
-  const orgSelect = document.getElementById('orgSelect');
-  if (!orgSelect) return;
-  const key = orgSelect.value;
-  document.getElementById('orgKey').value = key;
-  applyBranding('force');
-  loadEmployees();
-}
-
-function syncOrgSelectFromKey(){
-  const key = document.getElementById('orgKey').value.trim();
-  const orgSelect = document.getElementById('orgSelect');
-  if (!orgSelect) return;
-  const idx = Array.from(orgSelect.options).findIndex(o => o.value === key);
-  if (idx >= 0) orgSelect.selectedIndex = idx;
-}
-
-function loadEmployees(){
-  const key = document.getElementById('orgKey').value.trim();
-  const list = (EMPLOYEES && EMPLOYEES[key]) || [];
-  const sel = document.getElementById('employeeSelect');
-  if (!sel) return;
-  sel.innerHTML = '<option value="">(Velg ansatt…)</option>';
-  list.forEach((emp, i)=>{
-    const opt = document.createElement('option');
-    opt.value = String(i);
-    opt.textContent = emp.name + (emp.title ? ' – ' + emp.title : '');
-    sel.appendChild(opt);
-  });
-}
-
-function fillEmployee(iStr){
-  const key = document.getElementById('orgKey').value.trim();
-  const list = (EMPLOYEES && EMPLOYEES[key]) || [];
-  const i = parseInt(iStr, 10);
-  const emp = list[i];
-  if (!emp) return;
-
-  const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val || ''; };
-  set('slug', emp.slug);
-  set('name', emp.name);
-  set('title', emp.title);
-  set('phone', emp.phone);
-  set('email', emp.email);
-  set('site', emp.site);
-  set('address', emp.address);
-  set('vcfFilename', emp.vcfFilename);
-}
-
-// Init for dropdowns ved load (robust mot småfeil)
-document.addEventListener('DOMContentLoaded', ()=>{
-  try {
-    // 1) Fyll org-select
-    populateOrgSelect();
-
+  function populateOrgSelect(){
     const orgSelect = document.getElementById('orgSelect');
-    const orgKeyEl  = document.getElementById('orgKey');
-
-    if (orgSelect && orgSelect.options.length > 0) {
-      // 2) Hvis orgKey er tom → velg første
-      if (!orgKeyEl.value) {
-        orgSelect.selectedIndex = 0;
-        syncOrgKeyFromSelect();
-      } else {
-        // 3) Ellers sync select fra eksisterende key
-        syncOrgSelectFromKey();
-        applyBranding('auto');
-        loadEmployees();
-      }
-    } else {
-      console.warn('ORG_PROFILES tom/ikke lasta – prøver igjen om 100ms');
-      // Retry hvis DOM eller ORG_PROFILES ikke var klar
-      setTimeout(()=>{
-        populateOrgSelect();
-        if (orgSelect && orgSelect.options.length > 0) {
-          orgSelect.selectedIndex = 0;
-          syncOrgKeyFromSelect();
-        }
-      }, 100);
-    }
-
-    // Lytt på endringer
-    orgSelect?.addEventListener('change', syncOrgKeyFromSelect);
-    document.getElementById('employeeSelect')?.addEventListener('change', (e)=> fillEmployee(e.target.value));
-  } catch (e) {
-    console.error('Init-feil for dropdowns:', e);
-  }
-});
-
+    orgSelect.innerHTML = '';
+    Object.keys(ORG_PROFILES).forEach(key=>{
+      const opt = document.createElement('option');
+      opt.value = key;
+      opt.textContent = ORG_PROFILES[key].name || key;
+      orgSelect.appendChild(opt);
+    });
   }
 
   function syncOrgKeyFromSelect(){
@@ -707,59 +613,17 @@ code{background:#0d1117;padding:.2em .4em;border-radius:6px}
     });
   }
 
-  // === QR-kode (robust) ===
-async function renderQR(text){
-  const c = document.getElementById('qrCanvas');
-  if (!c) return;
-
-  // Lag/bruk en liten infotekst under QR
-  let info = document.getElementById('qrInfo');
-  if (!info) {
-    info = document.createElement('div');
-    info.id = 'qrInfo';
-    info.className = 'note';
-    c.parentElement.appendChild(info);
-  }
-
-  const t = (text || '').trim();
-  info.textContent = t ? `QR for: ${t}` : 'Ingen URL å generere QR for ennå.';
-
-  // Tøm canvas hvis tom tekst
-  const ctx = c.getContext('2d');
-  ctx.clearRect(0,0,c.width,c.height);
-  if (!t) return;
-
-  try {
-    if (!window.QRCode) {
-      info.textContent = 'QR-bibliotek ikke lastet (refresh siden).';
+  // === QR-kode ===
+  async function renderQR(text){
+    const c = document.getElementById('qrCanvas');
+    if (!c || !window.QRCode) return;
+    const t = (text || '').trim();
+    if (!t) {
+      const ctx = c.getContext('2d');
+      ctx.clearRect(0,0,c.width,c.height);
       return;
     }
-    await QRCode.toCanvas(c, t, {
-      width: 192,
-      margin: 1,
-      color: { dark: '#000000', light: '#FFFFFF' } // tving farger
-    });
-  } catch (err) {
-    console.error('QR error:', err);
-    info.textContent = 'Kunne ikke generere QR (se konsoll).';
-  }
-}
-
-// Last ned-knapp
-document.getElementById('qrDownload')?.addEventListener('click', ()=>{
-  const c = document.getElementById('qrCanvas');
-  if(!c) return;
-  const a = document.createElement('a');
-  a.href = c.toDataURL('image/png');
-  a.download = 'nfcking-qr.png';
-  a.click();
-});
-
-// Auto-oppdater QR når HTML-URL-feltet endres
-document.getElementById('htmlUrl')?.addEventListener('input', (e)=>{
-  renderQR(e.target.value);
-});
-
+    await QRCode.toCanvas(c, t, { width: 192, margin: 1 });
   }
   document.getElementById('qrDownload')?.addEventListener('click', ()=>{
     const c = document.getElementById('qrCanvas');
