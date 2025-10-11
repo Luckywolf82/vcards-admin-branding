@@ -215,10 +215,32 @@ document.querySelectorAll('.pill').forEach(btn => {
 });
 
 // === Branding ===
-function applyBranding(force = true){
+function applyBranding(mode = 'auto'){
+  // mode: 'auto' = fyll bare tomme felt, 'force' = overstyr alt
   const key  = document.getElementById('orgKey').value.trim();
   const prof = ORG_PROFILES[key];
   if (!prof) return;
+
+  const set = (id, val) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (mode === 'force' || !el.value) el.value = val || '';
+  };
+
+  set('orgName', prof.name || key);
+  set('accent' , prof.accent || '#8fd3ff');
+  set('orgSite', prof.site || '');
+  set('logoUrl', prof.logo || '');
+
+  // Når vi tvinger inn branding, nullstill manuell logoBg (bruk auto igjen)
+  if (mode === 'force') {
+    const bg = document.getElementById('logoBg');
+    if (bg) bg.value = '';
+  }
+  // Oppdater logo-forhåndsvisning (bruker manuell/auto bakgrunn fra previewLogo)
+  previewLogo();
+}
+
 
   document.getElementById('orgName').value = prof.name   || key;
   document.getElementById('accent').value  = prof.accent || '#8fd3ff';
