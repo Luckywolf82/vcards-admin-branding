@@ -3,48 +3,47 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>vCards Admin – Branding + Tekst pr. knapp</title>
+  <title>NFCKING Admin</title>
+  <link rel="icon" type="image/svg+xml" href="assets/icon-taplink.svg">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/water.css@2/out/water.css">
   <style>
+    body{background:#0b0b10;color:#e9eef5}
     .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
     @media (max-width:920px){.row{grid-template-columns:1fr}}
-    textarea{font-family:monospace}
-    .ok{color:#0a0;font-weight:700}
-    .err{color:#a00;font-weight:700}
-    .note{font-size:.9rem;color:#667}
-    .pill{display:inline-block;padding:.15rem .5rem;border-radius:999px;background:#eef;color:#334;margin-right:.3rem;font-size:.8rem;cursor:pointer;border:none}
+    textarea, input{font-family:system-ui, -apple-system, Roboto, Arial}
+    .ok{color:#21c36a;font-weight:700}
+    .err{color:#ff6b6b;font-weight:700}
+    .note{font-size:.95rem;color:#8ea0b4}
+    .pill{display:inline-block;padding:.15rem .5rem;border-radius:999px;background:#243244;color:#cfe3ff;margin-right:.3rem;font-size:.8rem;cursor:pointer;border:1px solid #344458}
     .links-table{width:100%;border-collapse:collapse}
-    .links-table th,.links-table td{border-bottom:1px solid #e3e3e3;padding:.3rem;vertical-align:top}
-    .muted{color:#76808f}
+    .links-table th,.links-table td{border-bottom:1px solid #2a3442;padding:.3rem;vertical-align:top}
+    .muted{color:#8ea0b4}
     code{background:#0d1117;color:#d1e7ff;padding:.2em .4em;border-radius:6px}
     .inline{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
     .logo-prev{height:36px;max-width:220px;object-fit:contain;margin-left:8px}
     @media (max-width:640px){.logo-prev{height:28px}}
-    .btn{display:inline-block;padding:12px 14px;border-radius:10px;text-decoration:none;font-weight:700}
+    .btn{display:inline-block;padding:12px 14px;border-radius:10px;text-decoration:none;font-weight:700;background:#8fd3ff;color:#03101a}
+    .brand { text-align:center; margin:14px 0 18px }
+    .brand img { max-width:240px; height:auto; filter:drop-shadow(0 0 6px #3fffd2) }
+    .brand-sub{ margin:6px 0 0; color:#8ea0b4 }
+    .brand-rule{ border:0; height:2px; background:linear-gradient(90deg,#8fd3ff,#52a3ff); opacity:.7; margin:10px 0 16px }
   </style>
 </head>
 <body>
 <main>
-  <main>
-  <div style="text-align:center;margin-bottom:20px;">
-    <div style="text-align:center;margin-bottom:20px;">
-  <img
-    src="/assets/NFCKING_dark.png?v=2"
-    alt="NFCKING logo"
-    style="max-width:240px;height:auto;filter:drop-shadow(0 0 6px #3fffd2);"
-    onerror="this.onerror=null;this.src='https://raw.githubusercontent.com/Luckywolf82/vcards-admin-branding/main/assets/NFCKING_dark.png?v=2';"
-  >
-</div>
 
-         
+  <!-- NFCKING logo-topp -->
+  <div class="brand">
+    <img
+      src="/assets/NFCKING_dark.png?v=2"
+      alt="NFCKING logo"
+      onerror="this.onerror=null;this.src='https://raw.githubusercontent.com/Luckywolf82/vcards-admin-branding/main/assets/NFCKING_dark.png?v=2';">
+    <p class="brand-sub">Kongen av kontaktløs – bygg, merk og publiser NFC-kort</p>
   </div>
+  <hr class="brand-rule">
 
-  <h1>NFCKING Admin – Digitalt kontaktkort</h1>
-  <p class="note">Bygg, merk og publiser dine egne NFC-kort med stil. 👑</p>
-
-
+  <!-- Branding-profiler -->
   <script>
-  // === Branding-profiler per organisasjon (rediger/utvid her) ===
   const ORG_PROFILES = {
     "Wayback": {
       name: "Wayback",
@@ -103,7 +102,7 @@
       <input id="name" placeholder="Trygve Eiulf Waagen" required>
     </label>
     <label>Tittel
-      <input id="title" placeholder="Daglig leder">
+      <input id="title" placeholder="Avdelingsleder">
     </label>
     <label>Telefon (E.164)
       <input id="phone" placeholder="+47 47731087">
@@ -139,13 +138,7 @@
 
   <table class="links-table" id="linksTable">
     <thead>
-      <tr>
-        <th>Label</th>
-        <th>URL</th>
-        <th>Tekst over</th>
-        <th>Tekst under</th>
-        <th></th>
-      </tr>
+      <tr><th>Label</th><th>URL</th><th>Tekst over</th><th>Tekst under</th><th></th></tr>
     </thead>
     <tbody></tbody>
   </table>
@@ -197,15 +190,92 @@
   <h4>index.html</h4>
   <textarea id="htmlPreview" rows="14" style="width:100%"></textarea>
 
-  <!-- === LIVE FORHÅNDSVISNING === -->
+  <!-- Live-forhåndsvisning -->
   <div id="livePreviewContainer" style="margin-top:10px;">
     <h4>Live forhåndsvisning</h4>
     <button id="openPreviewBtn" style="margin:6px 0;">Åpne forhåndsvisning i ny fane</button>
     <iframe id="livePreviewFrame"
-            style="width:100%;height:480px;border:1px solid #333;border-radius:8px;background:#111;"
-            title="Live Preview"></iframe>
+      style="width:100%;height:480px;border:1px solid #333;border-radius:8px;background:#111;"
+      title="Live Preview"></iframe>
   </div>
-  <!-- === /LIVE FORHÅNDSVISNING === -->
+  <h2>Lenker og tekster</h2>
+  <div class="row">
+    <label>Forhåndsvalg (klikk for å legge til)</label>
+    <div>
+      <button type="button" class="pill" data-label="LinkedIn" data-url="https://www.linkedin.com/in/">LinkedIn</button>
+      <button type="button" class="pill" data-label="Instagram" data-url="https://instagram.com/">Instagram</button>
+      <button type="button" class="pill" data-label="Facebook" data-url="https://facebook.com/">Facebook</button>
+      <button type="button" class="pill" data-label="YouTube" data-url="https://youtube.com/@">YouTube</button>
+      <button type="button" class="pill" data-label="TikTok" data-url="https://www.tiktok.com/@">TikTok</button>
+      <button type="button" class="pill" data-label="GitHub" data-url="https://github.com/">GitHub</button>
+      <button type="button" class="pill" data-label="Nettside" data-url="https://">Nettside</button>
+      <button type="button" class="pill" data-label="Kalender" data-url="https://cal.com/">Kalender</button>
+      <button type="button" class="pill" data-label="WhatsApp" data-url="https://wa.me/">WhatsApp</button>
+    </div>
+  </div>
+
+  <table class="links-table" id="linksTable">
+    <thead>
+      <tr><th>Label</th><th>URL</th><th>Tekst over</th><th>Tekst under</th><th></th></tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <div class="row">
+    <label>Ny label
+      <input id="newLabel" placeholder="LinkedIn">
+    </label>
+    <label>Ny URL
+      <input id="newUrl" placeholder="https://linkedin.com/in/...">
+    </label>
+    <label>Tekst over
+      <input id="newPre" placeholder="Følg meg på LinkedIn">
+    </label>
+    <label>Tekst under
+      <input id="newPost" placeholder="@brukernavn (daglig oppdatert)">
+    </label>
+    <div><button type="button" id="addLink">Legg til</button></div>
+  </div>
+
+  <h2>Publisering</h2>
+  <div class="row">
+    <label>GitHub owner (kan overskrive Netlify default)
+      <input id="ghUser" placeholder="Luckywolf82">
+    </label>
+    <label>Repo-navn (case sensitive)
+      <input id="ghRepo" placeholder="Vcards">
+    </label>
+    <label>BASE_PATH (Pages-rotmappe)
+      <input id="basePath" placeholder="Vcards" value="Vcards">
+    </label>
+    <label>Commit-strategi
+      <select id="strategy">
+        <option value="pr">Lage branch + Pull Request (anbefalt)</option>
+        <option value="direct">Direkte til main</option>
+      </select>
+    </label>
+  </div>
+
+  <button id="generate">Generer & Publiser</button>
+  <span id="status"></span>
+
+  <h3>Resultat</h3>
+  <p>NFC-URL: <input id="nfcUrl" style="width:100%" readonly></p>
+
+  <h4>vCard</h4>
+  <textarea id="vcfPreview" rows="8" style="width:100%"></textarea>
+
+  <h4>index.html</h4>
+  <textarea id="htmlPreview" rows="14" style="width:100%"></textarea>
+
+  <!-- Live-forhåndsvisning -->
+  <div id="livePreviewContainer" style="margin-top:10px;">
+    <h4>Live forhåndsvisning</h4>
+    <button id="openPreviewBtn" style="margin:6px 0;">Åpne forhåndsvisning i ny fane</button>
+    <iframe id="livePreviewFrame"
+      style="width:100%;height:480px;border:1px solid #333;border-radius:8px;background:#111;"
+      title="Live Preview"></iframe>
+  </div>
 <script>
 // === Tabell og lenker ===
 const tbody = document.querySelector('#linksTable tbody');
@@ -217,8 +287,7 @@ function addRow(label, url, pre = '', post = '') {
     <td><input value="${url || ''}" class="lnk" style="width:100%"/></td>
     <td><textarea class="pre" rows="2" placeholder="Tekst over">${pre || ''}</textarea></td>
     <td><textarea class="post" rows="2" placeholder="Tekst under">${post || ''}</textarea></td>
-    <td><button type="button" class="remove">Fjern</button></td>
-  `;
+    <td><button type="button" class="remove">Fjern</button></td>`;
   tr.querySelector('.remove').addEventListener('click', () => tr.remove());
   tbody.appendChild(tr);
 }
@@ -237,19 +306,10 @@ document.querySelectorAll('.pill').forEach(btn => {
   btn.addEventListener('click', () => addRow(btn.dataset.label, btn.dataset.url));
 });
 
-// === Branding ===
-function getProfileForKey(rawKey){
-  if(!rawKey) return null;
-  const lower = String(rawKey).trim().toLowerCase();
-  for (const k of Object.keys(ORG_PROFILES)) {
-    if (k.toLowerCase() === lower) return ORG_PROFILES[k];
-  }
-  return null;
-}
-
+// === Branding og logo ===
 function applyBranding(mode = 'auto'){
-  const key  = document.getElementById('orgKey').value.trim();
-  const prof = getProfileForKey(key);
+  const key  = document.getElementById('orgKey')?.value.trim();
+  const prof = ORG_PROFILES[key];
   if (!prof) return;
 
   const set = (id, val) => {
@@ -263,87 +323,25 @@ function applyBranding(mode = 'auto'){
   set('orgSite', prof.site || '');
   set('logoUrl', prof.logo || '');
 
-  if (mode === 'force') {
-    const bg = document.getElementById('logoBg');
-    if (bg) bg.value = '';
-  }
-
   previewLogo();
 }
 
-// === Logo-forhåndsvisning ===
 function previewLogo(){
-  const url = document.getElementById('logoUrl').value.trim();
-  const imgEl = document.getElementById('logoPreview');
-  const bgInput = document.getElementById('logoBg');
-  const manual = bgInput?.value.trim();
+  const url = document.getElementById('logoUrl')?.value.trim();
+  const img = document.getElementById('logoPreview');
+  const bg  = document.getElementById('logoBg')?.value.trim();
 
-  if(!url){
-    imgEl.style.display='none';
-    return;
-  }
+  if (!img) return;
+  if (!url) { img.style.display='none'; return; }
 
-  imgEl.src = url;
-  imgEl.style.display='block';
-
-  if (manual) {
-    imgEl.style.background   = manual;
-    imgEl.style.borderRadius = '8px';
-    imgEl.style.padding      = '6px';
-    return;
-  }
-
-  // Default hvit bakgrunn
-  let chosenBg = '#ffffff';
-  imgEl.style.background   = chosenBg;
-  imgEl.style.borderRadius = '8px';
-  imgEl.style.padding      = '6px';
-
-  // Forsøk automatisk analyse
-  const tmp = new Image();
-  tmp.crossOrigin = 'anonymous';
-  tmp.src = url;
-
-  const finish = (bg) => {
-    chosenBg = bg || chosenBg;
-    imgEl.style.background = chosenBg;
-    if (bgInput && !bgInput.value) bgInput.value = chosenBg;
-  };
-
-  const analyze = () => {
-    try {
-      const c = document.createElement('canvas');
-      const s = 24;
-      c.width = s; c.height = s;
-      const ctx = c.getContext('2d', { willReadFrequently: true });
-      ctx.drawImage(tmp, 0, 0, s, s);
-      const data = ctx.getImageData(0,0,s,s).data;
-
-      let r=0,g=0,b=0,n=0;
-      for(let i=0;i<data.length;i+=4){
-        const a = data[i+3];
-        if (a < 16) continue;
-        r += data[i]; g += data[i+1]; b += data[i+2]; n++;
-      }
-      if (n === 0) { finish('#ffffff'); return; }
-
-      r = Math.round(r/n); g = Math.round(g/n); b = Math.round(b/n);
-      const L = 0.2126*r + 0.7152*g + 0.0722*b;
-      const autoBg = (L < 150) ? '#ffffff' : '#1e1f28';
-      finish(autoBg);
-    } catch (e) {
-      finish('#ffffff');
-    }
-  };
-
-  tmp.onload = analyze;
-  tmp.onerror = () => finish('#ffffff');
-
-  setTimeout(() => {
-    if (!bgInput.value) finish('#ffffff');
-  }, 1500);
+  img.src = url;
+  img.style.display = 'block';
+  img.style.background   = bg || '#ffffff';
+  img.style.borderRadius = '8px';
+  img.style.padding      = '6px';
 }
-// === vCard/HTML helpers ===
+
+// === vCard + HTML generator ===
 function normalizePhone(p){
   p = (p||'').trim(); if(!p) return p;
   if(p.startsWith('0') && !p.startsWith('+')){
@@ -354,7 +352,7 @@ function normalizePhone(p){
 
 function makeVcard(d){
   const parts = d.name.trim().split(' ');
-  const first = parts[0] || '';
+  const first = parts[0] || ''; 
   const last  = parts.length>1 ? parts[parts.length-1] : '';
   const phone = normalizePhone(d.phone||'');
 
@@ -420,7 +418,6 @@ code{background:#0d1117;padding:.2em .4em;border-radius:6px}
 </body>
 </html>`;
 }
-
 // === Netlify helper ===
 async function postJSON(url, data){
   const r = await fetch(url, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data) });
@@ -448,7 +445,7 @@ document.getElementById('generate').addEventListener('click', async ()=>{
     vcfFilename:get('vcfFilename') || (get('slug') + '_' + get('orgKey') + '.vcf'),
     ghUser:get('ghUser'),
     ghRepo:get('ghRepo'),
-    // Behold 'Vcards' så URL blir "dobbel Vcards" (det vi vet fungerer)
+    // Behold 'Vcards' så Pages-URL matcher det som funka for dæ
     basePath:get('basePath')||'Vcards',
     strategy:document.getElementById('strategy').value
   };
@@ -458,6 +455,7 @@ document.getElementById('generate').addEventListener('click', async ()=>{
     return;
   }
 
+  // Samle lenker
   const links = Array.from(document.querySelectorAll('#linksTable tbody tr')).map(tr=>({
     label: tr.querySelector('.lbl').value.trim(),
     url:   tr.querySelector('.lnk').value.trim(),
@@ -465,13 +463,14 @@ document.getElementById('generate').addEventListener('click', async ()=>{
     post:  tr.querySelector('.post').value.trim()
   })).filter(x=>x.label && x.url);
 
+  // Lag filer
   const vcf  = makeVcard(d);
   const html = makeHTML(d, d.vcfFilename, links);
   document.getElementById('vcfPreview').value  = vcf;
   document.getElementById('htmlPreview').value = html;
   updateLivePreview(html);
 
-  // === URL-er (bevisst "dobbel Vcards") ===
+  // === URL-er (bevisst “dobbel Vcards” hvis basePath=Vcards) ===
   const ownerPart = d.ghUser || '<owner>';
   const repoPart  = d.ghRepo || '<repo>';
   const basePath  = (d.basePath || 'Vcards').replace(/^\/+|\/+$/g, '');
@@ -481,27 +480,21 @@ document.getElementById('generate').addEventListener('click', async ()=>{
   const htmlUrl = `${baseUrl}/index.html`;
   const vcfUrl  = `${baseUrl}/${d.vcfFilename}`;
 
-  // Vis NFC (VCF) + HTML-URL
+  // Vis begge
   document.getElementById('nfcUrl').value = vcfUrl;
-  const inline = document.getElementById('nfcInline');
-  if (inline) inline.textContent = vcfUrl;
-
-  // Dynamisk felt for HTML-URL hvis ikke finnes
   let htmlOut = document.getElementById('htmlUrl');
   if (!htmlOut) {
-    const label = document.createElement('p');
-    label.textContent = 'HTML-URL:';
-    const input = document.createElement('input');
-    input.id = 'htmlUrl';
-    input.readOnly = true;
-    input.style.width = '100%';
-    input.style.marginBottom = '6px';
+    const label = document.createElement('p'); label.textContent = 'HTML-URL:';
+    const input = document.createElement('input'); input.id = 'htmlUrl'; input.readOnly = true; input.style.width = '100%'; input.style.marginBottom = '6px';
     const nfcP = document.getElementById('nfcUrl').parentElement;
     nfcP.parentElement.insertBefore(label, nfcP);
     nfcP.parentElement.insertBefore(input, nfcP);
     htmlOut = input;
   }
   htmlOut.value = htmlUrl;
+
+  const inline = document.getElementById('nfcInline');
+  if (inline) inline.textContent = vcfUrl;
 
   // === Publiser til GitHub via Netlify function ===
   document.getElementById('status').textContent = 'Publiserer…';
@@ -536,22 +529,13 @@ document.getElementById('generate').addEventListener('click', async ()=>{
   }
 });
 
-// Auto-apply branding hvis orgKey allerede er angitt ved load
-document.addEventListener('DOMContentLoaded', () => {
-  const k = document.getElementById('orgKey')?.value.trim();
-  if (k) applyBranding('auto'); // bruk 'force' hvis du vil overstyre alt ved hver innlasting
-});
-
-// === LIVE PREVIEW-FUNKSJONER ===
+// === Live preview helpers ===
 function updateLivePreview(html) {
   const frame = document.getElementById('livePreviewFrame');
   if (!frame) return;
   const doc = frame.contentDocument || frame.contentWindow.document;
-  doc.open();
-  doc.write(html);
-  doc.close();
+  doc.open(); doc.write(html); doc.close();
 }
-
 function openPreviewInNewTab(html) {
   const blob = new Blob([html], {type:'text/html'});
   const url = URL.createObjectURL(blob);
@@ -562,10 +546,12 @@ document.getElementById('openPreviewBtn')?.addEventListener('click', ()=>{
   const html = document.getElementById('htmlPreview').value;
   openPreviewInNewTab(html);
 });
-  <footer style="margin-top:40px;text-align:center;color:#777;font-size:0.9rem;">
-  <p>NFCKING – Kongen av kontaktløs</p>
-</footer>
 
+// === Auto-init: kjør branding hvis orgKey allerede står der ===
+document.addEventListener('DOMContentLoaded', () => {
+  const k = document.getElementById('orgKey')?.value.trim();
+  if (k) applyBranding('auto');
+});
 </script>
 </main>
 </body>
