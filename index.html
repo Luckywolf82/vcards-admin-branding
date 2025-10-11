@@ -5,270 +5,232 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>NFCKING – Adminpanel</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/water.css@2/out/water.css">
-
-  <!-- Basisstil + farger -->
   <style>
-    body{background:#0b0b10;color:#e9eef5;font-family:system-ui,Roboto,Arial}
+    body{background:#0b0b10;color:#e9eef5}
     .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
     @media (max-width:920px){.row{grid-template-columns:1fr}}
     textarea{font-family:monospace}
     .ok{color:#21c36a;font-weight:700}
     .err{color:#ff6b6b;font-weight:700}
     .note{font-size:.95rem;color:#8ea0b4}
-    .pill{display:inline-block;padding:.15rem .5rem;border-radius:999px;background:#243244;
-          color:#cfe3ff;margin-right:.3rem;font-size:.8rem;cursor:pointer;border:1px solid #344458}
+    .pill{display:inline-block;padding:.15rem .5rem;border-radius:999px;background:#243244;color:#cfe3ff;margin-right:.3rem;font-size:.8rem;cursor:pointer;border:1px solid #344458}
     .links-table{width:100%;border-collapse:collapse}
     .links-table th,.links-table td{border-bottom:1px solid #2a3442;padding:.3rem;vertical-align:top}
     .muted{color:#8ea0b4}
     code{background:#0d1117;color:#d1e7ff;padding:.2em .4em;border-radius:6px}
     .inline{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-    .logo-prev{height:36px;max-width:220px;object-fit:contain;margin-left:8px;background:#fff;
-               border-radius:6px;padding:4px}
+    .logo-prev{height:36px;max-width:220px;object-fit:contain;margin-left:8px;background:#fff;border-radius:6px;padding:4px}
     @media (max-width:640px){.logo-prev{height:28px}}
-    .btn{display:inline-block;padding:12px 14px;border-radius:10px;text-decoration:none;
-         font-weight:700;background:#8fd3ff;color:#03101a}
+    .btn{display:inline-block;padding:12px 14px;border-radius:10px;text-decoration:none;font-weight:700;background:#8fd3ff;color:#03101a}
     .url-actions{margin-left:6px}
     .brand{text-align:center;margin:0 0 18px}
     .brand img{max-width:240px;height:auto;filter:drop-shadow(0 0 6px #3fffd2)}
     .brand-sub{margin:6px 0 0;color:#8ea0b4}
-    .brand-rule{border:0;height:2px;background:linear-gradient(90deg,#8fd3ff,#52a3ff);
-                opacity:.7;margin:10px 0 16px}
-
-    /* Auth-panel */
-    .auth-card{background:#121821;border:1px solid #263247;border-radius:10px;padding:16px;margin:10px 0}
-    .auth-row{display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap}
-    .auth-row label{flex:1}
-    .auth-right{margin-left:auto}
-    .dimmed{opacity:.6;pointer-events:none}
+    .brand-rule{border:0;height:2px;background:linear-gradient(90deg,#8fd3ff,#52a3ff);opacity:.7;margin:10px 0 16px}
+    #nfcLog{background:#0d1117;color:#cfe3ff;padding:10px;border-radius:8px;white-space:pre-wrap;max-height:220px;overflow:auto;margin-top:10px}
+    .hide{display:none}
+    .card{max-width:980px;margin:0 auto}
   </style>
-
-  <!-- QR-kode-bibliotek -->
-  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
 </head>
 
 <body>
-<main>
-  <!-- Logo øverst -->
-  <div class="brand">
-    <img src="/assets/NFCKING_dark.png?v=4"
-         alt="NFCKING logo"
-         onerror="this.onerror=null;this.src='https://raw.githubusercontent.com/Luckywolf82/vcards-admin-branding/main/assets/NFCKING_dark.png?v=4';">
-    <p class="brand-sub">Kongen av kontaktløs – bygg, merk og publiser NFC-kort</p>
-  </div>
-  <hr class="brand-rule">
-
-  <!-- 🔐 Innloggingspanel -->
-  <section id="authPanel" class="auth-card">
-    <h3>Innlogging</h3>
-    <div class="auth-row">
-      <label>E-post
-        <input id="authEmail" type="email" placeholder="deg@firma.no" autocomplete="username">
-      </label>
-      <label>Passord
-        <input id="authPass" type="password" placeholder="••••••••" autocomplete="current-password">
-      </label>
-      <button id="authLoginBtn" class="pill">Logg inn</button>
-      <button id="authLogoutBtn" class="pill auth-right" style="display:none">Logg ut</button>
+  <!-- AUTH: vises før innlogging -->
+  <section id="auth" class="card">
+    <div class="brand">
+      <img
+        src="/assets/NFCKING_dark.png?v=4"
+        alt="NFCKING logo"
+        onerror="this.onerror=null;this.src='https://raw.githubusercontent.com/Luckywolf82/vcards-admin-branding/main/assets/NFCKING_dark.png?v=4';">
+      <p class="brand-sub">Logg inn for å bruke adminpanelet</p>
     </div>
-    <p id="authStatus" class="note" style="margin-top:6px">Ikke innlogget.</p>
+    <hr class="brand-rule">
+    <button id="btnGoogle" class="btn">Logg inn med Google</button>
+    <p class="note" style="margin-top:8px">Krever at brukeren finnes i Firestore policy (kan åpnes for alle – nå tillater vi alle innloggede).</p>
   </section>
-  <!-- Organisasjonsprofiler + ansatte-lister -->
-  <script>
-  const ORG_PROFILES = {
-    "Wayback": {
-      name: "Wayback",
-      accent: "#8fd3ff",
-      logo: "https://www.wayback.no/wp-content/uploads/2017/12/logo.png",
-      site: "https://wayback.no",
-      logoBg: "#ffffff"
-    },
-    "MollerBil": {
-      name: "Møller Bil",
-      accent: "#002244",
-      logo: "",
-      site: "https://www.mollerbil.no"
-    },
-    "JarwsonsKjokken": {
-      name: "Jarwsons kjøkken",
-      accent: "#ee5500",
-      logo: "",
-      site: "https://jarwsons.no"
-    }
-  };
 
-  const EMPLOYEES = {
-    "Wayback": [
-      { slug:"Trygve", name:"Trygve Eiulf Waagen", title:"Avdelingsleder",
-        phone:"+47 47731087", email:"trygve@wayback.no", site:"https://wayback.no",
-        address:"Kongens gate 46, 7012 Trondheim, Norge", vcfFilename:"trygve_wayback.vcf" }
-    ],
-    "MollerBil": [],
-    "JarwsonsKjokken": []
-  };
-  </script>
+  <!-- APP: skjules til bruker er innlogget -->
+  <main id="app" class="hide">
+    <div class="brand">
+      <img
+        src="/assets/NFCKING_dark.png?v=4"
+        alt="NFCKING logo"
+        onerror="this.onerror=null;this.src='https://raw.githubusercontent.com/Luckywolf82/vcards-admin-branding/main/assets/NFCKING_dark.png?v=4';">
+      <p class="brand-sub">Kongen av kontaktløs – bygg, merk og publiser NFC-kort</p>
+    </div>
+    <hr class="brand-rule">
 
-  <!-- Organisasjon -->
-  <h2>Organisasjon</h2>
-  <div class="row">
-    <label>Velg organisasjon
-      <select id="orgSelect"></select>
-    </label>
+    <!-- (1) Organisasjonsprofiler + ansatte-lister (hentes fra Firestore hvis mulig) -->
+    <script>
+      // Disse fylles fra Firestore ved innlogging. Vi har også fallback.
+      window.ORG_PROFILES = {};   // { key: {name, accent, logo, site, logoBg} }
+      window.EMPLOYEES    = {};   // { key: [ {slug, name, ...} ] } – valgfritt, tom som default
+    </script>
 
-    <div class="inline">
-      <label style="flex:1">Org key (mappe – case sensitive)
-        <input id="orgKey" placeholder="Wayback" required
-               oninput="applyBranding('force'); syncOrgSelectFromKey(); loadEmployees();">
+    <h2>Organisasjon</h2>
+    <div class="row">
+      <label>Velg organisasjon
+        <select id="orgSelect"></select>
       </label>
-      <div style="display:flex;align-items:center;justify-content:flex-start;min-width:200px">
-        <img id="logoPreview" class="logo-prev" alt="logo">
+
+      <div class="inline">
+        <label style="flex:1">Org key (mappe – case sensitive)
+          <input id="orgKey" placeholder="OrgKey" required oninput="applyBranding('force'); syncOrgSelectFromKey(); loadEmployees();">
+        </label>
+        <div style="display:flex;align-items:center;justify-content:flex-start;min-width:200px">
+          <img id="logoPreview" class="logo-prev" alt="logo" />
+        </div>
+      </div>
+
+      <label>Org navn (visning)
+        <input id="orgName" placeholder="Din organisasjon">
+      </label>
+      <label>Accent farge (hex)
+        <input id="accent" placeholder="#3aa0ff">
+      </label>
+      <label>Org nettside
+        <input id="orgSite" placeholder="https://domene.no">
+      </label>
+
+      <label>Logo URL (eller last opp)
+        <div style="display:flex;gap:6px;align-items:center">
+          <input id="logoUrl" placeholder="https://.../logo.png" oninput="previewLogo()" style="flex:1">
+          <input type="file" id="logoFile" accept="image/*" onchange="handleLogoUpload(event)">
+        </div>
+      </label>
+
+      <label>Logo bakgrunn
+        <input id="logoBg" placeholder="#ffffff (tom = auto)">
+      </label>
+    </div>
+
+    <h2>Person</h2>
+    <div class="row">
+      <label>Velg ansatt
+        <select id="employeeSelect"><option value="">(Velg ansatt…)</option></select>
+      </label>
+      <div></div>
+
+      <label>Slug (mappe/URL uten æøå/mellomrom)
+        <input id="slug" placeholder="ola-nordmann" required>
+      </label>
+      <label>Navn
+        <input id="name" placeholder="Ola Nordmann" required>
+      </label>
+      <label>Tittel
+        <input id="title" placeholder="Salgsleder">
+      </label>
+      <label>Telefon (E.164)
+        <input id="phone" placeholder="+47 40000000">
+      </label>
+      <label>E-post
+        <input id="email" placeholder="ola@firma.no">
+      </label>
+      <label>Nettside
+        <input id="site" placeholder="https://firma.no">
+      </label>
+      <label>Adresse
+        <input id="address" placeholder="Storgata 1, 0001 Oslo">
+      </label>
+      <label>VCF-filnavn
+        <input id="vcfFilename" placeholder="ola_nordmann.vcf">
+      </label>
+    </div>
+
+    <h2>Lenker og tekster</h2>
+    <div class="row">
+      <label>Forhåndsvalg (klikk for å legge til)</label>
+      <div>
+        <button type="button" class="pill" data-label="LinkedIn"  data-url="https://www.linkedin.com/in/">LinkedIn</button>
+        <button type="button" class="pill" data-label="Instagram" data-url="https://instagram.com/">Instagram</button>
+        <button type="button" class="pill" data-label="Facebook"  data-url="https://facebook.com/">Facebook</button>
+        <button type="button" class="pill" data-label="YouTube"   data-url="https://youtube.com/@">YouTube</button>
+        <button type="button" class="pill" data-label="TikTok"    data-url="https://www.tiktok.com/@">TikTok</button>
+        <button type="button" class="pill" data-label="GitHub"    data-url="https://github.com/">GitHub</button>
+        <button type="button" class="pill" data-label="Nettside"  data-url="https://">Nettside</button>
+        <button type="button" class="pill" data-label="Kalender"  data-url="https://cal.com/">Kalender</button>
+        <button type="button" class="pill" data-label="WhatsApp"  data-url="https://wa.me/">WhatsApp</button>
       </div>
     </div>
 
-    <label>Org navn (visning)
-      <input id="orgName" placeholder="Wayback">
-    </label>
-    <label>Accent farge (hex)
-      <input id="accent" placeholder="#8fd3ff">
-    </label>
-    <label>Org nettside
-      <input id="orgSite" placeholder="https://wayback.no">
-    </label>
-    <label>Logo URL (eller last opp)
-      <div style="display:flex;gap:6px;align-items:center">
-        <input id="logoUrl" placeholder="https://.../logo.png" oninput="previewLogo()" style="flex:1">
-        <input type="file" id="logoFile" accept="image/*" onchange="handleLogoUpload(event)">
-      </div>
-    </label>
-    <label>Logo bakgrunn
-      <input id="logoBg" placeholder="#ffffff (tom = auto)">
-    </label>
-  </div>
-
-  <!-- Person -->
-  <h2>Person</h2>
-  <div class="row">
-    <label>Velg ansatt
-      <select id="employeeSelect"><option value="">(Velg ansatt…)</option></select>
-    </label>
-    <div></div>
-
-    <label>Slug (mappe/URL uten æøå/mellomrom)
-      <input id="slug" placeholder="Trygve" required>
-    </label>
-    <label>Navn
-      <input id="name" placeholder="Trygve Eiulf Waagen" required>
-    </label>
-    <label>Tittel
-      <input id="title" placeholder="Avdelingsleder">
-    </label>
-    <label>Telefon (E.164)
-      <input id="phone" placeholder="+47 47731087">
-    </label>
-    <label>E-post
-      <input id="email" placeholder="trygve@wayback.no">
-    </label>
-    <label>Nettside
-      <input id="site" placeholder="https://wayback.no">
-    </label>
-    <label>Adresse
-      <input id="address" placeholder="Kongens gate 46, 7012 Trondheim, Norge">
-    </label>
-    <label>VCF-filnavn
-      <input id="vcfFilename" placeholder="trygve_wayback.vcf">
-    </label>
-  </div>
-  <!-- Lenker -->
-  <h2>Lenker og tekster</h2>
-  <div class="row">
-    <label>Forhåndsvalg (klikk for å legge til)</label>
-    <div>
-      <button type="button" class="pill" data-label="LinkedIn"  data-url="https://www.linkedin.com/in/">LinkedIn</button>
-      <button type="button" class="pill" data-label="Instagram" data-url="https://instagram.com/">Instagram</button>
-      <button type="button" class="pill" data-label="Facebook"  data-url="https://facebook.com/">Facebook</button>
-      <button type="button" class="pill" data-label="YouTube"   data-url="https://youtube.com/@">YouTube</button>
-      <button type="button" class="pill" data-label="TikTok"    data-url="https://www.tiktok.com/@">TikTok</button>
-      <button type="button" class="pill" data-label="GitHub"    data-url="https://github.com/">GitHub</button>
-      <button type="button" class="pill" data-label="Nettside"  data-url="https://">Nettside</button>
-      <button type="button" class="pill" data-label="Kalender"  data-url="https://cal.com/">Kalender</button>
-      <button type="button" class="pill" data-label="WhatsApp"  data-url="https://wa.me/">WhatsApp</button>
+    <table class="links-table" id="linksTable">
+      <thead><tr><th>Label</th><th>URL</th><th>Tekst over</th><th>Tekst under</th><th></th></tr></thead>
+      <tbody></tbody>
+    </table>
+    <div class="row">
+      <label>Ny label<input id="newLabel" placeholder="LinkedIn"></label>
+      <label>Ny URL<input id="newUrl" placeholder="https://linkedin.com/in/..."></label>
+      <label>Tekst over<input id="newPre" placeholder="Følg meg på LinkedIn"></label>
+      <label>Tekst under<input id="newPost" placeholder="@brukernavn (daglig oppdatert)"></label>
+      <div><button type="button" id="addLink">Legg til</button></div>
     </div>
-  </div>
 
-  <table class="links-table" id="linksTable">
-    <thead>
-      <tr>
-        <th>Label</th>
-        <th>URL</th>
-        <th>Tekst over</th>
-        <th>Tekst under</th>
-        <th></th>
-      </tr>
-    </thead>
-    <tbody></tbody>
-  </table>
+    <h2>Publisering</h2>
+    <div class="row">
+      <label>GitHub owner
+        <input id="ghUser" placeholder="brukernavn">
+      </label>
+      <label>Repo-navn
+        <input id="ghRepo" placeholder="Vcards">
+      </label>
+      <label>BASE_PATH
+        <input id="basePath" placeholder="Vcards" value="Vcards">
+      </label>
+      <label>Commit-strategi
+        <select id="strategy">
+          <option value="pr">Branch + Pull Request</option>
+          <option value="direct">Direkte til main</option>
+        </select>
+      </label>
+    </div>
 
-  <div class="row">
-    <label>Ny label
-      <input id="newLabel" placeholder="LinkedIn">
-    </label>
-    <label>Ny URL
-      <input id="newUrl" placeholder="https://linkedin.com/in/...">
-    </label>
-    <label>Tekst over
-      <input id="newPre" placeholder="Følg meg på LinkedIn">
-    </label>
-    <label>Tekst under
-      <input id="newPost" placeholder="@brukernavn (daglig oppdatert)">
-    </label>
-    <div><button type="button" id="addLink">Legg til</button></div>
-  </div>
+    <button id="generate">Generer & Publiser</button>
+    <span id="status"></span>
 
-  <!-- Publisering -->
-  <h2>Publisering</h2>
-  <div class="row">
-    <label>GitHub owner
-      <input id="ghUser" placeholder="Luckywolf82">
-    </label>
-    <label>Repo-navn
-      <input id="ghRepo" placeholder="Vcards">
-    </label>
-    <label>BASE_PATH
-      <input id="basePath" placeholder="Vcards" value="Vcards">
-    </label>
-    <label>Commit-strategi
-      <select id="strategy">
-        <option value="pr">Branch + Pull Request</option>
-        <option value="direct">Direkte til main</option>
-      </select>
-    </label>
-  </div>
+    <h3>Resultat</h3>
+    <p>NFC-URL: <input id="nfcUrl" style="width:100%" readonly></p>
+    <p>HTML-URL: <input id="htmlUrl" style="width:100%" readonly></p>
 
-  <button id="generate">Generer & Publiser</button>
-  <span id="status"></span>
+    <h4>vCard</h4>
+    <textarea id="vcfPreview" rows="8" style="width:100%"></textarea>
 
-  <!-- Resultat -->
-  <h3>Resultat</h3>
-  <p>NFC-URL: <input id="nfcUrl" style="width:100%" readonly></p>
-  <p>HTML-URL: <input id="htmlUrl" style="width:100%" readonly></p>
+    <h4>index.html</h4>
+    <textarea id="htmlPreview" rows="14" style="width:100%"></textarea>
 
-  <h4>vCard</h4>
-  <textarea id="vcfPreview" rows="8" style="width:100%"></textarea>
+    <!-- Live forhåndsvisning -->
+    <div id="livePreviewContainer" style="margin-top:10px;">
+      <h4>Live forhåndsvisning</h4>
+      <button id="openPreviewBtn" style="margin:6px 0;">Åpne forhåndsvisning i ny fane</button>
+      <iframe id="livePreviewFrame" style="width:100%;height:480px;border:1px solid #333;border-radius:8px;background:#111;" title="Live Preview"></iframe>
+    </div>
 
-  <h4>index.html</h4>
-  <textarea id="htmlPreview" rows="14" style="width:100%"></textarea>
+    <h2>NFC (Web NFC – Chrome/Android)</h2>
+    <div class="row">
+      <label>Velg skrive-type
+        <select id="nfcWriteMode">
+          <option value="url">URL (åpnes i nettleser)</option>
+          <option value="text">Tekst</option>
+          <option value="vcard">vCard (.vcf fra forhåndsvisning)</option>
+        </select>
+      </label>
+      <label>Payload (for URL/tekst)
+        <input id="nfcPayload" placeholder="https://ditt-domene.no/sti">
+      </label>
+      <div>
+        <button id="nfcRead" class="pill" type="button">Les NFC</button>
+        <button id="nfcWrite" class="pill" type="button">Skriv NFC</button>
+      </div>
+    </div>
+    <pre id="nfcLog"></pre>
 
-  <!-- Live forhåndsvisning -->
-  <div id="livePreviewContainer" style="margin-top:10px;">
-    <h4>Live forhåndsvisning</h4>
-    <button id="openPreviewBtn" style="margin:6px 0;">Åpne forhåndsvisning i ny fane</button>
-    <iframe id="livePreviewFrame" style="width:100%;height:480px;border:1px solid #333;border-radius:8px;background:#111;" title="Live Preview"></iframe>
-  </div>
+  </main>
 
-  <!-- Firebase Auth init -->
+  <!-- Firebase (CDN) + Auth/Firestore -->
   <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
-    import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { getAuth, onAuthStateChanged, signInWithPopup, GoogleAuthProvider } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+    import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
+    // Firebase-prosjektet ditt
     const firebaseConfig = {
       apiKey: "AIzaSyDypfSLkWWRQh9TFrIjWpYWKmO3dBDnb_s",
       authDomain: "nfcking-bb143.firebaseapp.com",
@@ -279,254 +241,226 @@
       measurementId: "G-EHN7M5NJJS"
     };
 
-    const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
+    const app   = initializeApp(firebaseConfig);
+    const auth  = getAuth(app);
+    const db    = getFirestore(app);
 
-    const loginBtn = document.getElementById('authLoginBtn');
-    const logoutBtn = document.getElementById('authLogoutBtn');
-    const statusTxt = document.getElementById('authStatus');
-    const mainSection = document.querySelector('main');
+    const $ = (id)=>document.getElementById(id);
+    const authSec = $('auth');
+    const appSec  = $('app');
+    const btnGoogle = $('btnGoogle');
 
-    loginBtn.addEventListener('click', async ()=>{
-      const email = document.getElementById('authEmail').value.trim();
-      const pass  = document.getElementById('authPass').value.trim();
+    // Hent orgs fra Firestore → bygg ORG_PROFILES
+    async function loadOrgsFromFirestore(){
       try {
-        await signInWithEmailAndPassword(auth, email, pass);
-        statusTxt.textContent = "Innlogging vellykket!";
-      } catch(e){
-        statusTxt.textContent = "Feil: " + e.message;
+        const snap = await getDocs(collection(db, 'orgs'));
+        const orgs = {};
+        snap.forEach(d => {
+          const key  = d.id;
+          const data = d.data() || {};
+          orgs[key] = {
+            name:   data.name   || key,
+            accent: data.accent || '#8fd3ff',
+            logo:   data.logo   || '',
+            site:   data.site   || '',
+            logoBg: data.logoBg || '#ffffff'
+          };
+        });
+        if (Object.keys(orgs).length === 0) {
+          window.ORG_PROFILES = { "DemoOrg": { name:"DemoOrg", accent:"#3ec6ff", logo:"", site:"https://eksempel.no", logoBg:"#ffffff" } };
+        } else {
+          window.ORG_PROFILES = orgs;
+        }
+      } catch (e) {
+        console.warn('Klarte ikke hente orgs fra Firestore:', e);
+        if (!window.ORG_PROFILES || Object.keys(window.ORG_PROFILES).length===0){
+          window.ORG_PROFILES = { "DemoOrg": { name:"DemoOrg", accent:"#3ec6ff", logo:"", site:"https://eksempel.no", logoBg:"#ffffff" } };
+        }
       }
+    }
+
+    onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        authSec.classList.remove('hide');
+        appSec.classList.add('hide');
+        return;
+      }
+      await loadOrgsFromFirestore();
+      populateOrgSelect();
+      if (!$('orgKey').value && $('orgSelect').options.length){
+        $('orgSelect').selectedIndex = 0; syncOrgKeyFromSelect();
+      } else { syncOrgSelectFromKey(); applyBranding('auto'); loadEmployees(); }
+      authSec.classList.add('hide');
+      appSec.classList.remove('hide');
     });
 
-    logoutBtn.addEventListener('click', async ()=>{
-      await signOut(auth);
+    btnGoogle?.addEventListener('click', async ()=>{
+      try { await signInWithPopup(auth, new GoogleAuthProvider()); }
+      catch (e) { alert('Innlogging feilet: '+e.message); }
     });
 
-    onAuthStateChanged(auth, user=>{
-      if(user){
-        statusTxt.textContent = "Innlogget som " + user.email;
-        logoutBtn.style.display = 'inline-block';
-        loginBtn.style.display  = 'none';
-        mainSection.classList.remove('dimmed');
-      } else {
-        statusTxt.textContent = "Ikke innlogget.";
-        logoutBtn.style.display = 'none';
-        loginBtn.style.display  = 'inline-block';
-        mainSection.classList.add('dimmed');
-      }
+    window._firebase = { auth, db };
+  </script>
+
+  <!-- UI: organisasjoner/ansatte -->
+  <script>
+    function populateOrgSelect(){
+      const orgSelect = document.getElementById('orgSelect');
+      orgSelect.innerHTML = '';
+      const orgs = window.ORG_PROFILES || {};
+      Object.keys(orgs).forEach(key=>{
+        const opt = document.createElement('option');
+        opt.value = key;
+        opt.textContent = orgs[key].name || key;
+        orgSelect.appendChild(opt);
+      });
+    }
+
+    function syncOrgKeyFromSelect(){
+      const key = document.getElementById('orgSelect').value;
+      document.getElementById('orgKey').value = key;
+      applyBranding('force');
+      loadEmployees();
+    }
+
+    function syncOrgSelectFromKey(){
+      const key = document.getElementById('orgKey').value.trim();
+      const orgSelect = document.getElementById('orgSelect');
+      const idx = Array.from(orgSelect.options).findIndex(o => o.value === key);
+      if (idx >= 0) orgSelect.selectedIndex = idx;
+    }
+
+    function loadEmployees(){
+      const key = document.getElementById('orgKey').value.trim();
+      const list = (window.EMPLOYEES || {})[key] || [];
+      const sel = document.getElementById('employeeSelect');
+      sel.innerHTML = '<option value="">(Velg ansatt…)</option>';
+      list.forEach((emp, i)=>{
+        const opt = document.createElement('option');
+        opt.value = String(i);
+        opt.textContent = emp.name + (emp.title ? ' – ' + emp.title : '');
+        sel.appendChild(opt);
+      });
+    }
+
+    function fillEmployee(iStr){
+      const key = document.getElementById('orgKey').value.trim();
+      const list = (window.EMPLOYEES || {})[key] || [];
+      const emp  = list[parseInt(iStr,10)];
+      if (!emp) return;
+      const set = (id, val) => { const el=document.getElementById(id); if (el) el.value = val || ''; };
+      set('slug', emp.slug); set('name', emp.name); set('title', emp.title);
+      set('phone', emp.phone); set('email', emp.email);
+      set('site', emp.site); set('address', emp.address); set('vcfFilename', emp.vcfFilename);
+    }
+
+    document.getElementById('employeeSelect').addEventListener('change', (e)=> fillEmployee(e.target.value));
+  </script>
+
+  <!-- Lenketabell -->
+  <script>
+    const tbody = document.querySelector('#linksTable tbody');
+
+    function addRow(label, url, pre = '', post = '') {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td><input value="${label||''}" class="lbl" /></td>
+        <td><input value="${url||''}" class="lnk" style="width:100%"/></td>
+        <td><textarea class="pre" rows="2" placeholder="Tekst over">${pre||''}</textarea></td>
+        <td><textarea class="post" rows="2" placeholder="Tekst under">${post||''}</textarea></td>
+        <td><button type="button" class="remove">Fjern</button></td>`;
+      tr.querySelector('.remove').addEventListener('click', () => tr.remove());
+      tbody.appendChild(tr);
+    }
+
+    document.getElementById('addLink').addEventListener('click', () => {
+      addRow(
+        document.getElementById('newLabel').value,
+        document.getElementById('newUrl').value,
+        document.getElementById('newPre').value,
+        document.getElementById('newPost').value
+      );
+      ['newLabel','newUrl','newPre','newPost'].forEach(id => document.getElementById(id).value = '');
+    });
+
+    document.querySelectorAll('.pill').forEach(btn => {
+      btn.addEventListener('click', () => addRow(btn.dataset.label, btn.dataset.url));
     });
   </script>
-  <!-- === App-script: helpers, logo, branding, generatorer === -->
+
+  <!-- Branding & logo -->
   <script>
-  // ----- Logo-opplasting via Netlify function (/api/uploadLogo) -----
-  async function handleLogoUpload(evt){
-    const file = evt.target.files?.[0];
-    if(!file){ return; }
-
-    const orgKey  = (document.getElementById('orgKey').value || '').trim() || 'Common';
-    const ghUser  = (document.getElementById('ghUser').value || '').trim();
-    const ghRepo  = (document.getElementById('ghRepo').value || '').trim();
-    const basePath= (document.getElementById('basePath').value|| 'Vcards').trim();
-
-    // Les → base64
-    const arrBuf = await file.arrayBuffer();
-    const base64 = btoa(String.fromCharCode(...new Uint8Array(arrBuf)));
-
-    const cleanOrg = orgKey.replace(/[^A-Za-z0-9_-]/g, '');
-    const ts = Date.now();
-    const ext = (file.name.split('.').pop() || 'png').toLowerCase().replace(/[^a-z0-9]/g,'') || 'png';
-    const safeName = `${cleanOrg}_logo_${ts}.${ext}`;
-
-    const res = await fetch('/api/uploadLogo', {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({
-        repoOwner: ghUser || undefined,
-        repoName:  ghRepo || undefined,
-        basePath,
-        orgKey:    cleanOrg,
-        filename:  safeName,
-        contentBase64: base64
-      })
-    });
-    const out = await res.json().catch(()=> ({}));
-    if(!res.ok || !out.url){
-      alert('Kunne ikkje laste opp logo. Sjekk Netlify logs.');
-      console.error('Upload error:', out);
-      return;
+    function applyBranding(mode = 'auto'){
+      const key  = document.getElementById('orgKey').value.trim();
+      const prof = (window.ORG_PROFILES || {})[key];
+      if (!prof) return;
+      const set = (id, val) => { const el=document.getElementById(id); if (!el) return; if (mode==='force' || !el.value) el.value = val || ''; };
+      set('orgName', prof.name || key);
+      set('accent' , prof.accent || '#8fd3ff');
+      set('orgSite', prof.site || '');
+      set('logoUrl', prof.logo || '');
+      set('logoBg' , prof.logoBg || '#ffffff');
+      previewLogo();
     }
-    // Sett inn URL og oppdater preview
-    const urlInput = document.getElementById('logoUrl');
-    urlInput.value = out.url;
-    previewLogo();
-  }
+    window.applyBranding = applyBranding;
 
-  // ----- Lenketabell (legg til / fjern rader) -----
-  const tbody = document.querySelector('#linksTable tbody');
-
-  function addRow(label, url, pre = '', post = '') {
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td><input value="${label || ''}" class="lbl" /></td>
-      <td><input value="${url || ''}" class="lnk" style="width:100%"/></td>
-      <td><textarea class="pre" rows="2" placeholder="Tekst over">${pre || ''}</textarea></td>
-      <td><textarea class="post" rows="2" placeholder="Tekst under">${post || ''}</textarea></td>
-      <td><button type="button" class="remove">Fjern</button></td>
-    `;
-    tr.querySelector('.remove').addEventListener('click', () => tr.remove());
-    tbody.appendChild(tr);
-  }
-
-  document.getElementById('addLink').addEventListener('click', () => {
-    addRow(
-      document.getElementById('newLabel').value,
-      document.getElementById('newUrl').value,
-      document.getElementById('newPre').value,
-      document.getElementById('newPost').value
-    );
-    ['newLabel','newUrl','newPre','newPost'].forEach(id => document.getElementById(id).value = '');
-  });
-
-  document.querySelectorAll('.pill').forEach(btn => {
-    btn.addEventListener('click', () => addRow(btn.dataset.label, btn.dataset.url));
-  });
-
-  // ----- Branding & logo-preview -----
-  function applyBranding(mode = 'auto'){
-    const key  = document.getElementById('orgKey').value.trim();
-    const prof = ORG_PROFILES[key];
-    if (!prof) return;
-
-    const set = (id, val) => {
-      const el = document.getElementById(id);
-      if (!el) return;
-      if (mode === 'force' || !el.value) el.value = val || '';
-    };
-
-    set('orgName', prof.name || key);
-    set('accent' , prof.accent || '#8fd3ff');
-    set('orgSite', prof.site || '');
-    set('logoUrl', prof.logo || '');
-    set('logoBg' , prof.logoBg || '');
-
-    previewLogo();
-  }
-
-  function previewLogo(){
-    const url = document.getElementById('logoUrl').value.trim();
-    const imgEl = document.getElementById('logoPreview');
-    const bgInput = document.getElementById('logoBg');
-    const manual = bgInput?.value.trim();
-
-    if(!url){
-      imgEl.style.display='none';
-      return;
+    function previewLogo(){
+      const url = document.getElementById('logoUrl').value.trim();
+      const img = document.getElementById('logoPreview');
+      const bg  = document.getElementById('logoBg').value.trim();
+      if(!url){ img.style.display='none'; return; }
+      img.src = url; img.style.display='block'; img.style.borderRadius='8px'; img.style.padding='6px';
+      img.style.background = bg || '#ffffff';
     }
+    window.previewLogo = previewLogo;
 
-    imgEl.src = url;
-    imgEl.style.display='block';
-    imgEl.style.borderRadius = '8px';
-    imgEl.style.padding = '6px';
-
-    if (manual) { // manuell overstyring
-      imgEl.style.background = manual;
-      return;
+    async function handleLogoUpload(evt){
+      const file = evt.target.files?.[0];
+      if(!file) return;
+      const orgKey = (document.getElementById('orgKey').value || '').trim() || 'Common';
+      const ghUser = (document.getElementById('ghUser').value || '').trim();
+      const ghRepo = (document.getElementById('ghRepo').value || '').trim();
+      const basePath = (document.getElementById('basePath').value || 'Vcards').trim();
+      const arrBuf = await file.arrayBuffer();
+      const base64 = btoa(String.fromCharCode(...new Uint8Array(arrBuf)));
+      const cleanOrg = orgKey.replace(/[^A-Za-z0-9_-]/g, '');
+      const ext = (file.name.split('.').pop() || 'png').toLowerCase().replace(/[^a-z0-9]/g,'') || 'png';
+      const safeName = `${cleanOrg}_logo_${Date.now()}.${ext}`;
+      const res = await fetch('/api/uploadLogo', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({ repoOwner:ghUser||undefined, repoName:ghRepo||undefined, basePath, orgKey:cleanOrg, filename:safeName, contentBase64:base64 })
+      });
+      const out = await res.json().catch(()=> ({}));
+      if(!res.ok || !out.url){ alert('Kunne ikke laste opp logo'); return; }
+      document.getElementById('logoUrl').value = out.url; previewLogo();
     }
+    window.handleLogoUpload = handleLogoUpload;
+  </script>
 
-    // default hvit bakplate
-    let chosenBg = '#ffffff';
-    imgEl.style.background = chosenBg;
-
-    // enkel auto-analyse (kan feile pga CORS – då held vi hvit)
-    const tmp = new Image();
-    tmp.crossOrigin = 'anonymous';
-    tmp.src = url;
-
-    const finish = (bg) => {
-      chosenBg = bg || chosenBg;
-      imgEl.style.background = chosenBg;
-      if (bgInput && !bgInput.value) bgInput.value = chosenBg;
-    };
-
-    tmp.onload = () => {
-      try {
-        const c = document.createElement('canvas');
-        const s = 24;
-        c.width = s; c.height = s;
-        const ctx = c.getContext('2d', { willReadFrequently: true });
-        ctx.drawImage(tmp, 0, 0, s, s);
-        const data = ctx.getImageData(0,0,s,s).data;
-
-        let r=0,g=0,b=0,n=0;
-        for(let i=0;i<data.length;i+=4){
-          const a = data[i+3];
-          if (a < 16) continue;
-          r += data[i]; g += data[i+1]; b += data[i+2]; n++;
-        }
-        if (n === 0) { finish('#ffffff'); return; }
-        r = Math.round(r/n); g = Math.round(g/n); b = Math.round(b/n);
-        const L = 0.2126*r + 0.7152*g + 0.0722*b;
-        const autoBg = (L < 150) ? '#ffffff' : '#1e1f28';
-        finish(autoBg);
-      } catch (e) {
-        finish('#ffffff');
-      }
-    };
-    tmp.onerror = () => finish('#ffffff');
-    setTimeout(() => { if (!bgInput.value) finish('#ffffff'); }, 1500);
-  }
-
-  // ----- vCard + HTML generatorar -----
-  function normalizePhone(p){
-    p = (p||'').trim(); if(!p) return p;
-    if(p.startsWith('0') && !p.startsWith('+')){
-      if(p.length <= 8) return '+47' + p.replace(/^0+/, '');
+  <!-- vCard/HTML + helpers -->
+  <script>
+    function normalizePhone(p){ p=(p||'').trim(); if(!p) return p; if(p.startsWith('0')&&!p.startsWith('+')){ if(p.length<=8) return '+47'+p.replace(/^0+/, ''); } return p; }
+    function makeVcard(d){
+      const parts = d.name.trim().split(' ');
+      const first = parts[0]||''; const last = parts.length>1?parts[parts.length-1]:'';
+      const phone = normalizePhone(d.phone||'');
+      return ['BEGIN:VCARD','VERSION:3.0',`FN:${d.name}`,`N:${last};${first};;;`,`ORG:${d.orgName||d.orgKey}`,`TITLE:${d.title||''}`,`TEL;TYPE=CELL:${phone}`,`EMAIL;TYPE=INTERNET:${d.email||''}`,`URL:${d.site||''}`,`ADR;TYPE=WORK:;;${d.address||''}`,'END:VCARD'].join('\n');
     }
-    return p;
-  }
-
-  function makeVcard(d){
-    const parts = d.name.trim().split(' ');
-    const first = parts[0] || '';
-    const last  = parts.length>1 ? parts[parts.length-1] : '';
-    const phone = normalizePhone(d.phone||'');
-
-    return [
-      'BEGIN:VCARD',
-      'VERSION:3.0',
-      `FN:${d.name}`,
-      `N:${last};${first};;;`,
-      `ORG:${d.orgName||d.orgKey}`,
-      `TITLE:${d.title||''}`,
-      `TEL;TYPE=CELL:${phone}`,
-      `EMAIL;TYPE=INTERNET:${d.email||''}`,
-      `URL:${d.site||''}`,
-      `ADR;TYPE=WORK:;;${d.address||''}`,
-      'END:VCARD'
-    ].join('\n');
-  }
-
-  function esc(s){ return (s||'').replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
-
-  function makeLinksHTML(links){
-    if(!links.length) return '';
-    return links.map(l => {
-      const pre  = l.pre  ? `<div class="pre"  style="margin:8px 0 4px;color:#bfc8d6">${esc(l.pre)}</div>` : '';
-      const post = l.post ? `<div class="post" style="margin:4px 0 10px;color:#97a3b6;font-size:.95rem">${esc(l.post)}</div>` : '';
-      return `<div class="link-block" style="margin-top:10px">
-        ${pre}
-        <a class="btn" href="${esc(l.url)}" target="_blank" rel="noopener">${esc(l.label)}</a>
-        ${post}
-      </div>`;
-    }).join('');
-  }
-
-  function makeHTML(d, vcfFile, links){
-    const accent  = d.accent || '#8fd3ff';
-    const bgStyle = `background:${d.logoBg || '#ffffff'};border-radius:8px;padding:6px;`;
-    const logoTag = d.logoUrl ? `<img class="brand-logo" src="${d.logoUrl}" style="${bgStyle}" alt="${esc(d.orgName||d.orgKey)} logo">` : '';
-    const extras  = makeLinksHTML(links);
-
-    return `<!doctype html>
+    const esc = s => (s||'').replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+    function makeLinksHTML(links){
+      if(!links.length) return '';
+      return links.map(l=>{
+        const pre  = l.pre  ? `<div class="pre"  style="margin:8px 0 4px;color:#bfc8d6">${esc(l.pre)}</div>` : '';
+        const post = l.post ? `<div class="post" style="margin:4px 0 10px;color:#97a3b6;font-size:.95rem">${esc(l.post)}</div>` : '';
+        return `<div class="link-block" style="margin-top:10px">${pre}<a class="btn" href="${esc(l.url)}" target="_blank" rel="noopener">${esc(l.label)}</a>${post}</div>`;
+      }).join('');
+    }
+    function makeHTML(d, vcfFile, links){
+      const accent  = d.accent || '#8fd3ff';
+      const bgStyle = `background:${d.logoBg || '#ffffff'};border-radius:8px;padding:6px;`;
+      const logoTag = d.logoUrl ? `<img class="brand-logo" src="${d.logoUrl}" style="${bgStyle}" alt="${esc(d.orgName||d.orgKey)} logo">` : '';
+      const extras  = makeLinksHTML(links);
+      return `<!doctype html>
 <html lang="no">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Kontaktkort – ${esc(d.name)}</title>
 <style>
@@ -536,7 +470,6 @@ body{font-family:system-ui,-apple-system,Roboto,Arial;background:#0b0b10;color:#
 .btn{display:inline-block;padding:12px 14px;background:var(--accent);color:#03101a;border-radius:10px;text-decoration:none;font-weight:700}
 .links{margin-top:12px;display:flex;gap:8px;flex-wrap:wrap}
 .card p{color:#bfc8d6}
-code{background:#0d1117;padding:.2em .4em;border-radius:6px}
 .brand-logo{max-height:56px;max-width:280px;object-fit:contain;margin:0 0 12px 0;display:block}
 </style>
 </head>
@@ -558,305 +491,195 @@ code{background:#0d1117;padding:.2em .4em;border-radius:6px}
 </main>
 </body>
 </html>`;
-  }
+    }
 
-  // ----- Netlify helper -----
-  async function postJSON(url, data){
-    const r = await fetch(url, {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify(data)
-    });
-    const t = await r.text();
-    try { return { ok:r.ok, status:r.status, json:JSON.parse(t) }; }
-    catch { return { ok:r.ok, status:r.status, text:t }; }
-  }
+    async function postJSON(url, data){
+      const r = await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
+      const t = await r.text(); try{return{ok:r.ok,status:r.status,json:JSON.parse(t)}}catch{return{ok:r.ok,status:r.status,text:t}};
+    }
 
-  // ----- UI: Kopier/åpne for URL-feltene -----
-  function ensureUrlControls(id, label) {
-    const input = document.getElementById(id);
-    if (!input) return;
-    if (input.nextSibling?.classList?.contains('url-actions')) return;
-
-    const wrap = document.createElement('span');
-    wrap.className = 'url-actions';
-    wrap.innerHTML = `
-      <button type="button" class="pill" data-act="copy">Kopier ${label}</button>
-      <button type="button" class="pill" data-act="open">Åpne</button>
-    `;
-    input.after(wrap);
-
-    wrap.addEventListener('click', (e)=>{
-      const btn = e.target.closest('button[data-act]');
-      if(!btn) return;
-      const act = btn.dataset.act;
-      const val = input.value.trim();
-      if(!val) return;
-      if(act === 'copy') navigator.clipboard.writeText(val);
-      if(act === 'open') window.open(val, '_blank', 'noopener');
-    });
-  }
+    function ensureUrlControls(id,label){
+      const input = document.getElementById(id); if(!input) return;
+      if (input.nextSibling?.classList?.contains('url-actions')) return;
+      const wrap = document.createElement('span'); wrap.className = 'url-actions';
+      wrap.innerHTML = `<button type="button" class="pill" data-act="copy">Kopier ${label}</button><button type="button" class="pill" data-act="open">Åpne</button>`;
+      input.after(wrap);
+      wrap.addEventListener('click',(e)=>{
+        const btn=e.target.closest('button[data-act]'); if(!btn) return;
+        const val=input.value.trim(); if(!val) return;
+        if(btn.dataset.act==='copy') navigator.clipboard.writeText(val);
+        if(btn.dataset.act==='open') window.open(val,'_blank','noopener');
+      });
+    }
   </script>
-  <!-- === App-script: org/ansatt, generering og publisering === -->
+
+  <!-- Generer & Publiser + Live preview + NFC -->
   <script>
-  /* ---------- Org- og ansatt-dropdown ---------- */
-  function populateOrgSelect(){
-    const orgSelect = document.getElementById('orgSelect');
-    if (!orgSelect) return;
-    orgSelect.innerHTML = '';
-    Object.keys(ORG_PROFILES).forEach(key=>{
-      const opt = document.createElement('option');
-      opt.value = key;
-      opt.textContent = ORG_PROFILES[key].name || key;
-      orgSelect.appendChild(opt);
+    document.getElementById('generate').addEventListener('click', async ()=>{
+      const get = id => document.getElementById(id).value.trim();
+      const d = {
+        orgKey:get('orgKey'),
+        orgName:get('orgName')||get('orgKey'),
+        accent:get('accent')||'#8fd3ff',
+        logoUrl:get('logoUrl'),
+        logoBg:get('logoBg')||'',
+        slug:get('slug'),
+        name:get('name'),
+        title:get('title'),
+        phone:get('phone'),
+        email:get('email'),
+        site:get('site'),
+        address:get('address'),
+        vcfFilename:get('vcfFilename')||(get('slug')+'_'+get('orgKey')+'.vcf'),
+        ghUser:get('ghUser'),
+        ghRepo:get('ghRepo'),
+        basePath:get('basePath')||'Vcards',
+        strategy:document.getElementById('strategy').value
+      };
+      if(!d.orgKey||!d.slug||!d.name){ alert('Mangler: orgKey, slug, name'); return; }
+
+      const links = Array.from(document.querySelectorAll('#linksTable tbody tr')).map(tr=>({
+        label: tr.querySelector('.lbl').value.trim(),
+        url:   tr.querySelector('.lnk').value.trim(),
+        pre:   tr.querySelector('.pre').value.trim(),
+        post:  tr.querySelector('.post').value.trim()
+      })).filter(x=>x.label && x.url);
+
+      const vcf  = makeVcard(d);
+      const html = makeHTML(d, d.vcfFilename, links);
+      document.getElementById('vcfPreview').value  = vcf;
+      document.getElementById('htmlPreview').value = html;
+      updateLivePreview(html);
+
+      const ownerPart = d.ghUser || '<owner>';
+      const repoPart  = d.ghRepo || '<repo>';
+      const basePath  = (d.basePath||'Vcards').replace(/^\/+|\/+$/g,'');
+      const baseUrl   = `https://${ownerPart}.github.io/${repoPart}${basePath?`/${basePath}`:''}/${d.orgKey}/${d.slug}`;
+      const htmlUrl   = `${baseUrl}/index.html`;
+      const vcfUrl    = `${baseUrl}/${d.vcfFilename}`;
+
+      document.getElementById('nfcUrl').value  = vcfUrl;
+      document.getElementById('htmlUrl').value = htmlUrl;
+      ensureUrlControls('nfcUrl','NFC-URL');
+      ensureUrlControls('htmlUrl','HTML-URL');
+      const inline = document.getElementById('nfcInline'); if(inline) inline.textContent = vcfUrl;
+
+      document.getElementById('status').textContent = 'Publiserer…';
+      const prefix = d.basePath ? (d.basePath.replace(/^\/+|\/+$/g,'') + '/') : '';
+      const payload = {
+        repoOwner:d.ghUser||undefined, repoName:d.ghRepo||undefined,
+        basePath:d.basePath, orgKey:d.orgKey, slug:d.slug,
+        files:[
+          { path:`${prefix}${d.orgKey}/${d.slug}/${d.vcfFilename}`, content: vcf },
+          { path:`${prefix}${d.orgKey}/${d.slug}/index.html`,       content: html },
+          { path:`${prefix}${d.orgKey}/${d.slug}/data.json`,        content: JSON.stringify({ ...d, links }, null, 2) },
+          { path:`${prefix}.nojekyll`,                              content: "" }
+        ],
+        strategy:d.strategy,
+        commitMessage:`Add/Update card: ${d.orgKey}/${d.slug}`
+      };
+
+      try{
+        const res = await postJSON('/api/createCard', payload);
+        if(res.ok){ document.getElementById('status').innerHTML = '<span class="ok">✅ Ferdig! Åpne HTML-URL-en (gi Pages litt tid).</span>'; }
+        else {
+          const msg = res.json && res.json.error ? res.json.error : (res.text || 'Ukjent feil');
+          document.getElementById('status').innerHTML = '<span class="err">❌ Feil: '+msg+'</span>';
+        }
+      }catch(e){ document.getElementById('status').innerHTML = '<span class="err">❌ Nettverksfeil: '+e.message+'</span>'; }
     });
-  }
 
-  function syncOrgKeyFromSelect(){
-    const key = document.getElementById('orgSelect').value;
-    const keyEl = document.getElementById('orgKey');
-    keyEl.value = key;
-    applyBranding('force');
-    loadEmployees();
-  }
-
-  function syncOrgSelectFromKey(){
-    const key = document.getElementById('orgKey').value.trim();
-    const orgSelect = document.getElementById('orgSelect');
-    const idx = Array.from(orgSelect.options).findIndex(o => o.value === key);
-    if (idx >= 0) orgSelect.selectedIndex = idx;
-  }
-
-  function loadEmployees(){
-    const key = document.getElementById('orgKey').value.trim();
-    const list = EMPLOYEES[key] || [];
-    const sel = document.getElementById('employeeSelect');
-    sel.innerHTML = '<option value="">(Velg ansatt…)</option>';
-    list.forEach((emp, i)=>{
-      const opt = document.createElement('option');
-      opt.value = String(i);
-      opt.textContent = emp.name + (emp.title ? ' – ' + emp.title : '');
-      sel.appendChild(opt);
+    // Live preview
+    function updateLivePreview(html){
+      const frame = document.getElementById('livePreviewFrame'); if(!frame) return;
+      const doc = frame.contentDocument || frame.contentWindow.document;
+      doc.open(); doc.write(html); doc.close();
+    }
+    document.getElementById('openPreviewBtn')?.addEventListener('click', ()=>{
+      const blob = new Blob([document.getElementById('htmlPreview').value], {type:'text/html'});
+      const url  = URL.createObjectURL(blob); window.open(url,'_blank'); setTimeout(()=>URL.revokeObjectURL(url), 60_000);
     });
-  }
 
-  function fillEmployee(iStr){
-    const key = document.getElementById('orgKey').value.trim();
-    const list = EMPLOYEES[key] || [];
-    const i = parseInt(iStr, 10);
-    const emp = list[i];
-    if (!emp) return;
-
-    const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val || ''; };
-    set('slug', emp.slug);
-    set('name', emp.name);
-    set('title', emp.title);
-    set('phone', emp.phone);
-    set('email', emp.email);
-    set('site', emp.site);
-    set('address', emp.address);
-    set('vcfFilename', emp.vcfFilename);
-  }
-
-  // Koble events for dropdowns
-  document.addEventListener('DOMContentLoaded', ()=>{
-    populateOrgSelect();
-
-    const orgKeyEl = document.getElementById('orgKey');
-    if (!orgKeyEl.value && document.getElementById('orgSelect').options.length){
-      document.getElementById('orgSelect').selectedIndex = 0;
-      syncOrgKeyFromSelect();
-    } else {
-      syncOrgSelectFromKey();
-      applyBranding('auto');
-      loadEmployees();
+    // NFC helpers
+    function logNFC(msg){
+      const el = document.getElementById('nfcLog');
+      el.textContent += msg + '\n';
+      el.scrollTop = el.scrollHeight;
+    }
+    function supportsNFC(){
+      return ('NDEFReader' in window);
     }
 
-    document.getElementById('orgSelect').addEventListener('change', syncOrgKeyFromSelect);
-    document.getElementById('employeeSelect').addEventListener('change', (e)=> fillEmployee(e.target.value));
-
-    // Oppdater logo-preview om URL alt er satt
-    const lu = document.getElementById('logoUrl')?.value.trim();
-    if (lu) previewLogo();
-  });
-
-  /* ---------- Generer & Publiser ---------- */
-  document.getElementById('generate').addEventListener('click', async ()=>{
-    const get = id => document.getElementById(id).value.trim();
-    const d = {
-      orgKey:get('orgKey'),
-      orgName:get('orgName')||get('orgKey'),
-      accent:get('accent')||'#8fd3ff',
-      logoUrl:get('logoUrl'),
-      logoBg:get('logoBg') || '',
-      slug:get('slug'),
-      name:get('name'),
-      title:get('title'),
-      phone:get('phone'),
-      email:get('email'),
-      site:get('site'),
-      address:get('address'),
-      vcfFilename:get('vcfFilename') || (get('slug') + '_' + get('orgKey') + '.vcf'),
-      ghUser:get('ghUser'),
-      ghRepo:get('ghRepo'),
-      basePath:get('basePath')||'Vcards',   // behold Vcards for kompatibilitet
-      strategy:document.getElementById('strategy').value
-    };
-
-    if(!d.orgKey || !d.slug || !d.name){
-      alert('Mangler: orgKey, slug, name');
-      return;
-    }
-
-    // Samle lenker
-    const links = Array.from(document.querySelectorAll('#linksTable tbody tr')).map(tr=>({
-      label: tr.querySelector('.lbl').value.trim(),
-      url:   tr.querySelector('.lnk').value.trim(),
-      pre:   tr.querySelector('.pre').value.trim(),
-      post:  tr.querySelector('.post').value.trim()
-    })).filter(x=>x.label && x.url);
-
-    // Bygg filer
-    const vcf  = makeVcard(d);
-    const html = makeHTML(d, d.vcfFilename, links);
-    document.getElementById('vcfPreview').value  = vcf;
-    document.getElementById('htmlPreview').value = html;
-    updateLivePreview(html);
-
-    // URL-ene (med "dobbel Vcards" når basePath = Vcards)
-    const ownerPart = d.ghUser || '<owner>';
-    const repoPart  = d.ghRepo || '<repo>';
-    const basePath  = (d.basePath || 'Vcards').replace(/^\/+|\/+$/g, '');
-    const pathPart  = basePath ? `/${basePath}` : '';
-
-    const baseUrl = `https://${ownerPart}.github.io/${repoPart}${pathPart}/${d.orgKey}/${d.slug}`;
-    const htmlUrl = `${baseUrl}/index.html`;
-    const vcfUrl  = `${baseUrl}/${d.vcfFilename}`;
-
-    // Vis i UI + kopi/åpne
-    document.getElementById('nfcUrl').value  = vcfUrl;
-    document.getElementById('htmlUrl').value = htmlUrl;
-    ensureUrlControls('nfcUrl','NFC-URL');
-    ensureUrlControls('htmlUrl','HTML-URL');
-
-    const inline = document.getElementById('nfcInline');
-    if (inline) inline.textContent = vcfUrl;
-
-    // Publiser til GitHub via Netlify function
-    document.getElementById('status').textContent = 'Publiserer…';
-
-    const prefix = d.basePath ? (d.basePath.replace(/^\/+|\/+$/g,'') + '/') : '';
-    const payload = {
-      repoOwner: d.ghUser || undefined,
-      repoName:  d.ghRepo || undefined,
-      basePath:  d.basePath, // bakoverkomp
-      orgKey:    d.orgKey,
-      slug:      d.slug,
-      files: [
-        { path: `${prefix}${d.orgKey}/${d.slug}/${d.vcfFilename}`, content: vcf  },
-        { path: `${prefix}${d.orgKey}/${d.slug}/index.html`,       content: html },
-        { path: `${prefix}${d.orgKey}/${d.slug}/data.json`,        content: JSON.stringify({ ...d, links }, null, 2) },
-        { path: `${prefix}.nojekyll`,                              content: ""   }
-      ],
-      strategy: d.strategy,
-      commitMessage: `Add/Update card: ${d.orgKey}/${d.slug}`
-    };
-
-    try{
-      const res = await postJSON('/api/createCard', payload);
-      if(res.ok){
-        document.getElementById('status').innerHTML =
-          '<span class="ok">✅ Ferdig! Åpne HTML-URL-en i nettleser (gi Pages et lite minutt).</span>';
-      } else {
-        const msg = res.json && res.json.error ? res.json.error : (res.text || 'Ukjent feil');
-        document.getElementById('status').innerHTML = '<span class="err">❌ Feil: '+msg+'</span>';
-      }
-    }catch(e){
-      document.getElementById('status').innerHTML = '<span class="err">❌ Nettverksfeil: '+e.message+'</span>';
-    }
-  });
-  </script>
-  <!-- === Live preview helpers === -->
-  <script>
-  function updateLivePreview(html) {
-    const frame = document.getElementById('livePreviewFrame');
-    if (!frame) return;
-    const doc = frame.contentDocument || frame.contentWindow.document;
-    doc.open(); doc.write(html); doc.close();
-  }
-  function openPreviewInNewTab(html) {
-    const blob = new Blob([html], {type:'text/html'});
-    const url = URL.createObjectURL(blob);
-    window.open(url, '_blank');
-    setTimeout(() => URL.revokeObjectURL(url), 60_000);
-  }
-  document.getElementById('openPreviewBtn')?.addEventListener('click', ()=>{
-    const html = document.getElementById('htmlPreview').value;
-    openPreviewInNewTab(html);
-  });
-  </script>
-
-  <!-- === Firestore: hent org-tilgangar for innlogga brukar og flett inn i ORG_PROFILES === -->
-  <script type="module">
-    import { getApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
-    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
-    import {
-      getFirestore, collectionGroup, query, where, getDocs, doc, getDoc
-    } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
-
-    const app = getApp();
-    const auth = getAuth(app);
-    const db   = getFirestore(app);
-
-    function mergeOrgProfiles(dyn){
-      if (!window.ORG_PROFILES) window.ORG_PROFILES = {};
-      window.ORG_PROFILES = { ...window.ORG_PROFILES, ...dyn };
-      if (typeof populateOrgSelect === 'function') {
-        populateOrgSelect();
-        // Om orgKey ikkje finst, vel første
-        const sel = document.getElementById('orgSelect');
-        if (sel && sel.options.length && sel.selectedIndex < 0) sel.selectedIndex = 0;
-        if (typeof syncOrgKeyFromSelect === 'function') syncOrgKeyFromSelect();
-      }
-    }
-
-    async function loadUserOrgs(email){
-      const dyn = {};
-      const q = query(collectionGroup(db, 'members'), where('email', '==', email));
-      const snap = await getDocs(q);
-
-      for (const m of snap.docs) {
-        const orgRef = m.ref.parent.parent;  // .../orgs/{orgId}
-        if (!orgRef) continue;
-        const orgId = orgRef.id;
-
-        // Standard-verdier dersom org-dokumentet manglar
-        let name = orgId, accent = '#8fd3ff', logo = '', site = '', logoBg = '';
-        try {
-          const orgDoc = await getDoc(doc(db, 'orgs', orgId));
-          if (orgDoc.exists()) {
-            const d = orgDoc.data() || {};
-            name   = d.name   || name;
-            accent = d.accent || accent;
-            logo   = d.logo   || logo;
-            site   = d.site   || site;
-            logoBg = d.logoBg || logoBg;
+    // LES NFC
+    document.getElementById('nfcRead').addEventListener('click', async ()=>{
+      if(!supportsNFC()){ alert('Web NFC støttes kun i Chrome/Android'); return; }
+      try{
+        const reader = new NDEFReader();
+        await reader.scan();
+        logNFC('Hold telefonen nær kortet – lytter...');
+        reader.onreadingerror = () => logNFC('Lesefeil');
+        reader.onreading = (event) => {
+          const { message, serialNumber } = event;
+          logNFC(`Serial: ${serialNumber || '(ukjent)'}`);
+          for (const record of message.records) {
+            try{
+              if (record.recordType === 'url') {
+                const text = new TextDecoder().decode(record.data);
+                logNFC('URL: ' + text);
+              } else if (record.recordType === 'text') {
+                const text = new TextDecoder().decode(record.data);
+                logNFC('Tekst: ' + text);
+              } else if (record.mediaType === 'text/vcard' || record.mediaType === 'text/x-vcard') {
+                const vcf = new TextDecoder().decode(record.data);
+                logNFC('vCard:\n' + vcf);
+              } else {
+                logNFC(`Record: type=${record.recordType} mediaType=${record.mediaType||''}`);
+              }
+            }catch(e){ logNFC('Kunne ikke dekode record: '+e.message); }
           }
-        } catch(_) {}
-
-        dyn[orgId] = { name, accent, logo, site, logoBg };
-      }
-
-      if (Object.keys(dyn).length) mergeOrgProfiles(dyn);
-    }
-
-    onAuthStateChanged(auth, async (user)=>{
-      if (user) {
-        try { await loadUserOrgs(user.email); }
-        catch (e) { console.warn('Kunne ikkje hente org-tilgangar:', e); }
+        };
+      }catch(e){
+        logNFC('Start scanning feilet: '+e.message);
       }
     });
-  </script>
 
-</main>
+    // SKRIV NFC
+    document.getElementById('nfcWrite').addEventListener('click', async ()=>{
+      if(!supportsNFC()){ alert('Web NFC støttes kun i Chrome/Android'); return; }
+      const mode = document.getElementById('nfcWriteMode').value;
+      const payload = document.getElementById('nfcPayload').value.trim();
+      try{
+        const writer = new NDEFReader();
+        await writer.write(await buildNdefMessage(mode, payload));
+        logNFC('✅ Skrevet!');
+      }catch(e){
+        logNFC('Skrivefeil: '+e.message);
+      }
+    });
+
+    async function buildNdefMessage(mode, payload){
+      if (mode === 'url') {
+        const url = payload || document.getElementById('htmlUrl').value.trim() || document.getElementById('nfcUrl').value.trim();
+        if (!url) throw new Error('Mangler URL å skrive');
+        return { records:[ { recordType:'url', data: url } ] };
+      }
+      if (mode === 'text') {
+        const text = payload || 'Hei fra NFCKING';
+        return { records:[ { recordType:'text', data: text } ] };
+      }
+      if (mode === 'vcard') {
+        const vcf = document.getElementById('vcfPreview').value.trim();
+        if (!vcf) throw new Error('Ingen vCard i forhåndsvisning. Generer først.');
+        return { records:[ { recordType:'mime', mediaType:'text/vcard', data: new TextEncoder().encode(vcf) } ] };
+      }
+      throw new Error('Ukjent skrive-modus');
+    }
+
+    // Init etter DOM ready (merk: auth viser/skjuler app)
+    document.addEventListener('DOMContentLoaded', ()=>{
+      const sel = document.getElementById('orgSelect');
+      if (sel) sel.addEventListener('change', syncOrgKeyFromSelect);
+    });
+  </script>
 </body>
 </html>
