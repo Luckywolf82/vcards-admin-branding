@@ -1,4 +1,3 @@
-const { initAdmin } = require('./_shared/firebaseAdmin');
 
 exports.handler = async (event) => {
   try {
