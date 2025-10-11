@@ -319,10 +319,40 @@ document.getElementById('generate').addEventListener('click', async ()=>{
   document.getElementById('vcfPreview').value = vcf;
   document.getElementById('htmlPreview').value = html;
 
-  const owner = d.ghUser || '<owner>';
-  const repo  = d.ghRepo || '<repo>';
-  const nfc = `https://${owner}.github.io/${repo}/${d.basePath}/${d.orgKey}/${d.slug}/${d.vcfFilename}`;
-  document.getElementById('nfcUrl').value = nfc;
+  // --- Ryddige URLer + vis HTML-URL også ---
+let basePath = (d.basePath || '').replace(/^\/+|\/+$/g, '');
+let repoPart  = d.ghRepo  || '<repo>';
+let ownerPart = d.ghUser  || '<owner>';
+
+// Unngå dobbel Vcards/Vcards hvis basePath = repo
+const needsBase = basePath.toLowerCase() !== repoPart.toLowerCase();
+const pathPart  = needsBase ? `/${basePath}` : '';
+
+const baseUrl = `https://${ownerPart}.github.io/${repoPart}${pathPart}/${d.orgKey}/${d.slug}`;
+const htmlUrl = `${baseUrl}/index.html`;
+const vcfUrl  = `${baseUrl}/${d.vcfFilename}`;
+
+// Sett NFC (VCF) i feltet som før
+document.getElementById('nfcUrl').value = vcfUrl;
+
+// Legg til felt for HTML-URL (opprettes én gang)
+let htmlOut = document.getElementById('htmlUrl');
+if (!htmlOut) {
+  const label = document.createElement('p');
+  label.textContent = 'HTML-URL:';
+  const input = document.createElement('input');
+  input.id = 'htmlUrl';
+  input.readOnly = true;
+  input.style.width = '100%';
+  input.style.marginBottom = '6px';
+
+  const nfcP = document.getElementById('nfcUrl').parentElement; // <p> som inneholder NFC-feltet
+  nfcP.parentElement.insertBefore(label, nfcP);
+  nfcP.parentElement.insertBefore(input, nfcP);
+  htmlOut = input;
+}
+htmlOut.value = htmlUrl;
+
 
   document.getElementById('status').textContent = 'Publiserer…';
   const payload = {
