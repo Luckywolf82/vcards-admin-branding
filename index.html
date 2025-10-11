@@ -229,10 +229,56 @@ function applyBranding(force = true){
 
 function previewLogo(){
   const url = document.getElementById('logoUrl').value.trim();
-  const img = document.getElementById('logoPreview');
-  if(url){ img.src = url; img.style.display='block'; }
-  else { img.style.display='none'; }
+  const imgEl = document.getElementById('logoPreview');
+  const manual = document.getElementById('logoBg')?.value.trim();
+
+  if(!url){ imgEl.style.display='none'; return; }
+  imgEl.src = url; 
+  imgEl.style.display='block';
+
+  // Manuell bakgrunnsfarge
+  if (manual) {
+    imgEl.style.background = manual;
+    imgEl.style.borderRadius = '8px';
+    imgEl.style.padding = '6px';
+    return;
+  }
+
+  // Automatisk fargeanalyse
+  const tmp = new Image();
+  tmp.crossOrigin = 'anonymous';
+  tmp.src = url;
+  tmp.onload = () => {
+    try {
+      const c = document.createElement('canvas');
+      const s = 24;
+      c.width = s; c.height = s;
+      const ctx = c.getContext('2d');
+      ctx.drawImage(tmp, 0, 0, s, s);
+      const data = ctx.getImageData(0,0,s,s).data;
+
+      let r=0,g=0,b=0,n=0;
+      for(let i=0;i<data.length;i+=4){
+        const a = data[i+3];
+        if (a < 10) continue; // hopp over transparente pixler
+        r += data[i]; g += data[i+1]; b += data[i+2]; n++;
+      }
+      if (n === 0) { imgEl.style.background='transparent'; return; }
+      r = Math.round(r/n); g = Math.round(g/n); b = Math.round(b/n);
+
+      const L = 0.2126*r + 0.7152*g + 0.0722*b;
+      const autoBg = (L < 120) ? '#ffffff' : '#1e1f28';
+      imgEl.style.background   = autoBg;
+      imgEl.style.borderRadius = '8px';
+      imgEl.style.padding      = '6px';
+    } catch(e){
+      imgEl.style.background   = '#ffffff';
+      imgEl.style.borderRadius = '8px';
+      imgEl.style.padding      = '6px';
+    }
+  };
 }
+
 
 // === vCard/HTML helpers ===
 function normalizePhone(p){
@@ -331,6 +377,7 @@ document.getElementById('generate').addEventListener('click', async ()=>{
     orgName:get('orgName')||get('orgKey'),
     accent:get('accent')||'#8fd3ff',
     logoUrl:get('logoUrl'),
+    logoBg:get('logoBg') || '',
     slug:get('slug'),
     name:get('name'),
     title:get('title'),
