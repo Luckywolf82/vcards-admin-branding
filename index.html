@@ -169,6 +169,15 @@
 
   <h4>index.html</h4>
   <textarea id="htmlPreview" rows="14" style="width:100%"></textarea>
+<!-- === LIVE FORHÅNDSVISNING === -->
+<div id="livePreviewContainer" style="margin-top:10px;">
+  <h4>Live forhåndsvisning</h4>
+  <button id="openPreviewBtn" style="margin:6px 0;">Åpne forhåndsvisning i ny fane</button>
+  <iframe id="livePreviewFrame"
+          style="width:100%;height:480px;border:1px solid #333;border-radius:8px;background:#111;"
+          title="Live Preview"></iframe>
+</div>
+<!-- === /LIVE FORHÅNDSVISNING === -->
 
   <script>
 // === Tabell og lenker ===
@@ -349,6 +358,7 @@ document.getElementById('generate').addEventListener('click', async ()=>{
   const html = makeHTML(d, d.vcfFilename, links);
   document.getElementById('vcfPreview').value  = vcf;
   document.getElementById('htmlPreview').value = html;
+updateLivePreview(html);
 
   // === URL-er (bevisst "dobbel Vcards") ===
   const ownerPart = d.ghUser || '<owner>';
@@ -418,7 +428,30 @@ htmlOut.value = htmlUrl;
 document.addEventListener('DOMContentLoaded', () => {
   const k = document.getElementById('orgKey').value.trim();
   if (k) applyBranding(true);
+}); 
+    // === LIVE PREVIEW-FUNKSJONER ===
+function updateLivePreview(html) {
+  const frame = document.getElementById('livePreviewFrame');
+  if (!frame) return;
+  const doc = frame.contentDocument || frame.contentWindow.document;
+  doc.open();
+  doc.write(html);
+  doc.close();
+}
+
+function openPreviewInNewTab(html) {
+  const blob = new Blob([html], {type:'text/html'});
+  const url = URL.createObjectURL(blob);
+  window.open(url, '_blank');
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
+}
+
+document.getElementById('openPreviewBtn')?.addEventListener('click', ()=>{
+  const html = document.getElementById('htmlPreview').value;
+  openPreviewInNewTab(html);
 });
+// === /LIVE PREVIEW-FUNKSJONER ===
+
 </script>
 </main>
 </body>
