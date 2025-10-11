@@ -364,6 +364,22 @@ document.getElementById('generate').addEventListener('click', async ()=>{
   document.getElementById('nfcUrl').value = vcfUrl;
   const inline = document.getElementById('nfcInline');
   if (inline) inline.textContent = vcfUrl;
+// === Legg til felt for HTML-URL (vises sammen med NFC-URL) ===
+let htmlOut = document.getElementById('htmlUrl');
+if (!htmlOut) {
+  const label = document.createElement('p');
+  label.textContent = 'HTML-URL:';
+  const input = document.createElement('input');
+  input.id = 'htmlUrl';
+  input.readOnly = true;
+  input.style.width = '100%';
+  input.style.marginBottom = '6px';
+  const nfcP = document.getElementById('nfcUrl').parentElement;
+  nfcP.parentElement.insertBefore(label, nfcP);
+  nfcP.parentElement.insertBefore(input, nfcP);
+  htmlOut = input;
+}
+htmlOut.value = htmlUrl;
 
                                                      // === Publiser til GitHub via Netlify function ===
   document.getElementById('status').textContent = 'Publiserer…';
