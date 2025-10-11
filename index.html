@@ -5,60 +5,46 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>NFCKING – Adminpanel</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/water.css@2/out/water.css">
+  <!-- QR-kode-bibliotek -->
   <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
   <style>
+    body{background:#0b0b10;color:#e9eef5}
     .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
     @media (max-width:920px){.row{grid-template-columns:1fr}}
     textarea{font-family:monospace}
-    .ok{color:#0a0;font-weight:700}
-    .err{color:#a00;font-weight:700}
-    .note{font-size:.9rem;color:#667}
-    .pill{display:inline-block;padding:.15rem .5rem;border-radius:999px;background:#eef;color:#334;margin-right:.3rem;font-size:.8rem;cursor:pointer;border:none}
+    .ok{color:#21c36a;font-weight:700}
+    .err{color:#ff6b6b;font-weight:700}
+    .note{font-size:.95rem;color:#8ea0b4}
+    .pill{display:inline-block;padding:.15rem .5rem;border-radius:999px;background:#243244;color:#cfe3ff;margin-right:.3rem;font-size:.8rem;cursor:pointer;border:1px solid #344458}
     .links-table{width:100%;border-collapse:collapse}
-    .links-table th,.links-table td{border-bottom:1px solid #e3e3e3;padding:.3rem;vertical-align:top}
-    .muted{color:#76808f}
+    .links-table th,.links-table td{border-bottom:1px solid #2a3442;padding:.3rem;vertical-align:top}
+    .muted{color:#8ea0b4}
     code{background:#0d1117;color:#d1e7ff;padding:.2em .4em;border-radius:6px}
     .inline{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
     .logo-prev{height:36px;max-width:220px;object-fit:contain;margin-left:8px;background:#fff;border-radius:6px;padding:4px}
     @media (max-width:640px){.logo-prev{height:28px}}
-    .btn{display:inline-block;padding:12px 14px;border-radius:10px;text-decoration:none;font-weight:700}
+    .btn{display:inline-block;padding:12px 14px;border-radius:10px;text-decoration:none;font-weight:700;background:#8fd3ff;color:#03101a}
     .url-actions{margin-left:6px}
+    .brand{text-align:center;margin:0 0 18px}
+    .brand img{max-width:240px;height:auto;filter:drop-shadow(0 0 6px #3fffd2)}
+    .brand-sub{margin:6px 0 0;color:#8ea0b4}
+    .brand-rule{border:0;height:2px;background:linear-gradient(90deg,#8fd3ff,#52a3ff);opacity:.7;margin:10px 0 16px}
   </style>
 </head>
 
 <body>
 <main>
-  <img src="assets/nfcking-logo.png" alt="NFCKING logo" style="height:50px;display:block;margin-bottom:6px;">
-  <h1>NFCKING – Adminpanel</h1>
-  <p class="note">Lag og publiser NFC-kort for ansatte. Autoinnfyll for organisasjoner, QR-kode, tekst over/under hver lenke, og én-klikk publisering til GitHub Pages.</p>
-
-  <h2>Organisasjon</h2>
-  <div class="row">
-    <div class="inline">
-      <label style="flex:1">Org key (mappe – case sensitive)
-        <input id="orgKey" placeholder="Wayback" required oninput="applyBranding('force')">
-      </label>
-      <div style="display:flex;align-items:center;justify-content:flex-start;min-width:200px">
-        <img id="logoPreview" class="logo-prev" alt="logo">
-      </div>
-    </div>
-    <label>Org navn (visning)
-      <input id="orgName" placeholder="Wayback">
-    </label>
-    <label>Accent farge (hex)
-      <input id="accent" placeholder="#8fd3ff">
-    </label>
-    <label>Org nettside
-      <input id="orgSite" placeholder="https://wayback.no">
-    </label>
-    <label>Logo URL
-      <input id="logoUrl" placeholder="https://.../logo.png" oninput="previewLogo()">
-    </label>
-    <label>Logo bakgrunn
-      <input id="logoBg" placeholder="#ffffff (tom = auto)">
-    </label>
+  <!-- Topp-logo med robust fallback -->
+  <div class="brand">
+    <img
+      src="/assets/NFCKING_dark.png?v=4"
+      alt="NFCKING logo"
+      onerror="this.onerror=null;this.src='https://raw.githubusercontent.com/Luckywolf82/vcards-admin-branding/main/assets/NFCKING_dark.png?v=4';">
+    <p class="brand-sub">Kongen av kontaktløs – bygg, merk og publiser NFC-kort</p>
   </div>
+  <hr class="brand-rule">
 
+  <!-- Organisasjonsprofiler + ansatte-lister -->
   <script>
   const ORG_PROFILES = {
     "Wayback": {
@@ -81,10 +67,63 @@
       site: "https://jarwsons.no"
     }
   };
+
+  // Eksempel-ansatte pr org – utvid fritt (kan senere komme fra Firestore)
+  const EMPLOYEES = {
+    "Wayback": [
+      { slug:"Trygve", name:"Trygve Eiulf Waagen", title:"Avdelingsleder", phone:"+47 47731087", email:"trygve@wayback.no", site:"https://wayback.no", address:"Kongens gate 46, 7012 Trondheim, Norge", vcfFilename:"trygve_wayback.vcf" }
+      // legg til flere …
+    ],
+    "MollerBil": [
+      // { slug:"Ola", name:"Ola Nordmann", ... }
+    ],
+    "JarwsonsKjokken": [
+      // { ... }
+    ]
+  };
   </script>
 
+  <!-- Organisasjon -->
+  <h2>Organisasjon</h2>
+  <div class="row">
+    <label>Velg organisasjon
+      <select id="orgSelect"></select>
+    </label>
+
+    <div class="inline">
+      <label style="flex:1">Org key (mappe – case sensitive)
+        <input id="orgKey" placeholder="Wayback" required oninput="applyBranding('force'); syncOrgSelectFromKey(); loadEmployees();">
+      </label>
+      <div style="display:flex;align-items:center;justify-content:flex-start;min-width:200px">
+        <img id="logoPreview" class="logo-prev" alt="logo">
+      </div>
+    </div>
+
+    <label>Org navn (visning)
+      <input id="orgName" placeholder="Wayback">
+    </label>
+    <label>Accent farge (hex)
+      <input id="accent" placeholder="#8fd3ff">
+    </label>
+    <label>Org nettside
+      <input id="orgSite" placeholder="https://wayback.no">
+    </label>
+    <label>Logo URL
+      <input id="logoUrl" placeholder="https://.../logo.png" oninput="previewLogo()">
+    </label>
+    <label>Logo bakgrunn
+      <input id="logoBg" placeholder="#ffffff (tom = auto)">
+    </label>
+  </div>
+
+  <!-- Person -->
   <h2>Person</h2>
   <div class="row">
+    <label>Velg ansatt
+      <select id="employeeSelect"><option value="">(Velg ansatt…)</option></select>
+    </label>
+    <div></div>
+
     <label>Slug (mappe/URL uten æøå/mellomrom)
       <input id="slug" placeholder="Trygve" required>
     </label>
@@ -92,7 +131,7 @@
       <input id="name" placeholder="Trygve Eiulf Waagen" required>
     </label>
     <label>Tittel
-      <input id="title" placeholder="Daglig leder">
+      <input id="title" placeholder="Avdelingsleder">
     </label>
     <label>Telefon (E.164)
       <input id="phone" placeholder="+47 47731087">
@@ -110,6 +149,7 @@
       <input id="vcfFilename" placeholder="trygve_wayback.vcf">
     </label>
   </div>
+  <!-- Lenker -->
   <h2>Lenker og tekster</h2>
   <div class="row">
     <label>Forhåndsvalg (klikk for å legge til)</label>
@@ -155,6 +195,7 @@
     <div><button type="button" id="addLink">Legg til</button></div>
   </div>
 
+  <!-- Publisering -->
   <h2>Publisering</h2>
   <div class="row">
     <label>GitHub owner
@@ -177,12 +218,13 @@
   <button id="generate">Generer & Publiser</button>
   <span id="status"></span>
 
+  <!-- Resultat -->
   <h3>Resultat</h3>
   <p>NFC-URL: <input id="nfcUrl" style="width:100%" readonly></p>
   <p>HTML-URL: <input id="htmlUrl" style="width:100%" readonly></p>
 
   <div id="qrBox" style="margin:8px 0;">
-    <canvas id="qrCanvas" style="background:#fff;border-radius:6px"></canvas>
+    <canvas id="qrCanvas" width="192" height="192" style="background:#fff;border-radius:6px"></canvas>
     <div><button type="button" id="qrDownload" class="pill">Last ned QR (PNG)</button></div>
   </div>
 
@@ -192,14 +234,89 @@
   <h4>index.html</h4>
   <textarea id="htmlPreview" rows="14" style="width:100%"></textarea>
 
+  <!-- Live forhåndsvisning -->
   <div id="livePreviewContainer" style="margin-top:10px;">
     <h4>Live forhåndsvisning</h4>
     <button id="openPreviewBtn" style="margin:6px 0;">Åpne forhåndsvisning i ny fane</button>
     <iframe id="livePreviewFrame" style="width:100%;height:480px;border:1px solid #333;border-radius:8px;background:#111;" title="Live Preview"></iframe>
   </div>
 
-<script>
-// === Legg til/fjern lenker ===
+  <script>
+// === Dropdowns: Organisasjon & Ansatt ===
+function populateOrgSelect(){
+  const orgSelect = document.getElementById('orgSelect');
+  orgSelect.innerHTML = '';
+  Object.keys(ORG_PROFILES).forEach(key=>{
+    const opt = document.createElement('option');
+    opt.value = key;
+    opt.textContent = ORG_PROFILES[key].name || key;
+    orgSelect.appendChild(opt);
+  });
+}
+
+function syncOrgKeyFromSelect(){
+  const key = document.getElementById('orgSelect').value;
+  document.getElementById('orgKey').value = key;
+  applyBranding('force');
+  loadEmployees();
+}
+
+function syncOrgSelectFromKey(){
+  const key = document.getElementById('orgKey').value.trim();
+  const orgSelect = document.getElementById('orgSelect');
+  const idx = Array.from(orgSelect.options).findIndex(o => o.value === key);
+  if (idx >= 0) orgSelect.selectedIndex = idx;
+}
+
+function loadEmployees(){
+  const key = document.getElementById('orgKey').value.trim();
+  const list = EMPLOYEES[key] || [];
+  const sel = document.getElementById('employeeSelect');
+  sel.innerHTML = '<option value="">(Velg ansatt…)</option>';
+  list.forEach((emp, i)=>{
+    const opt = document.createElement('option');
+    opt.value = String(i);
+    opt.textContent = emp.name + (emp.title ? ' – ' + emp.title : '');
+    sel.appendChild(opt);
+  });
+}
+
+function fillEmployee(iStr){
+  const key = document.getElementById('orgKey').value.trim();
+  const list = EMPLOYEES[key] || [];
+  const i = parseInt(iStr, 10);
+  const emp = list[i];
+  if (!emp) return;
+
+  const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val || ''; };
+  set('slug', emp.slug);
+  set('name', emp.name);
+  set('title', emp.title);
+  set('phone', emp.phone);
+  set('email', emp.email);
+  set('site', emp.site);
+  set('address', emp.address);
+  set('vcfFilename', emp.vcfFilename);
+}
+
+// Event listeners for dropdowns
+document.addEventListener('DOMContentLoaded', ()=>{
+  populateOrgSelect();
+  // default velg første org hvis tom
+  const orgKeyEl = document.getElementById('orgKey');
+  if (!orgKeyEl.value && document.getElementById('orgSelect').options.length){
+    document.getElementById('orgSelect').selectedIndex = 0;
+    syncOrgKeyFromSelect();
+  } else {
+    syncOrgSelectFromKey();
+    applyBranding('auto');
+    loadEmployees();
+  }
+  document.getElementById('orgSelect').addEventListener('change', syncOrgKeyFromSelect);
+  document.getElementById('employeeSelect').addEventListener('change', (e)=> fillEmployee(e.target.value));
+});
+
+// === Legg til/fjern lenker (tabell) ===
 const tbody = document.querySelector('#linksTable tbody');
 
 function addRow(label, url, pre = '', post = '') {
@@ -229,7 +346,7 @@ document.querySelectorAll('.pill').forEach(btn => {
   btn.addEventListener('click', () => addRow(btn.dataset.label, btn.dataset.url));
 });
 
-// === Branding ===
+// === Branding & logo-preview ===
 function applyBranding(mode = 'auto'){
   const key  = document.getElementById('orgKey').value.trim();
   const prof = ORG_PROFILES[key];
@@ -246,6 +363,7 @@ function applyBranding(mode = 'auto'){
   set('orgSite', prof.site || '');
   set('logoUrl', prof.logo || '');
   set('logoBg' , prof.logoBg || '');
+
   previewLogo();
 }
 
@@ -270,6 +388,7 @@ function previewLogo(){
     return;
   }
 
+  // default hvit plate bak logo
   let chosenBg = '#ffffff';
   imgEl.style.background = chosenBg;
 
@@ -328,9 +447,16 @@ function makeVcard(d){
   const phone = normalizePhone(d.phone||'');
 
   return [
-    'BEGIN:VCARD','VERSION:3.0',`FN:${d.name}`,`N:${last};${first};;;`,
-    `ORG:${d.orgName||d.orgKey}`,`TITLE:${d.title||''}`,`TEL;TYPE=CELL:${phone}`,
-    `EMAIL;TYPE=INTERNET:${d.email||''}`,`URL:${d.site||''}`,`ADR;TYPE=WORK:;;${d.address||''}`,
+    'BEGIN:VCARD',
+    'VERSION:3.0',
+    `FN:${d.name}`,
+    `N:${last};${first};;;`,
+    `ORG:${d.orgName||d.orgKey}`,
+    `TITLE:${d.title||''}`,
+    `TEL;TYPE=CELL:${phone}`,
+    `EMAIL;TYPE=INTERNET:${d.email||''}`,
+    `URL:${d.site||''}`,
+    `ADR;TYPE=WORK:;;${d.address||''}`,
     'END:VCARD'
   ].join('\n');
 }
@@ -353,7 +479,7 @@ function makeLinksHTML(links){
 function makeHTML(d, vcfFile, links){
   const accent  = d.accent || '#8fd3ff';
   const bgStyle = `background:${d.logoBg || '#ffffff'};border-radius:8px;padding:6px;`;
-  const logoTag = d.logoUrl ? `<img class="brand-logo" src="${d.logoUrl}" style="${bgStyle}" alt="${d.orgName||d.orgKey} logo">` : '';
+  const logoTag = d.logoUrl ? `<img class="brand-logo" src="${d.logoUrl}" style="${bgStyle}" alt="${esc(d.orgName||d.orgKey)} logo">` : '';
   const extras  = makeLinksHTML(links);
 
   return `<!doctype html>
@@ -398,7 +524,7 @@ async function postJSON(url, data){
   catch { return { ok:r.ok, status:r.status, text:t }; }
 }
 
-// UI-hjelpere: Kopier/Åpne-knapper
+// === UI-hjelpere: Kopier/Åpne-knapper ===
 function ensureUrlControls(id, label) {
   const input = document.getElementById(id);
   if (!input) return;
@@ -423,11 +549,17 @@ function ensureUrlControls(id, label) {
   });
 }
 
-// QR
+// === QR-kode ===
 async function renderQR(text){
   const c = document.getElementById('qrCanvas');
   if (!c || !window.QRCode) return;
-  await QRCode.toCanvas(c, text, { width: 192, margin: 1 });
+  const t = (text || '').trim();
+  if (!t) {
+    const ctx = c.getContext('2d');
+    ctx.clearRect(0,0,c.width,c.height);
+    return;
+  }
+  await QRCode.toCanvas(c, t, { width: 192, margin: 1 });
 }
 document.getElementById('qrDownload')?.addEventListener('click', ()=>{
   const c = document.getElementById('qrCanvas');
@@ -456,7 +588,7 @@ document.getElementById('generate').addEventListener('click', async ()=>{
     vcfFilename:get('vcfFilename') || (get('slug') + '_' + get('orgKey') + '.vcf'),
     ghUser:get('ghUser'),
     ghRepo:get('ghRepo'),
-    basePath:get('basePath')||'Vcards',
+    basePath:get('basePath')||'Vcards',   // behold "Vcards" (matcher oppsettet ditt)
     strategy:document.getElementById('strategy').value
   };
 
@@ -554,11 +686,19 @@ document.getElementById('openPreviewBtn')?.addEventListener('click', ()=>{
 
 // === Auto-init ved lasting ===
 document.addEventListener('DOMContentLoaded', () => {
-  // Autopopuler hvis orgKey allerede står skrevet
-  const k = document.getElementById('orgKey')?.value.trim();
-  if (k) applyBranding('auto');
+  // Fyll org-select og sync
+  populateOrgSelect();
+  const orgKeyEl = document.getElementById('orgKey');
+  if (!orgKeyEl.value && document.getElementById('orgSelect').options.length){
+    document.getElementById('orgSelect').selectedIndex = 0;
+    syncOrgKeyFromSelect();
+  } else {
+    syncOrgSelectFromKey();
+    applyBranding('auto');
+    loadEmployees();
+  }
 
-  // Oppdater logo-preview når vi allerede har logoUrl
+  // Oppdater logo-preview hvis vi allerede har logoUrl
   const lu = document.getElementById('logoUrl')?.value.trim();
   if (lu) previewLogo();
 });
