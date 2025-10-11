@@ -613,17 +613,59 @@ code{background:#0d1117;padding:.2em .4em;border-radius:6px}
     });
   }
 
-  // === QR-kode ===
-  async function renderQR(text){
-    const c = document.getElementById('qrCanvas');
-    if (!c || !window.QRCode) return;
-    const t = (text || '').trim();
-    if (!t) {
-      const ctx = c.getContext('2d');
-      ctx.clearRect(0,0,c.width,c.height);
+  // === QR-kode (robust) ===
+async function renderQR(text){
+  const c = document.getElementById('qrCanvas');
+  if (!c) return;
+
+  // Lag/bruk en liten infotekst under QR
+  let info = document.getElementById('qrInfo');
+  if (!info) {
+    info = document.createElement('div');
+    info.id = 'qrInfo';
+    info.className = 'note';
+    c.parentElement.appendChild(info);
+  }
+
+  const t = (text || '').trim();
+  info.textContent = t ? `QR for: ${t}` : 'Ingen URL å generere QR for ennå.';
+
+  // Tøm canvas hvis tom tekst
+  const ctx = c.getContext('2d');
+  ctx.clearRect(0,0,c.width,c.height);
+  if (!t) return;
+
+  try {
+    if (!window.QRCode) {
+      info.textContent = 'QR-bibliotek ikke lastet (refresh siden).';
       return;
     }
-    await QRCode.toCanvas(c, t, { width: 192, margin: 1 });
+    await QRCode.toCanvas(c, t, {
+      width: 192,
+      margin: 1,
+      color: { dark: '#000000', light: '#FFFFFF' } // tving farger
+    });
+  } catch (err) {
+    console.error('QR error:', err);
+    info.textContent = 'Kunne ikke generere QR (se konsoll).';
+  }
+}
+
+// Last ned-knapp
+document.getElementById('qrDownload')?.addEventListener('click', ()=>{
+  const c = document.getElementById('qrCanvas');
+  if(!c) return;
+  const a = document.createElement('a');
+  a.href = c.toDataURL('image/png');
+  a.download = 'nfcking-qr.png';
+  a.click();
+});
+
+// Auto-oppdater QR når HTML-URL-feltet endres
+document.getElementById('htmlUrl')?.addEventListener('input', (e)=>{
+  renderQR(e.target.value);
+});
+
   }
   document.getElementById('qrDownload')?.addEventListener('click', ()=>{
     const c = document.getElementById('qrCanvas');
