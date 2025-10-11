@@ -170,35 +170,38 @@
   <h4>index.html</h4>
   <textarea id="htmlPreview" rows="14" style="width:100%"></textarea>
 
-<script>
+  <script>
+// === Tabell og lenker ===
 const tbody = document.querySelector('#linksTable tbody');
 
-function addRow(label, url, pre='', post=''){
+function addRow(label, url, pre = '', post = '') {
   const tr = document.createElement('tr');
-  tr.innerHTML = `<td><input value="${label||''}" class="lbl" /></td>
-                   <td><input value="${url||''}" class="lnk" style="width:100%"/></td>
-                   <td><textarea class="pre" rows="2" placeholder="Tekst over">${pre||''}</textarea></td>
-                   <td><textarea class="post" rows="2" placeholder="Tekst under">${post||''}</textarea></td>
-                   <td><button type="button" class="remove">Fjern</button></td>`;
-  tr.querySelector('.remove').addEventListener('click', ()=>tr.remove());
+  tr.innerHTML = `
+    <td><input value="${label || ''}" class="lbl" /></td>
+    <td><input value="${url || ''}" class="lnk" style="width:100%"/></td>
+    <td><textarea class="pre" rows="2" placeholder="Tekst over">${pre || ''}</textarea></td>
+    <td><textarea class="post" rows="2" placeholder="Tekst under">${post || ''}</textarea></td>
+    <td><button type="button" class="remove">Fjern</button></td>
+  `;
+  tr.querySelector('.remove').addEventListener('click', () => tr.remove());
   tbody.appendChild(tr);
 }
 
-document.getElementById('addLink').addEventListener('click', ()=>{
+document.getElementById('addLink').addEventListener('click', () => {
   addRow(
     document.getElementById('newLabel').value,
     document.getElementById('newUrl').value,
     document.getElementById('newPre').value,
     document.getElementById('newPost').value
   );
-  ['newLabel','newUrl','newPre','newPost'].forEach(id=>document.getElementById(id).value='');
+  ['newLabel','newUrl','newPre','newPost'].forEach(id => document.getElementById(id).value = '');
 });
 
-document.querySelectorAll('.pill').forEach(btn=>{
-  btn.addEventListener('click', ()=> addRow(btn.dataset.label, btn.dataset.url));
+document.querySelectorAll('.pill').forEach(btn => {
+  btn.addEventListener('click', () => addRow(btn.dataset.label, btn.dataset.url));
 });
 
-// --- Branding: tving profilverdier inn i feltene
+// === Branding ===
 function applyBranding(force = true){
   const key  = document.getElementById('orgKey').value.trim();
   const prof = ORG_PROFILES[key];
@@ -218,6 +221,7 @@ function previewLogo(){
   else { img.style.display='none'; }
 }
 
+// === vCard/HTML helpers ===
 function normalizePhone(p){
   p = (p||'').trim(); if(!p) return p;
   if(p.startsWith('0') && !p.startsWith('+')){
@@ -228,12 +232,15 @@ function normalizePhone(p){
 
 function makeVcard(d){
   const parts = d.name.trim().split(' ');
-  const first = parts[0] || ''; const last = parts.length>1 ? parts[parts.length-1] : '';
+  const first = parts[0] || ''; 
+  const last  = parts.length>1 ? parts[parts.length-1] : '';
   const phone = normalizePhone(d.phone||'');
+
   return [
     'BEGIN:VCARD','VERSION:3.0',`FN:${d.name}`,`N:${last};${first};;;`,
     `ORG:${d.orgName||d.orgKey}`,`TITLE:${d.title||''}`,`TEL;TYPE=CELL:${phone}`,
-    `EMAIL;TYPE=INTERNET:${d.email||''}`,`URL:${d.site||''}`,`ADR;TYPE=WORK:;;${d.address||''}`,'END:VCARD'
+    `EMAIL;TYPE=INTERNET:${d.email||''}`,`URL:${d.site||''}`,`ADR;TYPE=WORK:;;${d.address||''}`,
+    'END:VCARD'
   ].join('\n');
 }
 
@@ -242,7 +249,7 @@ function esc(s){ return (s||'').replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;',
 function makeLinksHTML(links){
   if(!links.length) return '';
   return links.map(l => {
-    const pre = l.pre ? `<div class="pre" style="margin:8px 0 4px;color:#bfc8d6">${esc(l.pre)}</div>` : '';
+    const pre  = l.pre  ? `<div class="pre"  style="margin:8px 0 4px;color:#bfc8d6">${esc(l.pre)}</div>` : '';
     const post = l.post ? `<div class="post" style="margin:4px 0 10px;color:#97a3b6;font-size:.95rem">${esc(l.post)}</div>` : '';
     return `<div class="link-block" style="margin-top:10px">
       ${pre}
@@ -253,9 +260,10 @@ function makeLinksHTML(links){
 }
 
 function makeHTML(d, vcfFile, links){
-  const accent = d.accent || '#8fd3ff';
+  const accent  = d.accent || '#8fd3ff';
   const logoTag = d.logoUrl ? `<img class="brand-logo" src="${d.logoUrl}" alt="${d.orgName||d.orgKey} logo">` : '';
-  const extras = makeLinksHTML(links);
+  const extras  = makeLinksHTML(links);
+
   return `<!doctype html>
 <html lang="no">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Kontaktkort – ${esc(d.name)}</title>
@@ -290,87 +298,97 @@ code{background:#0d1117;padding:.2em .4em;border-radius:6px}
 </html>`;
 }
 
+// === Netlify helper ===
 async function postJSON(url, data){
-  const r = await fetch(url, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data)});
-  const t = await r.text(); try{return {ok:r.ok,status:r.status,json:JSON.parse(t)}}catch{return {ok:r.ok,status:r.status,text:t}};
+  const r = await fetch(url, {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify(data)
+  });
+  const t = await r.text();
+  try { return { ok:r.ok, status:r.status, json:JSON.parse(t) }; }
+  catch { return { ok:r.ok, status:r.status, text:t }; }
 }
 
+// === Generer & Publiser ===
 document.getElementById('generate').addEventListener('click', async ()=>{
   const get = id => document.getElementById(id).value.trim();
   const d = {
-    orgKey:get('orgKey'), orgName:get('orgName')||get('orgKey'), accent:get('accent')||'#8fd3ff',
-    logoUrl:get('logoUrl'), slug:get('slug'), name:get('name'), title:get('title'), phone:get('phone'),
-    email:get('email'), site:get('site'), address:get('address'),
+    orgKey:get('orgKey'),
+    orgName:get('orgName')||get('orgKey'),
+    accent:get('accent')||'#8fd3ff',
+    logoUrl:get('logoUrl'),
+    slug:get('slug'),
+    name:get('name'),
+    title:get('title'),
+    phone:get('phone'),
+    email:get('email'),
+    site:get('site'),
+    address:get('address'),
     vcfFilename:get('vcfFilename') || (get('slug') + '_' + get('orgKey') + '.vcf'),
-    ghUser:get('ghUser'), ghRepo:get('ghRepo'), basePath:get('basePath')||'Vcards',
+    ghUser:get('ghUser'),
+    ghRepo:get('ghRepo'),
+    // VIKTIG: behold 'Vcards' så URL blir "dobbel Vcards" (det vi vet fungerer)
+    basePath:get('basePath')||'Vcards',
     strategy:document.getElementById('strategy').value
   };
-  if(!d.orgKey || !d.slug || !d.name){ alert('Mangler: orgKey, slug, name'); return; }
+
+  if(!d.orgKey || !d.slug || !d.name){
+    alert('Mangler: orgKey, slug, name'); 
+    return;
+  }
 
   const links = Array.from(document.querySelectorAll('#linksTable tbody tr')).map(tr=>({
     label: tr.querySelector('.lbl').value.trim(),
-    url: tr.querySelector('.lnk').value.trim(),
-    pre: tr.querySelector('.pre').value.trim(),
-    post: tr.querySelector('.post').value.trim()
+    url:   tr.querySelector('.lnk').value.trim(),
+    pre:   tr.querySelector('.pre').value.trim(),
+    post:  tr.querySelector('.post').value.trim()
   })).filter(x=>x.label && x.url);
 
-  const vcf = makeVcard(d);
+  const vcf  = makeVcard(d);
   const html = makeHTML(d, d.vcfFilename, links);
-  document.getElementById('vcfPreview').value = vcf;
+  document.getElementById('vcfPreview').value  = vcf;
   document.getElementById('htmlPreview').value = html;
 
-  // --- Ryddige URLer + vis HTML-URL også ---
-let basePath = (d.basePath || '').replace(/^\/+|\/+$/g, '');
-let repoPart  = d.ghRepo  || '<repo>';
-let ownerPart = d.ghUser  || '<owner>';
+  // === URL-er (bevisst "dobbel Vcards") ===
+  const ownerPart = d.ghUser || '<owner>';
+  const repoPart  = d.ghRepo || '<repo>';
+  const basePath  = (d.basePath || 'Vcards').replace(/^\/+|\/+$/g, ''); // alltid 'Vcards' som default
+  const pathPart  = basePath ? `/${basePath}` : '';
 
-// Unngå dobbel Vcards/Vcards hvis basePath = repo
-const needsBase = basePath.toLowerCase() !== repoPart.toLowerCase();
-const pathPart  = needsBase ? `/${basePath}` : '';
+  const baseUrl = `https://${ownerPart}.github.io/${repoPart}${pathPart}/${d.orgKey}/${d.slug}`;
+  const htmlUrl = `${baseUrl}/index.html`;
+  const vcfUrl  = `${baseUrl}/${d.vcfFilename}`;
 
-const baseUrl = `https://${ownerPart}.github.io/${repoPart}${pathPart}/${d.orgKey}/${d.slug}`;
-const htmlUrl = `${baseUrl}/index.html`;
-const vcfUrl  = `${baseUrl}/${d.vcfFilename}`;
+  // Vis NFC (VCF) – HTML-url kan du åpne manuelt ved behov
+  document.getElementById('nfcUrl').value = vcfUrl;
+  const inline = document.getElementById('nfcInline');
+  if (inline) inline.textContent = vcfUrl;
 
-// Sett NFC (VCF) i feltet som før
-document.getElementById('nfcUrl').value = vcfUrl;
-
-// Legg til felt for HTML-URL (opprettes én gang)
-let htmlOut = document.getElementById('htmlUrl');
-if (!htmlOut) {
-  const label = document.createElement('p');
-  label.textContent = 'HTML-URL:';
-  const input = document.createElement('input');
-  input.id = 'htmlUrl';
-  input.readOnly = true;
-  input.style.width = '100%';
-  input.style.marginBottom = '6px';
-
-  const nfcP = document.getElementById('nfcUrl').parentElement; // <p> som inneholder NFC-feltet
-  nfcP.parentElement.insertBefore(label, nfcP);
-  nfcP.parentElement.insertBefore(input, nfcP);
-  htmlOut = input;
-}
-htmlOut.value = htmlUrl;
-
-
+                                                     // === Publiser til GitHub via Netlify function ===
   document.getElementById('status').textContent = 'Publiserer…';
+
+  const prefix = d.basePath ? (d.basePath.replace(/^\/+|\/+$/g,'') + '/') : '';
   const payload = {
     repoOwner: d.ghUser || undefined,
-    repoName: d.ghRepo || undefined,
-    basePath: d.basePath, orgKey: d.orgKey, slug: d.slug,
+    repoName:  d.ghRepo || undefined,
+    basePath:  d.basePath,       // beholdt for bakoverkomp.
+    orgKey:    d.orgKey,
+    slug:      d.slug,
     files: [
-      { path: `${d.basePath}/${d.orgKey}/${d.slug}/${d.vcfFilename}`, content: vcf },
-      { path: `${d.basePath}/${d.orgKey}/${d.slug}/index.html`, content: html },
-      { path: `${d.basePath}/.nojekyll`, content: "" }
+      { path: `${prefix}${d.orgKey}/${d.slug}/${d.vcfFilename}`, content: vcf  },
+      { path: `${prefix}${d.orgKey}/${d.slug}/index.html`,       content: html },
+      { path: `${prefix}.nojekyll`,                              content: ""   }
     ],
     strategy: d.strategy,
     commitMessage: `Add/Update card: ${d.orgKey}/${d.slug}`
   };
+
   try{
     const res = await postJSON('/api/createCard', payload);
     if(res.ok){
-      document.getElementById('status').innerHTML = '<span class="ok">✅ Ferdig! Sjekk GitHub Pages om 30–60 sek.</span>';
+      document.getElementById('status').innerHTML =
+        '<span class="ok">✅ Ferdig! Åpne HTML-URL-en i nettleser (gi Pages et lite minutt).</span>';
     } else {
       const msg = res.json && res.json.error ? res.json.error : (res.text || 'Ukjent feil');
       document.getElementById('status').innerHTML = '<span class="err">❌ Feil: '+msg+'</span>';
@@ -380,7 +398,7 @@ htmlOut.value = htmlUrl;
   }
 });
 
-// Kjør branding med en gang siden lastes hvis orgKey har verdi
+// Auto-apply branding hvis orgKey allerede er angitt ved load
 document.addEventListener('DOMContentLoaded', () => {
   const k = document.getElementById('orgKey').value.trim();
   if (k) applyBranding(true);
