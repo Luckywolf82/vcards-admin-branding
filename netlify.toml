@@ -1,8 +1,13 @@
+# netlify.toml
 [build]
+  publish   = "."
   functions = "netlify/functions"
-  publish = "."
+  command   = ""
+
+[build.environment]
+  NODE_VERSION = "20"
 
 [[redirects]]
   from = "/api/*"
-  to = "/.netlify/functions/:splat"
+  to   = "/.netlify/functions/:splat"   # <-- uten punktum foran
   status = 200
