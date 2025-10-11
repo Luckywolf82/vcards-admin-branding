@@ -614,25 +614,61 @@ code{background:#0d1117;padding:.2em .4em;border-radius:6px}
   }
 
   // === QR-kode ===
-  async function renderQR(text){
-    const c = document.getElementById('qrCanvas');
-    if (!c || !window.QRCode) return;
-    const t = (text || '').trim();
-    if (!t) {
-      const ctx = c.getContext('2d');
-      ctx.clearRect(0,0,c.width,c.height);
+  <!-- QR-kode -->
+<script>
+async function renderQR(text){
+  const c = document.getElementById('qrCanvas');
+  const info = document.getElementById('qrInfo') || (() => {
+    const span = document.createElement('div');
+    span.id = 'qrInfo';
+    span.className = 'note';
+    c.parentElement.appendChild(span);
+    return span;
+  })();
+
+  const t = (text || '').trim();
+
+  // Vis hva vi prøver å tegne
+  info.textContent = t ? `QR for: ${t}` : 'Ingen URL å generere QR for ennå.';
+
+  // Tøm/blank canvas når tom tekst
+  const ctx = c.getContext('2d');
+  ctx.clearRect(0,0,c.width,c.height);
+  if (!t) return;
+
+  try {
+    if (!window.QRCode) {
+      info.textContent = 'QR-bibliotek ikke lastet (prøv å refreshe siden).';
       return;
     }
-    await QRCode.toCanvas(c, t, { width: 192, margin: 1 });
+    // Tving farger => aldri “hvit på hvit”
+    await QRCode.toCanvas(c, t, {
+      width: 192,
+      margin: 1,
+      color: { dark: '#000000', light: '#FFFFFF' }
+    });
+  } catch (err) {
+    console.error('QR error:', err);
+    info.textContent = 'Kunne ikke generere QR (se konsoll for detaljer).';
   }
-  document.getElementById('qrDownload')?.addEventListener('click', ()=>{
-    const c = document.getElementById('qrCanvas');
-    if(!c) return;
-    const a = document.createElement('a');
-    a.href = c.toDataURL('image/png');
-    a.download = 'nfcking-qr.png';
-    a.click();
-  });
+}
+
+// Last ned-knapp
+document.getElementById('qrDownload')?.addEventListener('click', ()=>{
+  const c = document.getElementById('qrCanvas');
+  if(!c) return;
+  const a = document.createElement('a');
+  a.href = c.toDataURL('image/png');
+  a.download = 'nfcking-qr.png';
+  a.click();
+});
+
+// Auto-oppdater QR når HTML-URL endres manuelt
+document.getElementById('htmlUrl')?.addEventListener('input', (e)=>{
+  renderQR(e.target.value);
+});
+</script>
+
 
   // === Generer & Publiser ===
   document.getElementById('generate').addEventListener('click', async ()=>{
