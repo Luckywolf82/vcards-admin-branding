@@ -83,9 +83,8 @@
       <input id="logoUrl" placeholder="https://.../logo.png" oninput="previewLogo()">
     </label>
     <label>Logo bakgrunn (valgfri)
-  <input id="logoBg" placeholder="#ffffff (tom = auto)">
-</label>
-
+      <input id="logoBg" placeholder="#ffffff (tom = auto)">
+    </label>
   </div>
 
   <h2>Person</h2>
@@ -115,7 +114,6 @@
       <input id="vcfFilename" placeholder="trygve_wayback.vcf">
     </label>
   </div>
-
   <h2>Lenker og tekster</h2>
   <div class="row">
     <label>Forhåndsvalg (klikk for å legge til)</label>
@@ -131,15 +129,33 @@
       <button type="button" class="pill" data-label="WhatsApp" data-url="https://wa.me/">WhatsApp</button>
     </div>
   </div>
+
   <table class="links-table" id="linksTable">
-    <thead><tr><th>Label</th><th>URL</th><th>Tekst over</th><th>Tekst under</th><th></th></tr></thead>
+    <thead>
+      <tr>
+        <th>Label</th>
+        <th>URL</th>
+        <th>Tekst over</th>
+        <th>Tekst under</th>
+        <th></th>
+      </tr>
+    </thead>
     <tbody></tbody>
   </table>
+
   <div class="row">
-    <label>Ny label<input id="newLabel" placeholder="LinkedIn"></label>
-    <label>Ny URL<input id="newUrl" placeholder="https://linkedin.com/in/..."></label>
-    <label>Tekst over<input id="newPre" placeholder="Følg meg på LinkedIn"></label>
-    <label>Tekst under<input id="newPost" placeholder="@brukernavn (daglig oppdatert)"></label>
+    <label>Ny label
+      <input id="newLabel" placeholder="LinkedIn">
+    </label>
+    <label>Ny URL
+      <input id="newUrl" placeholder="https://linkedin.com/in/...">
+    </label>
+    <label>Tekst over
+      <input id="newPre" placeholder="Følg meg på LinkedIn">
+    </label>
+    <label>Tekst under
+      <input id="newPost" placeholder="@brukernavn (daglig oppdatert)">
+    </label>
     <div><button type="button" id="addLink">Legg til</button></div>
   </div>
 
@@ -173,17 +189,17 @@
 
   <h4>index.html</h4>
   <textarea id="htmlPreview" rows="14" style="width:100%"></textarea>
-<!-- === LIVE FORHÅNDSVISNING === -->
-<div id="livePreviewContainer" style="margin-top:10px;">
-  <h4>Live forhåndsvisning</h4>
-  <button id="openPreviewBtn" style="margin:6px 0;">Åpne forhåndsvisning i ny fane</button>
-  <iframe id="livePreviewFrame"
-          style="width:100%;height:480px;border:1px solid #333;border-radius:8px;background:#111;"
-          title="Live Preview"></iframe>
-</div>
-<!-- === /LIVE FORHÅNDSVISNING === -->
 
-  <script>
+  <!-- === LIVE FORHÅNDSVISNING === -->
+  <div id="livePreviewContainer" style="margin-top:10px;">
+    <h4>Live forhåndsvisning</h4>
+    <button id="openPreviewBtn" style="margin:6px 0;">Åpne forhåndsvisning i ny fane</button>
+    <iframe id="livePreviewFrame"
+            style="width:100%;height:480px;border:1px solid #333;border-radius:8px;background:#111;"
+            title="Live Preview"></iframe>
+  </div>
+  <!-- === /LIVE FORHÅNDSVISNING === -->
+<script>
 // === Tabell og lenker ===
 const tbody = document.querySelector('#linksTable tbody');
 
@@ -215,10 +231,18 @@ document.querySelectorAll('.pill').forEach(btn => {
 });
 
 // === Branding ===
+function getProfileForKey(rawKey){
+  if(!rawKey) return null;
+  const lower = String(rawKey).trim().toLowerCase();
+  for (const k of Object.keys(ORG_PROFILES)) {
+    if (k.toLowerCase() === lower) return ORG_PROFILES[k];
+  }
+  return null;
+}
+
 function applyBranding(mode = 'auto'){
-  // mode: 'auto' = fyll bare tomme felt, 'force' = overstyr alt
   const key  = document.getElementById('orgKey').value.trim();
-  const prof = ORG_PROFILES[key];
+  const prof = getProfileForKey(key);
   if (!prof) return;
 
   const set = (id, val) => {
@@ -232,24 +256,15 @@ function applyBranding(mode = 'auto'){
   set('orgSite', prof.site || '');
   set('logoUrl', prof.logo || '');
 
-  // Når vi tvinger inn branding, nullstill manuell logoBg (bruk auto igjen)
   if (mode === 'force') {
     const bg = document.getElementById('logoBg');
     if (bg) bg.value = '';
   }
-  // Oppdater logo-forhåndsvisning (bruker manuell/auto bakgrunn fra previewLogo)
+
   previewLogo();
 }
 
-
-
-  document.getElementById('orgName').value = prof.name   || key;
-  document.getElementById('accent').value  = prof.accent || '#8fd3ff';
-  document.getElementById('orgSite').value = prof.site   || '';
-  document.getElementById('logoUrl').value = prof.logo   || '';
-  previewLogo();
-}
-
+// === Logo-forhåndsvisning ===
 function previewLogo(){
   const url = document.getElementById('logoUrl').value.trim();
   const imgEl = document.getElementById('logoPreview');
@@ -261,11 +276,9 @@ function previewLogo(){
     return;
   }
 
-  // Vis logo + default bakgrunn umiddelbart (best effort)
   imgEl.src = url;
   imgEl.style.display='block';
 
-  // Hvis manuell farge er satt → bruk den og stopp
   if (manual) {
     imgEl.style.background   = manual;
     imgEl.style.borderRadius = '8px';
@@ -273,21 +286,20 @@ function previewLogo(){
     return;
   }
 
-  // Default til hvit bakgrunn først (synlig og trygt)
+  // Default hvit bakgrunn
   let chosenBg = '#ffffff';
   imgEl.style.background   = chosenBg;
   imgEl.style.borderRadius = '8px';
   imgEl.style.padding      = '6px';
 
-  // Prøv automatisk analyse (kan feile pga CORS)
+  // Forsøk automatisk analyse
   const tmp = new Image();
-  tmp.crossOrigin = 'anonymous';   // krever CORS-headere fra server
+  tmp.crossOrigin = 'anonymous';
   tmp.src = url;
 
   const finish = (bg) => {
     chosenBg = bg || chosenBg;
     imgEl.style.background = chosenBg;
-    // Skriv tilbake valgt farge i input, så blir den med i generert HTML
     if (bgInput && !bgInput.value) bgInput.value = chosenBg;
   };
 
@@ -298,26 +310,21 @@ function previewLogo(){
       c.width = s; c.height = s;
       const ctx = c.getContext('2d', { willReadFrequently: true });
       ctx.drawImage(tmp, 0, 0, s, s);
-
-      // Hent pikslene – kan kaste ved CORS → fanges i catch
       const data = ctx.getImageData(0,0,s,s).data;
 
       let r=0,g=0,b=0,n=0;
       for(let i=0;i<data.length;i+=4){
         const a = data[i+3];
-        if (a < 16) continue; // hopp over nesten transparente
+        if (a < 16) continue;
         r += data[i]; g += data[i+1]; b += data[i+2]; n++;
       }
       if (n === 0) { finish('#ffffff'); return; }
 
       r = Math.round(r/n); g = Math.round(g/n); b = Math.round(b/n);
       const L = 0.2126*r + 0.7152*g + 0.0722*b;
-
-      // Justér terskel litt romsligere
       const autoBg = (L < 150) ? '#ffffff' : '#1e1f28';
       finish(autoBg);
     } catch (e) {
-      // CORS eller annen feil → behold hvit
       finish('#ffffff');
     }
   };
@@ -325,61 +332,10 @@ function previewLogo(){
   tmp.onload = analyze;
   tmp.onerror = () => finish('#ffffff');
 
-  // Sikkerhetsnett: hvis onload ikke fyrer (rare cache-tilfeller), sett hvit etter 1.5s
   setTimeout(() => {
     if (!bgInput.value) finish('#ffffff');
   }, 1500);
 }
-
-
-  if(!url){ imgEl.style.display='none'; return; }
-  imgEl.src = url; 
-  imgEl.style.display='block';
-
-  // Manuell bakgrunnsfarge
-  if (manual) {
-    imgEl.style.background = manual;
-    imgEl.style.borderRadius = '8px';
-    imgEl.style.padding = '6px';
-    return;
-  }
-
-  // Automatisk fargeanalyse
-  const tmp = new Image();
-  tmp.crossOrigin = 'anonymous';
-  tmp.src = url;
-  tmp.onload = () => {
-    try {
-      const c = document.createElement('canvas');
-      const s = 24;
-      c.width = s; c.height = s;
-      const ctx = c.getContext('2d');
-      ctx.drawImage(tmp, 0, 0, s, s);
-      const data = ctx.getImageData(0,0,s,s).data;
-
-      let r=0,g=0,b=0,n=0;
-      for(let i=0;i<data.length;i+=4){
-        const a = data[i+3];
-        if (a < 10) continue; // hopp over transparente pixler
-        r += data[i]; g += data[i+1]; b += data[i+2]; n++;
-      }
-      if (n === 0) { imgEl.style.background='transparent'; return; }
-      r = Math.round(r/n); g = Math.round(g/n); b = Math.round(b/n);
-
-      const L = 0.2126*r + 0.7152*g + 0.0722*b;
-      const autoBg = (L < 120) ? '#ffffff' : '#1e1f28';
-      imgEl.style.background   = autoBg;
-      imgEl.style.borderRadius = '8px';
-      imgEl.style.padding      = '6px';
-    } catch(e){
-      imgEl.style.background   = '#ffffff';
-      imgEl.style.borderRadius = '8px';
-      imgEl.style.padding      = '6px';
-    }
-  };
-}
-
-
 // === vCard/HTML helpers ===
 function normalizePhone(p){
   p = (p||'').trim(); if(!p) return p;
@@ -391,7 +347,7 @@ function normalizePhone(p){
 
 function makeVcard(d){
   const parts = d.name.trim().split(' ');
-  const first = parts[0] || ''; 
+  const first = parts[0] || '';
   const last  = parts.length>1 ? parts[parts.length-1] : '';
   const phone = normalizePhone(d.phone||'');
 
@@ -421,7 +377,7 @@ function makeLinksHTML(links){
 function makeHTML(d, vcfFile, links){
   const accent  = d.accent || '#8fd3ff';
   const bgStyle = d.logoBg ? `background:${d.logoBg};border-radius:8px;padding:6px;` : '';
-const logoTag = d.logoUrl ? `<img class="brand-logo" src="${d.logoUrl}" style="${bgStyle}" alt="${d.orgName||d.orgKey} logo">` : '';
+  const logoTag = d.logoUrl ? `<img class="brand-logo" src="${d.logoUrl}" style="${bgStyle}" alt="${d.orgName||d.orgKey} logo">` : '';
   const extras  = makeLinksHTML(links);
 
   return `<!doctype html>
@@ -460,11 +416,7 @@ code{background:#0d1117;padding:.2em .4em;border-radius:6px}
 
 // === Netlify helper ===
 async function postJSON(url, data){
-  const r = await fetch(url, {
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body:JSON.stringify(data)
-  });
+  const r = await fetch(url, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data) });
   const t = await r.text();
   try { return { ok:r.ok, status:r.status, json:JSON.parse(t) }; }
   catch { return { ok:r.ok, status:r.status, text:t }; }
@@ -489,13 +441,13 @@ document.getElementById('generate').addEventListener('click', async ()=>{
     vcfFilename:get('vcfFilename') || (get('slug') + '_' + get('orgKey') + '.vcf'),
     ghUser:get('ghUser'),
     ghRepo:get('ghRepo'),
-    // VIKTIG: behold 'Vcards' så URL blir "dobbel Vcards" (det vi vet fungerer)
+    // Behold 'Vcards' så URL blir "dobbel Vcards" (det vi vet fungerer)
     basePath:get('basePath')||'Vcards',
     strategy:document.getElementById('strategy').value
   };
 
   if(!d.orgKey || !d.slug || !d.name){
-    alert('Mangler: orgKey, slug, name'); 
+    alert('Mangler: orgKey, slug, name');
     return;
   }
 
@@ -510,47 +462,48 @@ document.getElementById('generate').addEventListener('click', async ()=>{
   const html = makeHTML(d, d.vcfFilename, links);
   document.getElementById('vcfPreview').value  = vcf;
   document.getElementById('htmlPreview').value = html;
-updateLivePreview(html);
+  updateLivePreview(html);
 
   // === URL-er (bevisst "dobbel Vcards") ===
   const ownerPart = d.ghUser || '<owner>';
   const repoPart  = d.ghRepo || '<repo>';
-  const basePath  = (d.basePath || 'Vcards').replace(/^\/+|\/+$/g, ''); // alltid 'Vcards' som default
+  const basePath  = (d.basePath || 'Vcards').replace(/^\/+|\/+$/g, '');
   const pathPart  = basePath ? `/${basePath}` : '';
 
   const baseUrl = `https://${ownerPart}.github.io/${repoPart}${pathPart}/${d.orgKey}/${d.slug}`;
   const htmlUrl = `${baseUrl}/index.html`;
   const vcfUrl  = `${baseUrl}/${d.vcfFilename}`;
 
-  // Vis NFC (VCF) – HTML-url kan du åpne manuelt ved behov
+  // Vis NFC (VCF) + HTML-URL
   document.getElementById('nfcUrl').value = vcfUrl;
   const inline = document.getElementById('nfcInline');
   if (inline) inline.textContent = vcfUrl;
-// === Legg til felt for HTML-URL (vises sammen med NFC-URL) ===
-let htmlOut = document.getElementById('htmlUrl');
-if (!htmlOut) {
-  const label = document.createElement('p');
-  label.textContent = 'HTML-URL:';
-  const input = document.createElement('input');
-  input.id = 'htmlUrl';
-  input.readOnly = true;
-  input.style.width = '100%';
-  input.style.marginBottom = '6px';
-  const nfcP = document.getElementById('nfcUrl').parentElement;
-  nfcP.parentElement.insertBefore(label, nfcP);
-  nfcP.parentElement.insertBefore(input, nfcP);
-  htmlOut = input;
-}
-htmlOut.value = htmlUrl;
 
-                                                     // === Publiser til GitHub via Netlify function ===
+  // Dynamisk felt for HTML-URL hvis ikke finnes
+  let htmlOut = document.getElementById('htmlUrl');
+  if (!htmlOut) {
+    const label = document.createElement('p');
+    label.textContent = 'HTML-URL:';
+    const input = document.createElement('input');
+    input.id = 'htmlUrl';
+    input.readOnly = true;
+    input.style.width = '100%';
+    input.style.marginBottom = '6px';
+    const nfcP = document.getElementById('nfcUrl').parentElement;
+    nfcP.parentElement.insertBefore(label, nfcP);
+    nfcP.parentElement.insertBefore(input, nfcP);
+    htmlOut = input;
+  }
+  htmlOut.value = htmlUrl;
+
+  // === Publiser til GitHub via Netlify function ===
   document.getElementById('status').textContent = 'Publiserer…';
 
   const prefix = d.basePath ? (d.basePath.replace(/^\/+|\/+$/g,'') + '/') : '';
   const payload = {
     repoOwner: d.ghUser || undefined,
     repoName:  d.ghRepo || undefined,
-    basePath:  d.basePath,       // beholdt for bakoverkomp.
+    basePath:  d.basePath, // bakoverkomp.
     orgKey:    d.orgKey,
     slug:      d.slug,
     files: [
@@ -582,8 +535,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (k) applyBranding('auto'); // bruk 'force' hvis du vil overstyre alt ved hver innlasting
 });
 
-
-    // === LIVE PREVIEW-FUNKSJONER ===
+// === LIVE PREVIEW-FUNKSJONER ===
 function updateLivePreview(html) {
   const frame = document.getElementById('livePreviewFrame');
   if (!frame) return;
@@ -599,13 +551,10 @@ function openPreviewInNewTab(html) {
   window.open(url, '_blank');
   setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
-
 document.getElementById('openPreviewBtn')?.addEventListener('click', ()=>{
   const html = document.getElementById('htmlPreview').value;
   openPreviewInNewTab(html);
 });
-// === /LIVE PREVIEW-FUNKSJONER ===
-
 </script>
 </main>
 </body>
