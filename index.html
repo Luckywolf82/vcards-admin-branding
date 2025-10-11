@@ -230,7 +230,84 @@ function applyBranding(force = true){
 function previewLogo(){
   const url = document.getElementById('logoUrl').value.trim();
   const imgEl = document.getElementById('logoPreview');
-  const manual = document.getElementById('logoBg')?.value.trim();
+  const bgInput = document.getElementById('logoBg');
+  const manual = bgInput?.value.trim();
+
+  if(!url){
+    imgEl.style.display='none';
+    return;
+  }
+
+  // Vis logo + default bakgrunn umiddelbart (best effort)
+  imgEl.src = url;
+  imgEl.style.display='block';
+
+  // Hvis manuell farge er satt → bruk den og stopp
+  if (manual) {
+    imgEl.style.background   = manual;
+    imgEl.style.borderRadius = '8px';
+    imgEl.style.padding      = '6px';
+    return;
+  }
+
+  // Default til hvit bakgrunn først (synlig og trygt)
+  let chosenBg = '#ffffff';
+  imgEl.style.background   = chosenBg;
+  imgEl.style.borderRadius = '8px';
+  imgEl.style.padding      = '6px';
+
+  // Prøv automatisk analyse (kan feile pga CORS)
+  const tmp = new Image();
+  tmp.crossOrigin = 'anonymous';   // krever CORS-headere fra server
+  tmp.src = url;
+
+  const finish = (bg) => {
+    chosenBg = bg || chosenBg;
+    imgEl.style.background = chosenBg;
+    // Skriv tilbake valgt farge i input, så blir den med i generert HTML
+    if (bgInput && !bgInput.value) bgInput.value = chosenBg;
+  };
+
+  const analyze = () => {
+    try {
+      const c = document.createElement('canvas');
+      const s = 24;
+      c.width = s; c.height = s;
+      const ctx = c.getContext('2d', { willReadFrequently: true });
+      ctx.drawImage(tmp, 0, 0, s, s);
+
+      // Hent pikslene – kan kaste ved CORS → fanges i catch
+      const data = ctx.getImageData(0,0,s,s).data;
+
+      let r=0,g=0,b=0,n=0;
+      for(let i=0;i<data.length;i+=4){
+        const a = data[i+3];
+        if (a < 16) continue; // hopp over nesten transparente
+        r += data[i]; g += data[i+1]; b += data[i+2]; n++;
+      }
+      if (n === 0) { finish('#ffffff'); return; }
+
+      r = Math.round(r/n); g = Math.round(g/n); b = Math.round(b/n);
+      const L = 0.2126*r + 0.7152*g + 0.0722*b;
+
+      // Justér terskel litt romsligere
+      const autoBg = (L < 150) ? '#ffffff' : '#1e1f28';
+      finish(autoBg);
+    } catch (e) {
+      // CORS eller annen feil → behold hvit
+      finish('#ffffff');
+    }
+  };
+
+  tmp.onload = analyze;
+  tmp.onerror = () => finish('#ffffff');
+
+  // Sikkerhetsnett: hvis onload ikke fyrer (rare cache-tilfeller), sett hvit etter 1.5s
+  setTimeout(() => {
+    if (!bgInput.value) finish('#ffffff');
+  }, 1500);
+}
+
 
   if(!url){ imgEl.style.display='none'; return; }
   imgEl.src = url; 
