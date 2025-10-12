@@ -116,16 +116,22 @@
     <label>Accent-farge (hex)
       <input id="accent" placeholder="#8fd3ff" value="#8fd3ff">
     </label>
-    <label>Logo URL
-      <input id="logoUrl" placeholder="https://…/logo.png" oninput="previewLogo()">
-    </label>
-    <label>Logo bakgrunn (valgfri)
-      <input id="logoBg" placeholder="#ffffff (tom = auto)">
-    </label>
-    <div class="inline">
-      <img id="logoPreview" class="logo-prev" alt="logo" style="display:none">
-      <span class="help">Tips: hvis logo har mørk bakgrunn, sett <code>#ffffff</code> her.</span>
-    </div>
+   <label>Logo URL
+  <input id="logoUrl" placeholder="https://…/logo.png" oninput="previewLogo()">
+</label>
+
+<label>…eller last opp logo (PNG/JPG/SVG)
+  <input id="logoFile" type="file" accept="image/*" />
+  <small class="help" id="logoFileNote" style="display:block;margin-top:4px"></small>
+</label>
+
+<label>Logo bakgrunn (valgfri)
+  <input id="logoBg" placeholder="#ffffff (tom = auto)">
+</label>
+<div class="inline">
+  <img id="logoPreview" class="logo-prev" alt="logo" style="display:none">
+  <span class="help">Tips: hvis logo har mørk bakgrunn, sett <code>#ffffff</code> her.</span>
+</div>
   </div>
 
   <hr>
