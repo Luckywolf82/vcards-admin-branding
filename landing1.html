@@ -230,6 +230,48 @@
 <footer class="card" style="margin-top:18px">
   <small class="muted">© NFCKING. Laget for fart, trygghet og fleksibilitet. Bygg enkelt videre med Firestore, Netlify og GitHub Pages.</small>
 </footer>
+<!-- === Opplasting av logo (data-URL) === -->
+<script>
+  // -- Globalt minne for opplastet logo (data-URL)
+  window._uploadedLogoDataUrl = '';
+
+  // Oppdater preview-bildet (bruker opplastet logo hvis den finnes)
+  function previewLogo(){
+    const img = document.getElementById('logoPreview');
+    const bg  = document.getElementById('logoBg').value.trim();
+    const src = window._uploadedLogoDataUrl || document.getElementById('logoUrl').value.trim();
+
+    if(!src){ img.style.display='none'; return; }
+    img.src = src; img.style.display='block';
+    img.style.background = bg || '#ffffff';
+    img.style.borderRadius = '8px';
+    img.style.padding = '6px';
+  }
+
+  // Håndter filopplasting -> lag data-URL og bruk den overalt (mockup + digitalt kort)
+  function handleLogoFileInput(file){
+    if(!file) return;
+    const note = document.getElementById('logoFileNote');
+    const reader = new FileReader();
+    reader.onload = () => {
+      window._uploadedLogoDataUrl = String(reader.result || '');
+      // Tøm eventuell URL – den opplastede logoen vinner
+      const urlEl = document.getElementById('logoUrl');
+      if(urlEl) urlEl.value = '';
+      if(note) note.textContent = `Bruker opplastet logo: ${file.name}`;
+      previewLogo();
+      // Re-render alt
+      updatePreview();
+    };
+    reader.readAsDataURL(file);
+  }
+
+  // Koble input-feltet
+  document.getElementById('logoFile')?.addEventListener('change', (e)=>{
+    const f = e.target.files && e.target.files[0];
+    handleLogoFileInput(f);
+  });
+</script>
 
 <script>
   // === Lenker-tabell ===
