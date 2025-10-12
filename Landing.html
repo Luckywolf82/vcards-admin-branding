@@ -71,6 +71,47 @@
   </div>
 </section>
 
+<!-- === MOCKUP (liggende kort) === -->
+<section id="mockupSection" style="margin:18px 0 28px">
+  <h2>Mockup av fysisk kort (liggende)</h2>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:end">
+    <label>Tretype
+      <select id="woodType">
+        <option value="walnut">Valnøtt (mørk)</option>
+        <option value="cherry">Kirsebær (lys)</option>
+        <option value="mahogany">Mahogni (varm)</option>
+      </select>
+    </label>
+
+    <label>Logo (PNG)
+      <input type="file" id="logoPng" accept="image/png" />
+    </label>
+
+    <label style="grid-column:1 / -1;display:flex;align-items:center;gap:10px">
+      <input type="checkbox" id="autoRemoveBg" checked />
+      Fjern lys bakgrunn automatisk
+      <span style="margin-left:8px">Terskel:
+        <input type="range" id="bgThreshold" min="8" max="80" value="28" />
+        <code id="bgThresholdVal">28</code>
+      </span>
+    </label>
+
+    <div style="grid-column:1 / -1;display:flex;gap:10px;flex-wrap:wrap">
+      <button type="button" id="downloadMockup" class="pill">Last ned mockup (PNG)</button>
+      <span class="note">Tips: last opp logo i svart/hvitt for renest “lasergravert” uttrykk.</span>
+    </div>
+  </div>
+
+  <!-- 1000 x 630 ~ god størrelse for liggende kort -->
+  <div style="margin-top:12px;display:flex;justify-content:center">
+    <canvas id="mockupCanvas" width="1000" height="630"
+            style="max-width:100%;background:#2a2a2a;border-radius:14px"></canvas>
+  </div>
+</section>
+<!-- === /MOCKUP === -->
+
+  
 <section id="hvordan" class="card">
   <h2>Hvordan funker det?</h2>
   <div class="grid col-2">
@@ -429,5 +470,208 @@ body{font-family:system-ui,-apple-system,Roboto,Arial;background:#0b0b10;color:#
   updatePreview();
 </script>
 
+<script>
+// === Wood textures (bytt gjerne til egne filer i /assets/wood/) ===
+const WOOD_TEXTURES = {
+  walnut:  'https://images.unsplash.com/photo-1613487957484-32c0aaf645fa?auto=format&fit=crop&w=1200&q=60',
+  cherry:  'https://images.unsplash.com/photo-1523419409543-8c5ae80d40a5?auto=format&fit=crop&w=1200&q=60',
+  mahogany:'https://images.unsplash.com/photo-1544731612-de7f96afe55f?auto=format&fit=crop&w=1200&q=60'
+};
+
+const mockup = {
+  canvas: null, ctx: null,
+  woodImg: new Image(),
+  logoImg: null,
+  logoProcessed: null
+};
+
+function loadImg(url){
+  return new Promise((resolve,reject)=>{
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = url;
+  });
+}
+
+async function setWood(type='walnut'){
+  const url = WOOD_TEXTURES[type] || WOOD_TEXTURES.walnut;
+  mockup.woodImg = await loadImg(url);
+  renderMockup();
+}
+
+function rgbDist(a,b){
+  const dr=a[0]-b[0], dg=a[1]-b[1], db=a[2]-b[2];
+  return Math.sqrt(dr*dr+dg*dg+db*db);
+}
+
+function sampleCorners(img, s=12){
+  const c = document.createElement('canvas'); c.width=img.width; c.height=img.height;
+  const x = c.getContext('2d'); x.drawImage(img,0,0);
+  const pick = (sx,sy)=> x.getImageData(sx,sy,s,s).data;
+  const chunks = [pick(0,0), pick(img.width-s,0), pick(0,img.height-s), pick(img.width-s,img.height-s)];
+  let r=0,g=0,b=0,n=0;
+  for(const data of chunks){
+    for(let i=0;i<data.length;i+=4){ r+=data[i]; g+=data[i+1]; b+=data[i+2]; n++; }
+  }
+  return [Math.round(r/n),Math.round(g/n),Math.round(b/n)];
+}
+
+function removeBg(img, threshold=28){
+  const c = document.createElement('canvas'); c.width = img.width; c.height = img.height;
+  const ctx = c.getContext('2d', {willReadFrequently:true});
+  ctx.drawImage(img,0,0);
+  const bg = sampleCorners(img, 14);
+  const id = ctx.getImageData(0,0,c.width,c.height);
+  const d = id.data;
+
+  for(let i=0;i<d.length;i+=4){
+    const r=d[i], g=d[i+1], b=d[i+2], a=d[i+3];
+    if(a<15){ d[i+3]=0; continue; }
+    const dist = rgbDist([r,g,b], bg);
+    const extra = (r>230 && g>230 && b>230) ? 8 : 0; // snillere på nesten-hvitt
+    if(dist < (threshold+extra)){ d[i+3]=0; }
+  }
+  ctx.putImageData(id,0,0);
+  return c;
+}
+
+function drawLaserEngrave(ctx, img, x, y, w, h){
+  ctx.save();
+  ctx.globalCompositeOperation = 'multiply';
+  ctx.globalAlpha = 0.9;
+  ctx.filter = 'brightness(0.15) contrast(1.1)';
+  ctx.drawImage(img, x, y, w, h);
+  ctx.restore();
+
+  ctx.save();
+  ctx.globalCompositeOperation = 'multiply';
+  ctx.filter = 'blur(1.2px)';
+  ctx.globalAlpha = 0.35;
+  ctx.drawImage(img, x+1, y+1, w, h);
+  ctx.restore();
+
+  ctx.save();
+  ctx.globalCompositeOperation = 'overlay';
+  ctx.globalAlpha = 0.15;
+  ctx.filter = 'blur(2px) saturate(0.6)';
+  ctx.drawImage(img, x, y, w, h);
+  ctx.restore();
+}
+
+function renderMockup(){
+  if(!mockup.canvas) return;
+  const {canvas,ctx} = mockup;
+
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  if(mockup.woodImg && mockup.woodImg.width){
+    const scale = Math.max(canvas.width/mockup.woodImg.width, canvas.height/mockup.woodImg.height);
+    const w = mockup.woodImg.width*scale, h = mockup.woodImg.height*scale;
+    const ox = (canvas.width - w)/2, oy = (canvas.height - h)/2;
+    ctx.drawImage(mockup.woodImg, ox, oy, w, h);
+  } else {
+    const grad = ctx.createLinearGradient(0,0,canvas.width,canvas.height);
+    grad.addColorStop(0,'#5a4632'); grad.addColorStop(1,'#3c2f23');
+    ctx.fillStyle = grad; ctx.fillRect(0,0,canvas.width,canvas.height);
+  }
+
+  ctx.save();
+  ctx.globalCompositeOperation = 'destination-in';
+  const r = 36;
+  const p = new Path2D();
+  p.moveTo(r,0); p.lineTo(canvas.width-r,0); p.quadraticCurveTo(canvas.width,0,canvas.width,r);
+  p.lineTo(canvas.width,canvas.height-r); p.quadraticCurveTo(canvas.width,canvas.height,canvas.width-r,canvas.height);
+  p.lineTo(r,canvas.height); p.quadraticCurveTo(0,canvas.height,0,canvas.height-r);
+  p.lineTo(0,r); p.quadraticCurveTo(0,0,r,0);
+  ctx.fill(p);
+  ctx.restore();
+
+  const pad = 64;
+  const maxW = 520, maxH = 220;
+  if(mockup.logoProcessed){
+    const {width:lw,height:lh} = mockup.logoProcessed;
+    const s = Math.min(maxW/lw, maxH/lh);
+    const w = lw*s, h = lh*s;
+    drawLaserEngrave(ctx, mockup.logoProcessed, pad, pad, w, h);
+  }
+
+  ctx.save();
+  ctx.globalAlpha = .35;
+  ctx.fillStyle = '#000';
+  ctx.fillRect(canvas.width-220, canvas.height-140, 140, 140);
+  ctx.restore();
+}
+
+async function handleLogoPngFile(file){
+  const arr = await file.arrayBuffer();
+  const blob = new Blob([arr], {type:'image/png'});
+  const url  = URL.createObjectURL(blob);
+  const img  = await loadImg(url);
+  URL.revokeObjectURL(url);
+  mockup.logoImg = img;
+
+  const auto = document.getElementById('autoRemoveBg').checked;
+  if(auto){
+    const thr = parseInt(document.getElementById('bgThreshold').value,10) || 28;
+    mockup.logoProcessed = removeBg(img, thr);
+  } else {
+    const c = document.createElement('canvas'); c.width=img.width; c.height=img.height;
+    const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0,0,c.width,c.height); x.drawImage(img,0,0);
+    mockup.logoProcessed = c;
+  }
+  renderMockup();
+}
+
+function initMockupUI(){
+  mockup.canvas = document.getElementById('mockupCanvas');
+  mockup.ctx    = mockup.canvas.getContext('2d');
+
+  const woodSel = document.getElementById('woodType');
+  woodSel.addEventListener('change', ()=> setWood(woodSel.value));
+
+  const file = document.getElementById('logoPng');
+  file.addEventListener('change', (e)=>{
+    const f = e.target.files?.[0];
+    if(f) handleLogoPngFile(f);
+  });
+
+  const auto = document.getElementById('autoRemoveBg');
+  const thr  = document.getElementById('bgThreshold');
+  const thrVal = document.getElementById('bgThresholdVal');
+  thr.addEventListener('input', ()=> thrVal.textContent = thr.value);
+  auto.addEventListener('change', ()=>{
+    if(mockup.logoImg){
+      if(auto.checked){
+        mockup.logoProcessed = removeBg(mockup.logoImg, parseInt(thr.value,10)||28);
+      } else {
+        const c = document.createElement('canvas'); c.width=mockup.logoImg.width; c.height=mockup.logoImg.height;
+        const x = c.getContext('2d'); x.fillStyle='#fff'; x.fillRect(0,0,c.width,c.height); x.drawImage(mockup.logoImg,0,0);
+        mockup.logoProcessed = c;
+      }
+      renderMockup();
+    }
+  });
+  thr.addEventListener('change', ()=>{
+    if(mockup.logoImg && auto.checked){
+      mockup.logoProcessed = removeBg(mockup.logoImg, parseInt(thr.value,10)||28);
+      renderMockup();
+    }
+  });
+
+  document.getElementById('downloadMockup').addEventListener('click', ()=>{
+    const a = document.createElement('a');
+    a.href = mockup.canvas.toDataURL('image/png');
+    a.download = 'kort-mockup.png';
+    a.click();
+  });
+
+  setWood('walnut'); // default
+}
+
+document.addEventListener('DOMContentLoaded', initMockupUI);
+</script>
+
+  
 </body>
 </html>
