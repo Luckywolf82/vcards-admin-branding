@@ -32,6 +32,13 @@
     table th,table td{padding:6px 8px;border-bottom:1px solid #233046}
     .two-cards{display:grid;grid-template-columns:1fr 1fr;gap:14px}
     @media(max-width:980px){.two-cards{grid-template-columns:1fr}}
+    /* Canvas-overlegg for retning */
+    .canvas-wrap{position:relative}
+    .orient{position:absolute;pointer-events:none;font:700 12px/1 system-ui,-apple-system,Segoe UI,Roboto,Arial;color:#cfe3ff;background:rgba(3,16,26,.55);padding:4px 6px;border-radius:6px;border:1px solid #2b3a4e;letter-spacing:.5px}
+    .orient.up{top:8px;left:50%;transform:translateX(-50%)}
+    .orient.down{bottom:8px;left:50%;transform:translateX(-50%)}
+    .orient.left{left:8px;top:50%;transform:translateY(-50%)}
+    .orient.right{right:8px;top:50%;transform:translateY(-50%)}
   </style>
 </head>
 <body>
@@ -49,12 +56,12 @@
 <section class="hero">
   <div>
     <h1>NFCKING – én lenke, ett kort, uendelig fleksibelt.</h1>
-    <p class="muted">Lag og del digitale visittkort med NFC/QR. Forhåndsvis både digitalt kort og tosidig kort med lasergravert logo og tekst.</p>
+    <p class="muted">Forhåndsvis både digitalt kort og tosidig kort med lasergravert logo og tekst. Retningsmerker viser OPP/NED/VENSTRE/HØYRE.</p>
     <ul>
       <li>✅ Felles renderer for <b>red/light/dark</b></li>
       <li>✅ <b>Lasergravert</b> logo + tekst</li>
       <li>✅ <b>Tosidig mockup</b> – forside/bakside</li>
-      <li>✅ Manuell <b>logo- og tekststørrelse</b></li>
+      <li>✅ Manuell <b>størrelse</b> + tydelig <b>retning</b></li>
     </ul>
     <div class="inline" style="margin-top:8px">
       <label>Stil:
@@ -72,13 +79,25 @@
   <div class="card two-cards">
     <div>
       <h3 style="margin:0 0 8px 0">Forside</h3>
-      <canvas id="frontTop" class="card-canvas" width="1000" height="630"></canvas>
+      <div class="canvas-wrap">
+        <canvas id="frontTop" class="card-canvas" width="1000" height="630"></canvas>
+        <span class="orient up">OPP</span>
+        <span class="orient down">NED</span>
+        <span class="orient left">VENSTRE</span>
+        <span class="orient right">HØYRE</span>
+      </div>
     </div>
     <div>
       <h3 style="margin:0 0 8px 0">Bakside</h3>
-      <canvas id="backTop" class="card-canvas" width="1000" height="630"></canvas>
+      <div class="canvas-wrap">
+        <canvas id="backTop" class="card-canvas" width="1000" height="630"></canvas>
+        <span class="orient up">OPP</span>
+        <span class="orient down">NED</span>
+        <span class="orient left">VENSTRE</span>
+        <span class="orient right">HØYRE</span>
+      </div>
     </div>
-    <p class="help" style="grid-column:1/-1;margin:0">Begge sidene bruker samme renderer som demoen under.</p>
+    <p class="help" style="grid-column:1/-1;margin:0">Retningsmerkene er kun overlegg (de blir ikke med i eksport).</p>
   </div>
 </section>
 
@@ -87,8 +106,8 @@
   <div class="grid col-2">
     <div><h3>1) Fyll inn</h3><p class="muted">Navn, tittel, kontaktfelt, lenker og logo (URL eller opplasting).</p></div>
     <div><h3>2) Velg kortoppsett</h3><p class="muted">Logo på begge sider, kun logo, eller logo + tekst på baksiden.</p></div>
-    <div><h3>3) Forhåndsvis</h3><p class="muted">Digitalt kort (iframe) og fysisk for-/bakside (canvas).</p></div>
-    <div><h3>4) Last ned</h3><p class="muted">Eksporter PNG for for- og bakside. Klar for produksjon.</p></div>
+    <div><h3>3) Juster</h3><p class="muted">Størrelse + justering. Retning vises på canvas.</p></div>
+    <div><h3>4) Last ned</h3><p class="muted">Eksporter PNG for for- og bakside.</p></div>
   </div>
 </section>
 
@@ -147,7 +166,7 @@
       </select>
     </label>
 
-    <!-- Manuell størrelseskontroll -->
+    <!-- Logo – kun størrelse -->
     <label>Forside-logo størrelse
       <input type="range" id="frontLogoSize" min="20" max="100" step="1" value="64">
       <code id="frontLogoSizeVal">64%</code>
@@ -165,8 +184,8 @@
       </select>
     </label>
     <label>Tekststørrelse (base)
-      <input type="range" id="textBaseSize" min="18" max="72" step="1" value="36">
-      <code id="textBaseSizeVal">36 px</code>
+      <input type="range" id="textBaseSize" min="18" max="72" step="1" value="40">
+      <code id="textBaseSizeVal">40 px</code>
     </label>
   </div>
 
@@ -217,10 +236,22 @@
         </div>
       </div>
       <div class="two-cards">
-        <canvas id="frontDemo" class="card-canvas" width="860" height="540"></canvas>
-        <canvas id="backDemo"  class="card-canvas" width="860" height="540"></canvas>
+        <div class="canvas-wrap">
+          <canvas id="frontDemo" class="card-canvas" width="860" height="540"></canvas>
+          <span class="orient up">OPP</span>
+          <span class="orient down">NED</span>
+          <span class="orient left">VENSTRE</span>
+          <span class="orient right">HØYRE</span>
+        </div>
+        <div class="canvas-wrap">
+          <canvas id="backDemo"  class="card-canvas" width="860" height="540"></canvas>
+          <span class="orient up">OPP</span>
+          <span class="orient down">NED</span>
+          <span class="orient left">VENSTRE</span>
+          <span class="orient right">HØYRE</span>
+        </div>
       </div>
-      <p class="help">Valgt modus bestemmer hva som vises på hver side.</p>
+      <p class="help">Retningsmerkene er kun overlegg (de blir ikke med i eksport).</p>
     </div>
   </div>
 
@@ -230,7 +261,7 @@
 </section>
 
 <footer class="card" style="margin-top:18px">
-  <small class="muted">© NFCKING. Tosidig kortmockup med lasergravert logo og tekst, og manuell logo-/tekststørrelse.</small>
+  <small class="muted">© NFCKING. Tosidig kortmockup med lasergravert logo og tekst – med manuell størrelse og tydelig retning.</small>
 </footer>
 
 <script>
@@ -241,7 +272,6 @@ window._uploadedLogoDataUrl = '';
 function loadImg(url){return new Promise((res,rej)=>{const i=new Image();i.crossOrigin='anonymous';i.onload=()=>res(i);i.onerror=rej;i.src=url;});}
 function toCanvasFromImage(i){const c=document.createElement('canvas');c.width=i.width;c.height=i.height;c.getContext('2d',{willReadFrequently:true}).drawImage(i,0,0);return c;}
 function roundRect(c,x,y,w,h,r){const rr=Math.min(r,w/2,h/2);c.beginPath();c.moveTo(x+rr,y);c.lineTo(x+w-rr,y);c.quadraticCurveTo(x+w,y,x+w,y+rr);c.lineTo(x+w,y+h-rr);c.quadraticCurveTo(x+w,y+h,x+w-rr,y+h);c.lineTo(x+rr,y+h);c.quadraticCurveTo(x,y+h,x,y+h-rr);c.lineTo(x,y+rr);c.quadraticCurveTo(x,y,x+rr,y);c.closePath();}
-function drawText(c,t,x,y){c.save();c.textBaseline='alphabetic';c.fillText(t,x,y);c.restore();}
 
 /* === LASER – LOGO (bildebehandling) === */
 function removeBgByThreshold(c,t=28){
@@ -277,8 +307,7 @@ function drawEngraved(ctx,img,x,y,w,h,d=0.75){
   ctx.save();
   ctx.globalCompositeOperation='multiply';
   ctx.filter='brightness(0.18) contrast(1.25)';
-  ctx.globalAlpha=d;
-  ctx.drawImage(img,x,y,w,h);
+  ctx.globalAlpha=d; ctx.drawImage(img,x,y,w,h);
   ctx.restore();
   ctx.save();
   ctx.globalCompositeOperation='multiply';
@@ -290,17 +319,14 @@ function drawEngraved(ctx,img,x,y,w,h,d=0.75){
 
 /* === UI-HJELPERE === */
 const esc = s => (s||'').replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
-
 function previewLogo(){
   const img=document.getElementById('logoPreview');
   const bg=(document.getElementById('logoBg')?.value||'').trim();
   const src=window._uploadedLogoDataUrl || (document.getElementById('logoUrl')?.value||'').trim();
   if(!img) return;
-  if(!src){ img.style.display='none'; return; }
-  img.src=src; img.style.display='block';
-  img.style.background=bg||'#ffffff';
-  img.style.borderRadius='8px';
-  img.style.padding='6px';
+  img.style.display = src ? 'block' : 'none';
+  if(!src) return;
+  img.src=src; img.style.background=bg||'#ffffff'; img.style.borderRadius='8px'; img.style.padding='6px';
 }
 function handleLogoFileInput(file){
   if(!file) return;
@@ -345,7 +371,7 @@ function makeHTML(d, links){
   +'</main></body></html>';
 }
 
-/* === FYSISK KORT – LOGOBLOKK === */
+/* === LOGOBLOKK === */
 async function drawLogoBlock(ctx, d, box){
   const engraveOn=!!document.getElementById('engraveMode')?.checked;
   const depth=parseFloat(document.getElementById('engraveDepth')?.value||'0.75');
@@ -368,16 +394,17 @@ async function drawLogoBlock(ctx, d, box){
   }
 }
 
-/* === FYSISK KORT – LASERGRAVERT TEKST === */
-function drawEngravedText(ctx, lines, startY, spacing=30, depth=0.85, align='center', xAnchor=null){
-  // velg anker
-  const x = xAnchor != null ? xAnchor : (align==='left' ? Math.round(ctx.canvas.width*0.10) : Math.round(ctx.canvas.width/2));
+/* === LASERGRAVERT TEKST (midt/venstre, uten ghost ved midt) === */
+function drawEngravedText(ctx, lines, startY, spacing=30, depth=0.85, align='center'){
+  const isCenter = (align==='center');
+  const x = isCenter ? Math.round(ctx.canvas.width/2) : Math.round(ctx.canvas.width*0.10);
+
   // hoved-innbrenning
   ctx.save();
   ctx.globalCompositeOperation='multiply';
   ctx.filter='brightness(0.25) contrast(1.25)';
   ctx.globalAlpha=depth;
-  ctx.textAlign = (align==='left'?'left':'center');
+  ctx.textAlign = isCenter ? 'center' : 'left';
   let y = startY;
   lines.forEach(([txt, size, weight])=>{
     ctx.font = `${weight} ${size}px system-ui, -apple-system, Segoe UI, Roboto, Arial`;
@@ -387,107 +414,98 @@ function drawEngravedText(ctx, lines, startY, spacing=30, depth=0.85, align='cen
   });
   ctx.restore();
 
-  // svak dybdeskygge
-  ctx.save();
-  ctx.globalCompositeOperation='multiply';
-  ctx.filter='blur(1.2px)';
-  ctx.globalAlpha=Math.min(0.4, depth*0.5);
-  y = startY;
-  lines.forEach(([txt, size, weight])=>{
-    ctx.font = `${weight} ${size}px system-ui, -apple-system, Segoe UI, Roboto, Arial`;
-    ctx.fillText(txt, x + 1, y + 1);
-    y += spacing;
-  });
-  ctx.restore();
+  // dybdeskygge – kun for venstrejustert
+  if(!isCenter){
+    ctx.save();
+    ctx.globalCompositeOperation='multiply';
+    ctx.filter='blur(1.2px)';
+    ctx.globalAlpha=Math.min(0.4, depth*0.5);
+    y = startY;
+    lines.forEach(([txt, size, weight])=>{
+      ctx.font = `${weight} ${size}px system-ui, -apple-system, Segoe UI, Roboto, Arial`;
+      ctx.fillText(txt, x + 1, y + 1);
+      y += spacing;
+    });
+    ctx.restore();
+  }
 }
 
-/* === FYSISK KORT – RENDER PER SIDE === */
+/* === RENDER PER SIDE === */
 async function renderPhysical(canvas, d, style, side, mode){
   const ctx=canvas.getContext('2d');
   ctx.clearRect(0,0,canvas.width,canvas.height);
 
-  // basebakgrunn
+  // base
   const base=await loadImg(BASES[style]||BASES.dark);
   const s=Math.max(canvas.width/base.width,canvas.height/base.height);
   const w=base.width*s, h=base.height*s;
   const ox=(canvas.width-w)/2, oy=(canvas.height-h)/2;
   ctx.drawImage(base,ox,oy,w,h);
 
-  // dynamiske bokser etter sliders (% av høyde)
-  const frontPct = parseFloat(document.getElementById('frontLogoSize')?.value || '64') / 100;
-  const backSmallPct = parseFloat(document.getElementById('backSmallLogoSize')?.value || '24') / 100;
+  // Slidere (kun størrelse/justering)
+  const frontPct  = parseFloat(document.getElementById('frontLogoSize')?.value||'64')/100;
+  const backPct   = parseFloat(document.getElementById('backSmallLogoSize')?.value||'24')/100;
+  const baseSize  = parseFloat(document.getElementById('textBaseSize')?.value||'40');
+  const alignSel  = (document.getElementById('textAlign')?.value||'center');
 
-  // Tekst-størrelse og justering
-  const baseSize = parseFloat(document.getElementById('textBaseSize')?.value || '36');
-  const alignSel = (document.getElementById('textAlign')?.value || 'center'); // 'center' | 'left'
-
-  // Forside: stor logo – kvadratisk boks, sentrert
+  // Bokser (logo, sentrert)
   const frontSize = canvas.height * frontPct;
   const fullLogoBox = {
-    x: (canvas.width - frontSize)/2,
-    y: (canvas.height - frontSize)/2,
-    w: frontSize,
-    h: frontSize
+    x:(canvas.width-frontSize)/2,
+    y:(canvas.height-frontSize)/2,
+    w:frontSize,h:frontSize
   };
 
-  // Bakside: liten logo – kvadratisk boks over teksten
-  const smallSize = canvas.height * backSmallPct;
+  const smallSize = canvas.height * backPct;
   const smallLogoBox = {
-    x: (canvas.width - smallSize)/2,
-    y: canvas.height * 0.12,
-    w: smallSize,
-    h: smallSize
+    x:(canvas.width-smallSize)/2,
+    y:canvas.height*0.12,
+    w:smallSize,h:smallSize
   };
 
-  // Tekstområde på bakside
-  const textTop = (mode === 'logo-front-text+smalllogo-back') ? (smallLogoBox.y + smallLogoBox.h + canvas.height*0.05) : canvas.height*0.35;
-  const textArea = { x: canvas.width*0.10, y: textTop, w: canvas.width*0.80, h: canvas.height*0.5 };
+  // Tekst-område
+  const textTop = (mode === 'logo-front-text+smalllogo-back')
+    ? (smallLogoBox.y + smallLogoBox.h + canvas.height*0.05)
+    : canvas.height*0.35;
 
-  // FRONT (alltid logo)
+  // FRONT
   if(side==='front'){
     await drawLogoBlock(ctx, d, fullLogoBox);
     return;
   }
 
-  // BACK – variantlogikk
+  // BACK
   if(mode==='logo-both'){
     await drawLogoBlock(ctx, d, fullLogoBox);
     return;
   }
   if(mode==='logo-front-only'){
-    // bevisst blank bakside
-    return;
+    return; // blank bakside
   }
-
-  // Tekst på bakside (moduser 3 og 4)
   if(mode==='logo-front-text+smalllogo-back' && d.logoUrl){
     await drawLogoBlock(ctx, d, smallLogoBox);
   }
 
-  // Linjestørrelser relativt til base
-  const nameSize  = Math.round(baseSize * 1.3);  // kraftig navn
+  // Tekststørrelser (relativt til base)
+  const nameSize  = Math.round(baseSize * 1.3);
   const titleSize = Math.round(baseSize * 1.0);
   const infoSize  = Math.round(baseSize * 0.85);
   const hintSize  = Math.round(baseSize * 0.65);
   const spacing   = Math.round(baseSize * 0.95);
 
-  // Samle linjer for lasergravert tekst
-  const lines = [];
+  // Linjer
+  const lines=[];
   if(d.name)  lines.push([d.name, nameSize, '800']);
   if(d.title || d.orgName){
     const t = d.title ? d.title + (d.orgName ? ' · '+d.orgName : '') : d.orgName;
     lines.push([t, titleSize, '700']);
   }
-  if(d.phone) lines.push(['Tel: '+d.phone, infoSize, '600']);
-  if(d.email) lines.push(['E-post: '+d.email, infoSize, '600']);
-  if(d.site)  lines.push(['Nettside: '+d.site, infoSize, '600']);
+  if(d.phone) lines.push(['Tel: '+d.phone,  infoSize, '600']);
+  if(d.email) lines.push(['E-post: '+d.email,infoSize, '600']);
+  if(d.site)  lines.push(['Nettside: '+d.site,infoSize, '600']);
   lines.push(['Scan NFC / QR for digitalt kort', hintSize, '600']);
 
-  // Anker for tekst
-  const anchorX = (alignSel==='left') ? textArea.x : (textArea.x + textArea.w/2);
-
-  // Lasergravert tekst
-  drawEngravedText(ctx, lines, textArea.y, spacing, 0.88, alignSel, anchorX);
+  drawEngravedText(ctx, lines, textTop, spacing, 0.88, alignSel);
 }
 
 /* === SYNC & RENDER === */
@@ -523,11 +541,9 @@ async function updatePreview(){
   const styleDemo=(document.getElementById('cardStyleDemo')?.value||'dark');
   const mode=(document.getElementById('twoSideMode')?.value||'logo-both');
 
-  // Hero (top) – for-/bakside
   await renderPhysical(document.getElementById('frontTop'), d, styleTop, 'front', mode);
   await renderPhysical(document.getElementById('backTop'),  d, styleTop, 'back',  mode);
 
-  // Demo – for-/bakside
   await renderPhysical(document.getElementById('frontDemo'), d, styleDemo, 'front', mode);
   await renderPhysical(document.getElementById('backDemo'),  d, styleDemo, 'back',  mode);
 }
@@ -563,10 +579,11 @@ document.getElementById('updatePreview')?.addEventListener('click', updatePrevie
   .forEach(id=>document.getElementById(id)?.addEventListener('input',()=>{ if(id==='logoUrl'||id==='logoBg') previewLogo(); updatePreview(); }));
 ['engraveMode','engraveDepth','autoRemoveBg','bgThreshold','twoSideMode','cardStyleTop','cardStyleDemo','frontLogoSize','backSmallLogoSize','textAlign','textBaseSize']
   .forEach(id=>document.getElementById(id)?.addEventListener('input',()=>{
-    const thr=document.getElementById('bgThreshold')?.value; if(thr) document.getElementById('bgThresholdVal').textContent=thr;
-    const fls=document.getElementById('frontLogoSize')?.value; if(fls) document.getElementById('frontLogoSizeVal').textContent=fls+'%';
-    const bls=document.getElementById('backSmallLogoSize')?.value; if(bls) document.getElementById('backSmallLogoSizeVal').textContent=bls+'%';
-    const tbs=document.getElementById('textBaseSize')?.value; if(tbs) document.getElementById('textBaseSizeVal').textContent=tbs+' px';
+    const set=(id,suf)=>{const el=document.getElementById(id); const vv=document.getElementById(id+'Val'); if(el && vv) vv.textContent=el.value+(suf||'');};
+    set('bgThreshold','');
+    set('frontLogoSize','%');
+    set('backSmallLogoSize','%');
+    set('textBaseSize',' px');
     updatePreview();
   }));
 
