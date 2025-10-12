@@ -49,12 +49,12 @@
 <section class="hero">
   <div>
     <h1>NFCKING – én lenke, ett kort, uendelig fleksibelt.</h1>
-    <p class="muted">Lag og del digitale visittkort med NFC/QR. Forhåndsvis både digitalt kort og tosidig kort med lasergravert logo.</p>
+    <p class="muted">Lag og del digitale visittkort med NFC/QR. Forhåndsvis både digitalt kort og tosidig kort med lasergravert logo og tekst.</p>
     <ul>
       <li>✅ Felles renderer for <b>red/light/dark</b></li>
-      <li>✅ <b>Lasergravert</b> logo-effekt</li>
+      <li>✅ <b>Lasergravert</b> logo + tekst</li>
       <li>✅ <b>Tosidig mockup</b> – forside/bakside</li>
-      <li>✅ Manuell <b>logo-størrelse</b></li>
+      <li>✅ Manuell <b>logo- og tekststørrelse</b></li>
     </ul>
     <div class="inline" style="margin-top:8px">
       <label>Stil:
@@ -81,6 +81,7 @@
     <p class="help" style="grid-column:1/-1;margin:0">Begge sidene bruker samme renderer som demoen under.</p>
   </div>
 </section>
+
 <section id="hvordan" class="card">
   <h2>Hvordan funker det?</h2>
   <div class="grid col-2">
@@ -138,7 +139,7 @@
         <option value="logo-front-text+smalllogo-back">4) Logo forside + tekst + liten logo bakside</option>
       </select>
     </label>
-    <label>Stil:
+    <label>Stil (demo):
       <select id="cardStyleDemo">
         <option value="dark" selected>Dark</option>
         <option value="light">Light</option>
@@ -152,8 +153,20 @@
       <code id="frontLogoSizeVal">64%</code>
     </label>
     <label>Liten logo bakside
-      <input type="range" id="backSmallLogoSize" min="10" max="60" step="1" value="20">
-      <code id="backSmallLogoSizeVal">20%</code>
+      <input type="range" id="backSmallLogoSize" min="10" max="60" step="1" value="24">
+      <code id="backSmallLogoSizeVal">24%</code>
+    </label>
+
+    <!-- Tekstkontroller -->
+    <label>Tekstjustering
+      <select id="textAlign">
+        <option value="center" selected>Midtstilt</option>
+        <option value="left">Venstrejustert</option>
+      </select>
+    </label>
+    <label>Tekststørrelse (base)
+      <input type="range" id="textBaseSize" min="18" max="72" step="1" value="36">
+      <code id="textBaseSizeVal">36 px</code>
     </label>
   </div>
 
@@ -217,8 +230,9 @@
 </section>
 
 <footer class="card" style="margin-top:18px">
-  <small class="muted">© NFCKING. Tosidig kortmockup med lasergravert logo-look og manuell størrelse.</small>
+  <small class="muted">© NFCKING. Tosidig kortmockup med lasergravert logo og tekst, og manuell logo-/tekststørrelse.</small>
 </footer>
+
 <script>
 /* === BASIS === */
 const BASES = { dark:'/assets/dark.png', light:'/assets/light.png', red:'/assets/red.png' };
@@ -229,11 +243,10 @@ function toCanvasFromImage(i){const c=document.createElement('canvas');c.width=i
 function roundRect(c,x,y,w,h,r){const rr=Math.min(r,w/2,h/2);c.beginPath();c.moveTo(x+rr,y);c.lineTo(x+w-rr,y);c.quadraticCurveTo(x+w,y,x+w,y+rr);c.lineTo(x+w,y+h-rr);c.quadraticCurveTo(x+w,y+h,x+w-rr,y+h);c.lineTo(x+rr,y+h);c.quadraticCurveTo(x,y+h,x,y+h-rr);c.lineTo(x,y+rr);c.quadraticCurveTo(x,y,x+rr,y);c.closePath();}
 function drawText(c,t,x,y){c.save();c.textBaseline='alphabetic';c.fillText(t,x,y);c.restore();}
 
-/* === LASERFUNKSJONER === */
+/* === LASER – LOGO (bildebehandling) === */
 function removeBgByThreshold(c,t=28){
   const x=c.getContext('2d',{willReadFrequently:true});
   const id=x.getImageData(0,0,c.width,c.height);const d=id.data;
-  // enkel hvit-bakgrunns cut
   for(let i=0;i<d.length;i+=4){
     const r=d[i],g=d[i+1],b=d[i+2],a=d[i+3];
     if(a<20){ d[i+3]=0; continue; }
@@ -267,8 +280,6 @@ function drawEngraved(ctx,img,x,y,w,h,d=0.75){
   ctx.globalAlpha=d;
   ctx.drawImage(img,x,y,w,h);
   ctx.restore();
-
-  // svakt dybdepreg
   ctx.save();
   ctx.globalCompositeOperation='multiply';
   ctx.filter='blur(1.2px)';
@@ -276,8 +287,7 @@ function drawEngraved(ctx,img,x,y,w,h,d=0.75){
   ctx.drawImage(img,x+1,y+1,w,h);
   ctx.restore();
 }
-  </script>
-  <script>
+
 /* === UI-HJELPERE === */
 const esc = s => (s||'').replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
 
@@ -303,7 +313,7 @@ document.getElementById('logoFile')?.addEventListener('change', e=>{
   const f=e.target.files && e.target.files[0]; handleLogoFileInput(f);
 });
 
-/* === DIGITALT KORT === */
+/* === DIGITALT KORT (IFRAME) === */
 function makeLinksHTML(links){
   if(!links.length) return '';
   return links.map(l=>{
@@ -335,7 +345,7 @@ function makeHTML(d, links){
   +'</main></body></html>';
 }
 
-/* === FYSISK KORT – HJELPERE === */
+/* === FYSISK KORT – LOGOBLOKK === */
 async function drawLogoBlock(ctx, d, box){
   const engraveOn=!!document.getElementById('engraveMode')?.checked;
   const depth=parseFloat(document.getElementById('engraveDepth')?.value||'0.75');
@@ -358,6 +368,39 @@ async function drawLogoBlock(ctx, d, box){
   }
 }
 
+/* === FYSISK KORT – LASERGRAVERT TEKST === */
+function drawEngravedText(ctx, lines, startY, spacing=30, depth=0.85, align='center', xAnchor=null){
+  // velg anker
+  const x = xAnchor != null ? xAnchor : (align==='left' ? Math.round(ctx.canvas.width*0.10) : Math.round(ctx.canvas.width/2));
+  // hoved-innbrenning
+  ctx.save();
+  ctx.globalCompositeOperation='multiply';
+  ctx.filter='brightness(0.25) contrast(1.25)';
+  ctx.globalAlpha=depth;
+  ctx.textAlign = (align==='left'?'left':'center');
+  let y = startY;
+  lines.forEach(([txt, size, weight])=>{
+    ctx.font = `${weight} ${size}px system-ui, -apple-system, Segoe UI, Roboto, Arial`;
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(txt, x, y);
+    y += spacing;
+  });
+  ctx.restore();
+
+  // svak dybdeskygge
+  ctx.save();
+  ctx.globalCompositeOperation='multiply';
+  ctx.filter='blur(1.2px)';
+  ctx.globalAlpha=Math.min(0.4, depth*0.5);
+  y = startY;
+  lines.forEach(([txt, size, weight])=>{
+    ctx.font = `${weight} ${size}px system-ui, -apple-system, Segoe UI, Roboto, Arial`;
+    ctx.fillText(txt, x + 1, y + 1);
+    y += spacing;
+  });
+  ctx.restore();
+}
+
 /* === FYSISK KORT – RENDER PER SIDE === */
 async function renderPhysical(canvas, d, style, side, mode){
   const ctx=canvas.getContext('2d');
@@ -372,7 +415,11 @@ async function renderPhysical(canvas, d, style, side, mode){
 
   // dynamiske bokser etter sliders (% av høyde)
   const frontPct = parseFloat(document.getElementById('frontLogoSize')?.value || '64') / 100;
-  const backSmallPct = parseFloat(document.getElementById('backSmallLogoSize')?.value || '20') / 100;
+  const backSmallPct = parseFloat(document.getElementById('backSmallLogoSize')?.value || '24') / 100;
+
+  // Tekst-størrelse og justering
+  const baseSize = parseFloat(document.getElementById('textBaseSize')?.value || '36');
+  const alignSel = (document.getElementById('textAlign')?.value || 'center'); // 'center' | 'left'
 
   // Forside: stor logo – kvadratisk boks, sentrert
   const frontSize = canvas.height * frontPct;
@@ -396,14 +443,13 @@ async function renderPhysical(canvas, d, style, side, mode){
   const textTop = (mode === 'logo-front-text+smalllogo-back') ? (smallLogoBox.y + smallLogoBox.h + canvas.height*0.05) : canvas.height*0.35;
   const textArea = { x: canvas.width*0.10, y: textTop, w: canvas.width*0.80, h: canvas.height*0.5 };
 
-  // FRONT
+  // FRONT (alltid logo)
   if(side==='front'){
-    // alle moduser har logo på forsiden
     await drawLogoBlock(ctx, d, fullLogoBox);
     return;
   }
 
-  // BACK
+  // BACK – variantlogikk
   if(mode==='logo-both'){
     await drawLogoBlock(ctx, d, fullLogoBox);
     return;
@@ -414,33 +460,34 @@ async function renderPhysical(canvas, d, style, side, mode){
   }
 
   // Tekst på bakside (moduser 3 og 4)
-  // (liten logo på toppen hvis mode 4)
   if(mode==='logo-front-text+smalllogo-back' && d.logoUrl){
     await drawLogoBlock(ctx, d, smallLogoBox);
   }
 
-  // Tekstblokk sentrert
-  ctx.fillStyle='#eaf2ff'; ctx.font='800 36px system-ui, -apple-system, Segoe UI, Roboto, Arial';
-  ctx.textAlign='center';
-  const cx = textArea.x + textArea.w/2;
-  let y = textArea.y;
+  // Linjestørrelser relativt til base
+  const nameSize  = Math.round(baseSize * 1.3);  // kraftig navn
+  const titleSize = Math.round(baseSize * 1.0);
+  const infoSize  = Math.round(baseSize * 0.85);
+  const hintSize  = Math.round(baseSize * 0.65);
+  const spacing   = Math.round(baseSize * 0.95);
 
-  const nameLine = d.name || '';
-  if(nameLine){ ctx.fillText(nameLine, cx, y); y += 42; }
+  // Samle linjer for lasergravert tekst
+  const lines = [];
+  if(d.name)  lines.push([d.name, nameSize, '800']);
+  if(d.title || d.orgName){
+    const t = d.title ? d.title + (d.orgName ? ' · '+d.orgName : '') : d.orgName;
+    lines.push([t, titleSize, '700']);
+  }
+  if(d.phone) lines.push(['Tel: '+d.phone, infoSize, '600']);
+  if(d.email) lines.push(['E-post: '+d.email, infoSize, '600']);
+  if(d.site)  lines.push(['Nettside: '+d.site, infoSize, '600']);
+  lines.push(['Scan NFC / QR for digitalt kort', hintSize, '600']);
 
-  ctx.fillStyle='#c7d4e7'; ctx.font='600 24px system-ui, -apple-system, Segoe UI, Roboto, Arial';
-  const titleLine = d.title ? d.title + (d.orgName?' · '+d.orgName:'') : (d.orgName||'');
-  if(titleLine){ ctx.fillText(titleLine, cx, y); y += 36; }
+  // Anker for tekst
+  const anchorX = (alignSel==='left') ? textArea.x : (textArea.x + textArea.w/2);
 
-  ctx.fillStyle='#eaf2ff'; ctx.font='600 22px system-ui, -apple-system, Segoe UI, Roboto, Arial';
-  const info = [];
-  if(d.phone) info.push('Tel: '+d.phone);
-  if(d.email) info.push('E-post: '+d.email);
-  if(d.site)  info.push('Nettside: '+d.site);
-  info.forEach(line=>{ ctx.fillText(line, cx, y); y += 30; });
-
-  ctx.fillStyle='rgba(159,176,198,.95)'; ctx.font='600 18px system-ui, -apple-system, Segoe UI, Roboto, Arial';
-  ctx.fillText('Scan NFC / QR for digitalt kort', cx, textArea.y+textArea.h-8);
+  // Lasergravert tekst
+  drawEngravedText(ctx, lines, textArea.y, spacing, 0.88, alignSel, anchorX);
 }
 
 /* === SYNC & RENDER === */
@@ -514,11 +561,12 @@ document.querySelectorAll('.pill[data-label]')?.forEach(btn=>{
 document.getElementById('updatePreview')?.addEventListener('click', updatePreview);
 ['orgName','orgKey','accent','logoUrl','logoBg','name','title','phone','email','site','address','slug','vcfFilename']
   .forEach(id=>document.getElementById(id)?.addEventListener('input',()=>{ if(id==='logoUrl'||id==='logoBg') previewLogo(); updatePreview(); }));
-['engraveMode','engraveDepth','autoRemoveBg','bgThreshold','twoSideMode','cardStyleTop','cardStyleDemo','frontLogoSize','backSmallLogoSize']
+['engraveMode','engraveDepth','autoRemoveBg','bgThreshold','twoSideMode','cardStyleTop','cardStyleDemo','frontLogoSize','backSmallLogoSize','textAlign','textBaseSize']
   .forEach(id=>document.getElementById(id)?.addEventListener('input',()=>{
     const thr=document.getElementById('bgThreshold')?.value; if(thr) document.getElementById('bgThresholdVal').textContent=thr;
     const fls=document.getElementById('frontLogoSize')?.value; if(fls) document.getElementById('frontLogoSizeVal').textContent=fls+'%';
     const bls=document.getElementById('backSmallLogoSize')?.value; if(bls) document.getElementById('backSmallLogoSizeVal').textContent=bls+'%';
+    const tbs=document.getElementById('textBaseSize')?.value; if(tbs) document.getElementById('textBaseSizeVal').textContent=tbs+' px';
     updatePreview();
   }));
 
