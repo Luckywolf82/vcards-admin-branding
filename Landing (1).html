@@ -1,0 +1,324 @@
+<!doctype html>
+<html lang="no">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>NFCKING – Mockup av trekort (lasergravert stil)</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/water.css@2/out/water.css">
+  <style>
+    :root{
+      --gap: 14px;
+    }
+    body{
+      background:#0b0b10;
+      color:#e9eef5;
+    }
+    header{
+      margin: 8px 0 18px;
+      text-align:center;
+    }
+    header h1{ margin: 6px 0 4px }
+    header p{ color:#9fb0c4 }
+    .controls{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--gap);
+    }
+    @media (max-width: 920px){
+      .controls{ grid-template-columns: 1fr; }
+    }
+    .row{ display:flex; align-items:center; gap:10px; flex-wrap:wrap }
+    .help{ color:#9fb0c4; font-size:.95rem }
+    .mockup-grid{
+      display:grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: var(--gap);
+    }
+    @media (max-width: 920px){
+      .mockup-grid{ grid-template-columns: 1fr; }
+    }
+    .cardFrame{
+      background:#10131a;
+      border:1px solid #202635;
+      border-radius:12px;
+      padding:10px;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.03);
+    }
+    .woodLabel{
+      margin-top:8px;
+      color:#aebad0;
+      font-size:.9rem;
+    }
+    .cardCanvas{
+      position: relative;
+      width: 100%;
+      aspect-ratio: 85.6 / 54; /* ekte bankkortformat */
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      border-radius: 12px;
+      box-shadow: 0 6px 20px rgba(0,0,0,.35), inset 0 0 0 1px rgba(0,0,0,.25);
+      overflow: hidden;
+    }
+    .cardCanvas .logoLayer{
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 80%; /* styres av slider */
+      height: auto;
+      object-fit: contain;
+      pointer-events: none;
+      opacity: .9;
+      mix-blend-mode: multiply;
+      /* «lasergravert» look */
+      filter: grayscale(1) sepia(1) saturate(600%) hue-rotate(-10deg) brightness(.55) contrast(1.25);
+    }
+
+    .downloadBar{
+      display:flex;
+      gap:10px;
+      align-items:center;
+      flex-wrap:wrap;
+      margin-top: 10px;
+    }
+    .note{ color:#9fb0c4; font-size:.95rem }
+    .pill{ display:inline-block; padding:.15rem .5rem; border-radius:999px; background:#243244; color:#cfe3ff; border:1px solid #344458 }
+    .rangeBox{ display:flex; gap:10px; align-items:center }
+    .rangeBox input[type="range"]{ width:220px }
+  </style>
+</head>
+<body>
+<header>
+  <h1>NFCKING – Mockup-generator</h1>
+  <p>Legg inn logoen din, så får du en realistisk forhåndsvisning på ekte trekort (liggende). Logoen legges i midten og får en «lasergravert» effekt.</p>
+</header>
+
+<section class="controls">
+  <div>
+    <h3>1) Last opp logo</h3>
+    <div class="row">
+      <input type="file" id="logoFile" accept="image/*">
+    </div>
+    <p class="help">Tips: En svart/hvit PNG (uten bakgrunn) gir det reneste uttrykket. Du kan også fjerne lys bakgrunn automatisk.</p>
+
+    <div class="row" style="margin-top:8px">
+      <label class="row"><input type="checkbox" id="autoBg" checked> Fjern lys bakgrunn automatisk</label>
+      <div class="rangeBox">
+        <span>Terskel:</span>
+        <input type="range" id="bgThreshold" min="10" max="90" value="56">
+        <span id="bgVal">56</span>
+      </div>
+    </div>
+
+    <div class="row" style="margin-top:12px">
+      <div class="rangeBox">
+        <span>Logo-størrelse:</span>
+        <input type="range" id="logoScale" min="40" max="100" value="80">
+        <span id="scaleVal">80%</span>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <h3>2) Last ned</h3>
+    <div class="downloadBar">
+      <label>Treverk:</label>
+      <select id="woodSelect">
+        <option value="light">Lys</option>
+        <option value="red">Valnøtt (midt)</option>
+        <option value="walnut">Mørk</option>
+      </select>
+      <button id="downloadBtn">Last ned valgt mockup (PNG)</button>
+    </div>
+    <p class="note">Filene dine brukes kun i nettleseren – ingenting lastes opp.</p>
+  </div>
+</section>
+
+<hr>
+
+<h3>Mockup av fysisk kort (liggende)</h3>
+<div class="mockup-grid" id="grid">
+  <!-- Lys -->
+  <div class="cardFrame">
+    <div class="cardCanvas" style="background-image:url('assets/light.png')">
+      <img class="logoLayer" alt="logo">
+    </div>
+    <div class="woodLabel">Lys</div>
+  </div>
+
+  <!-- Valnøtt (red.png) -->
+  <div class="cardFrame">
+    <div class="cardCanvas" style="background-image:url('assets/red.png')">
+      <img class="logoLayer" alt="logo">
+    </div>
+    <div class="woodLabel">Valnøtt</div>
+  </div>
+
+  <!-- Mørk -->
+  <div class="cardFrame">
+    <div class="cardCanvas" style="background-image:url('assets/dark.png')">
+      <img class="logoLayer" alt="logo">
+    </div>
+    <div class="woodLabel">Mørk</div>
+  </div>
+</div>
+
+<script>
+let rawLogoURL = null;     // original dataURL
+let processedLogoURL = null; // etter ev. bakgrunnsfjerning
+let currentScale = 80;
+
+const autoBg    = document.getElementById('autoBg');
+const thInput   = document.getElementById('bgThreshold');
+const thVal     = document.getElementById('bgVal');
+const scaleIn   = document.getElementById('logoScale');
+const scaleVal  = document.getElementById('scaleVal');
+const woodSel   = document.getElementById('woodSelect');
+const grid      = document.getElementById('grid');
+
+function setLogoOnTiles(url){
+  grid.querySelectorAll('.logoLayer').forEach(img => {
+    img.src = url || '';
+    img.style.display = url ? 'block' : 'none';
+  });
+}
+
+function updateScale(v){
+  currentScale = v;
+  scaleVal.textContent = v + '%';
+  grid.querySelectorAll('.logoLayer').forEach(img => {
+    img.style.width = v + '%';
+  });
+}
+
+scaleIn.addEventListener('input', (e)=> updateScale(e.target.value));
+updateScale(currentScale);
+
+thInput.addEventListener('input', ()=>{
+  thVal.textContent = thInput.value;
+  if(rawLogoURL && autoBg.checked){
+    processLogo();
+  }
+});
+
+autoBg.addEventListener('change', ()=>{
+  if(rawLogoURL) processLogo();
+});
+
+document.getElementById('logoFile').addEventListener('change', async (e)=>{
+  const file = e.target.files && e.target.files[0];
+  if(!file) return;
+  rawLogoURL = await fileToDataURL(file);
+  await processLogo();
+});
+
+async function processLogo(){
+  if(!rawLogoURL){ setLogoOnTiles(null); return; }
+  if(!autoBg.checked){
+    processedLogoURL = rawLogoURL;
+    setLogoOnTiles(processedLogoURL);
+    return;
+  }
+  const t = parseInt(thInput.value,10) || 56;
+  processedLogoURL = await removeLightBackground(rawLogoURL, t);
+  setLogoOnTiles(processedLogoURL);
+}
+
+function fileToDataURL(file){
+  return new Promise((resolve,reject)=>{
+    const r = new FileReader();
+    r.onload = ()=> resolve(r.result);
+    r.onerror= reject;
+    r.readAsDataURL(file);
+  });
+}
+
+/* Fjern lys bakgrunn: gjør pikslene med høy lysstyrke transparente */
+async function removeLightBackground(dataURL, threshold){
+  return new Promise((resolve)=>{
+    const img = new Image();
+    img.onload = ()=>{
+      const w = img.naturalWidth, h = img.naturalHeight;
+      const c = document.createElement('canvas');
+      c.width = w; c.height = h;
+      const ctx = c.getContext('2d', { willReadFrequently: true });
+      ctx.drawImage(img,0,0);
+      const image = ctx.getImageData(0,0,w,h);
+      const d = image.data;
+      // terskel i 0..255 (skaler fra 10..90%)
+      const th = Math.round(threshold/100 * 255);
+      for(let i=0;i<d.length;i+=4){
+        const r=d[i], g=d[i+1], b=d[i+2];
+        const max = Math.max(r,g,b); // «lyseste» kanal
+        if(max >= th){ d[i+3] = 0; } // sett alfa til 0 (transparent)
+      }
+      ctx.putImageData(image,0,0);
+      resolve(c.toDataURL('image/png'));
+    };
+    img.src = dataURL;
+  });
+}
+
+/* Last ned valgt mockup som PNG */
+document.getElementById('downloadBtn').addEventListener('click', async ()=>{
+  const v = woodSel.value;
+  const bgSrc =
+    v === 'walnut' ? 'assets/dark.png' :
+    v === 'light'  ? 'assets/light.png' :
+                     'assets/red.png';
+
+  if(!processedLogoURL){
+    alert('Last opp en logo først.');
+    return;
+  }
+
+  const bg = await loadImage(bgSrc);
+  const logo = await loadImage(processedLogoURL);
+
+  // Gjør et lerret i kortformat (brei)
+  const W = 1712;               // 85.6mm * 20 (god oppløsning)
+  const H = Math.round(W * 54 / 85.6);
+  const c = document.createElement('canvas');
+  c.width = W; c.height = H;
+  const ctx = c.getContext('2d');
+
+  // Bakgrunn
+  ctx.drawImage(bg, 0, 0, W, H);
+
+  // «laser»-look på logo (svart/grå med kontrast) – via canvas
+  const targetW = W * (currentScale/100);
+  const ratio = logo.naturalHeight / logo.naturalWidth;
+  const targetH = targetW * ratio;
+
+  const x = (W - targetW)/2;
+  const y = (H - targetH)/2;
+
+  // Tegn logo i svart/grå
+  ctx.save();
+  // simuler multiply/kontrast
+  ctx.globalCompositeOperation = 'multiply';
+  ctx.filter = 'grayscale(100%) sepia(100%) saturate(600%) hue-rotate(-10deg) brightness(55%) contrast(125%)';
+  ctx.drawImage(logo, x, y, targetW, targetH);
+  ctx.restore();
+
+  const a = document.createElement('a');
+  a.href = c.toDataURL('image/png');
+  a.download = `nfcking_mockup_${v}.png`;
+  a.click();
+});
+
+function loadImage(src){
+  return new Promise((resolve,reject)=>{
+    const i = new Image();
+    i.onload = ()=> resolve(i);
+    i.onerror= reject;
+    i.src = src;
+  });
+}
+
+// init
+setLogoOnTiles(null);
+</script>
+</body>
+</html>
