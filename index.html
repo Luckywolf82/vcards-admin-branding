@@ -54,6 +54,18 @@
 body, section, main, div, p, label, span, td, th, input, select, textarea {
   color: #eaf2ff !important;
 }
+    /* --- NUCLEAR FIX: tving lys tekst uansett spesifisitet --- */
+*, *::before, *::after {
+  color: #eaf2ff !important;
+  -webkit-text-fill-color: #eaf2ff !important; /* for WebKit */
+  text-shadow: none !important;
+}
+
+/* Valgfritt: gjør bakgrunner transparente hvis noe dekker teksten */
+article, section, main, .card {
+  background: transparent !important;
+}
+
   </style>
 </head>
 
