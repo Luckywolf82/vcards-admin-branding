@@ -1,0 +1,234 @@
+/* ====== UI & RENDER ====== */
+const esc = s => (s||'').replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+
+function previewLogo(){
+  const img = document.getElementById('logoPreview');
+  const bg  = document.getElementById('logoBg').value.trim();
+  const src = window._uploadedLogoDataUrl || document.getElementById('logoUrl').value.trim();
+  if(!src){ img.style.display='none'; return; }
+  img.src = src; img.style.display='block';
+  img.style.background = bg || '#ffffff';
+  img.style.borderRadius = '8px';
+  img.style.padding = '6px';
+}
+function handleLogoFileInput(file){
+  if(!file) return;
+  const note = document.getElementById('logoFileNote');
+  const reader = new FileReader();
+  reader.onload = () => {
+    window._uploadedLogoDataUrl = String(reader.result || '');
+    const urlEl = document.getElementById('logoUrl'); if(urlEl) urlEl.value='';
+    if(note) note.textContent = `Bruker opplastet logo: ${file.name}`;
+    previewLogo(); updatePreview();
+  };
+  reader.readAsDataURL(file);
+}
+document.getElementById('logoFile')?.addEventListener('change', (e)=>{
+  const f = e.target.files && e.target.files[0]; handleLogoFileInput(f);
+});
+
+function makeLinksHTML(links){
+  if(!links.length) return '';
+  return links.map(l => {
+    const pre = l.pre ? `<div class="pre" style="margin:8px 0 4px;color:#bfc8d6">${esc(l.pre)}</div>` : '';
+    const post= l.post? `<div class="post" style="margin:4px 0 10px;color:#97a3b6;font-size:.95rem">${esc(l.post)}</div>` : '';
+    return `<div class="link-block" style="margin-top:10px">
+      ${pre}
+      <a class="btn" href="${esc(l.url)}" target="_blank" rel="noopener">${esc(l.label)}</a>
+      ${post}
+    </div>`;
+  }).join('');
+}
+function makeHTML(d, links){
+  const accent = d.accent || '#8fd3ff';
+  const logoTag = d.logoUrl ? `<img class="brand-logo" src="${d.logoUrl}" style="max-height:56px;max-width:280px;object-fit:contain;${d.logoBg?`background:${d.logoBg};border-radius:8px;padding:6px;`:''}" alt="${esc(d.orgName)} logo">` : '';
+  const extras = makeLinksHTML(links);
+  return `<!doctype html>
+<html lang="no">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Kontaktkort – ${esc(d.name||'')}</title>
+<style>
+:root{--accent:${accent};}
+body{font-family:system-ui,-apple-system,Roboto,Arial;background:#0b0b10;color:#eee;padding:20px}
+.container{max-width:760px;margin:0 auto;background:#12121a;padding:24px;border-radius:12px}
+.btn{display:inline-block;padding:12px 14px;background:var(--accent);color:#03101a;border-radius:10px;text-decoration:none;font-weight:700}
+.links{margin-top:12px;display:flex;gap:8px;flex-wrap:wrap}
+.card p{color:#bfc8d6}
+.brand-logo{display:block;margin:0 0 12px 0}
+</style>
+</head>
+<body>
+<main class="container card">
+  ${logoTag}
+  <h1>Kontaktkort – ${esc(d.name||'')}</h1>
+  <p class="muted">${esc(d.title||'')} · ${esc(d.orgName||'')}</p>
+  <div class="links">
+    ${d.phone?`<a href="tel:${esc(d.phone)}" class="btn">Ring</a>`:''}
+    ${d.email?`<a href="mailto:${esc(d.email)}" class="btn">E-post</a>`:''}
+    ${d.site?`<a href="${esc(d.site)}" target="_blank" class="btn">Besøk nettside</a>`:''}
+  </div>
+  ${extras}
+  ${d.address?`<p style="margin-top:14px">Adresse: ${esc(d.address)}</p>`:''}
+</main>
+</body>
+</html>`;
+}
+
+async function renderCardOnCanvas(canvas, d, style='dark'){
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  // base
+  const base = await loadImg(BASES[style] || BASES.dark);
+  const s = Math.max(canvas.width/base.width, canvas.height/base.height);
+  const w = base.width*s, h = base.height*s;
+  const ox = (canvas.width - w)/2, oy = (canvas.height - h)/2;
+  ctx.drawImage(base, ox, oy, w, h);
+
+  // tekst-blokk (venstre)
+  ctx.fillStyle = '#eaf2ff'; ctx.font = '800 40px system-ui, -apple-system, Segoe UI, Roboto, Arial';
+  drawText(ctx, d.name || 'Navn Navnesen', canvas.width*0.06, canvas.height*0.36);
+  ctx.fillStyle = '#9fb0c6'; ctx.font = '600 26px system-ui, -apple-system, Segoe UI, Roboto, Arial';
+  drawText(ctx, d.title || '', canvas.width*0.06, canvas.height*0.42);
+
+  ctx.fillStyle = '#eaf2ff'; ctx.font = '600 22px system-ui, -apple-system, Segoe UI, Roboto, Arial';
+  let y = canvas.height*0.50;
+  const lines = [];
+  if(d.phone) lines.push(['Tel', d.phone]);
+  if(d.email) lines.push(['E-post', d.email]);
+  if(d.site)  lines.push(['Nettside', d.site]);
+  lines.forEach(([label,val])=>{
+    ctx.fillStyle = '#a9b8cf'; ctx.font = '700 22px system-ui, -apple-system, Segoe UI, Roboto, Arial';
+    ctx.fillText(label+':', canvas.width*0.06, y);
+    ctx.fillStyle = '#eaf2ff'; ctx.font = '600 22px system-ui, -apple-system, Segoe UI, Roboto, Arial';
+    ctx.fillText(String(val), canvas.width*0.18, y);
+    y += 34;
+  });
+
+  ctx.fillStyle = 'rgba(159,176,198,.95)'; ctx.font = '600 20px system-ui, -apple-system, Segoe UI, Roboto, Arial';
+  drawText(ctx, 'Scan NFC / QR for digitalt kort', canvas.width*0.06, canvas.height*0.92);
+
+  // LOGO-område (høyre)
+  const box = { x: canvas.width*0.62, y: canvas.height*0.18, w: canvas.width*0.24, h: canvas.height*0.24 };
+  if (d.logoUrl){
+    try{
+      const engraveOn = document.getElementById('engraveMode')?.checked;
+      const depth = parseFloat(document.getElementById('engraveDepth')?.value || '0.7');
+
+      if (engraveOn){
+        const engrC = await prepareEngraveCanvas(d.logoUrl);
+        if (engrC){
+          const sc = Math.min(box.w / engrC.width, box.h / engrC.height);
+          const lw = engrC.width * sc, lh = engrC.height * sc;
+          const lx = box.x + (box.w - lw)/2, ly = box.y + (box.h - lh)/2;
+          drawEngraved(ctx, engrC, lx, ly, lw, lh, depth);
+        }
+      } else {
+        if ((d.logoBg||'').trim()){
+          ctx.fillStyle = d.logoBg.trim();
+          roundRect(ctx, box.x, box.y, box.w, box.h, 12); ctx.fill();
+        }
+        const logo = await loadImg(d.logoUrl);
+        const sc = Math.min(box.w / logo.width, box.h / logo.height);
+        const lw = logo.width*sc, lh = logo.height*sc;
+        const lx = box.x + (box.w-lw)/2, ly = box.y + (box.h-lh)/2;
+        ctx.drawImage(logo, lx, ly, lw, lh);
+      }
+    }catch(e){ /* ignorer logo-feil */ }
+  }
+}
+
+async function updatePreview(){
+  const d = {
+    orgName: document.getElementById('orgName').value.trim() || document.getElementById('orgKey').value.trim(),
+    orgKey:  document.getElementById('orgKey').value.trim(),
+    accent:  document.getElementById('accent').value.trim() || '#8fd3ff',
+    logoUrl: window._uploadedLogoDataUrl || document.getElementById('logoUrl').value.trim(),
+    logoBg:  document.getElementById('logoBg').value.trim(),
+    name:    document.getElementById('name').value.trim(),
+    title:   document.getElementById('title').value.trim(),
+    phone:   document.getElementById('phone').value.trim(),
+    email:   document.getElementById('email').value.trim(),
+    site:    document.getElementById('site').value.trim(),
+    address: document.getElementById('address').value.trim(),
+    slug:    document.getElementById('slug').value.trim(),
+    vcfFilename: document.getElementById('vcfFilename').value.trim()
+  };
+  const links = Array.from(document.querySelectorAll('#linksTable tbody tr')).map(tr=>({
+    label: tr.querySelector('.lbl').value.trim(),
+    url:   tr.querySelector('.lnk').value.trim(),
+    pre:   tr.querySelector('.pre').value.trim(),
+    post:  tr.querySelector('.post').value.trim()
+  })).filter(x=>x.label && x.url);
+
+  // iframe
+  const html = makeHTML(d, links);
+  const frame = document.getElementById('liveFrame');
+  const doc = frame.contentDocument || frame.contentWindow.document;
+  doc.open(); doc.write(html); doc.close();
+
+  // mockups
+  const styleTop  = document.getElementById('cardStyle').value;
+  const styleDemo = document.getElementById('cardStyleDemo').value;
+  await renderCardOnCanvas(document.getElementById('heroMock'), d, styleTop);
+  await renderCardOnCanvas(document.getElementById('demoMock'), d, styleDemo);
+}
+
+/* ====== LENKER-TABELL ====== */
+const tbody = document.querySelector('#linksTable tbody');
+function addRow(label, url, pre='', post=''){
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td><input value="${label||''}" class="lbl" /></td>
+    <td><input value="${url||''}" class="lnk" style="width:100%"/></td>
+    <td><textarea class="pre" rows="2" placeholder="Tekst over">${pre||''}</textarea></td>
+    <td><textarea class="post" rows="2" placeholder="Tekst under">${post||''}</textarea></td>
+    <td><button type="button" class="pill remove">Fjern</button></td>`;
+  tr.querySelector('.remove').addEventListener('click', ()=>tr.remove());
+  tbody.appendChild(tr);
+}
+document.getElementById('addLink').addEventListener('click', ()=>{
+  addRow(
+    document.getElementById('newLabel').value,
+    document.getElementById('newUrl').value,
+    document.getElementById('newPre').value,
+    document.getElementById('newPost').value
+  );
+  ['newLabel','newUrl','newPre','newPost'].forEach(id=>document.getElementById(id).value='');
+});
+document.querySelectorAll('.pill[data-label]').forEach(btn=>{
+  btn.addEventListener('click', ()=> addRow(btn.dataset.label, btn.dataset.url));
+});
+
+/* ====== EVENTS ====== */
+document.getElementById('updatePreview').addEventListener('click', updatePreview);
+['orgName','orgKey','accent','logoUrl','logoBg','name','title','phone','email','site','address','slug','vcfFilename']
+  .forEach(id => document.getElementById(id).addEventListener('input', e=>{
+    if(id==='logoUrl' || id==='logoBg') previewLogo();
+    updatePreview();
+  }));
+['engraveMode','engraveDepth','autoRemoveBg','bgThreshold']
+  .forEach(id => document.getElementById(id)?.addEventListener('input', ()=>{
+    const v = document.getElementById('bgThreshold')?.value;
+    if(v) document.getElementById('bgThresholdVal').textContent = v;
+    updatePreview();
+  }));
+document.getElementById('cardStyle').addEventListener('change', updatePreview);
+document.getElementById('cardStyleDemo').addEventListener('change', updatePreview);
+document.getElementById('downloadHeroMock').addEventListener('click', ()=>{
+  const c = document.getElementById('heroMock');
+  const a = document.createElement('a'); a.href = c.toDataURL('image/png'); a.download='kort-mockup-hero.png'; a.click();
+});
+document.getElementById('downloadDemoMock').addEventListener('click', ()=>{
+  const c = document.getElementById('demoMock');
+  const a = document.createElement('a'); a.href = c.toDataURL('image/png'); a.download='kort-mockup-demo.png'; a.click();
+});
+
+/* ====== INIT ====== */
+addRow('LinkedIn','https://www.linkedin.com/in/','Følg meg','Oppdateres jevnlig');
+previewLogo();
+updatePreview();
+</script>
+
+</body>
+</html>
