@@ -469,7 +469,7 @@ body{font-family:system-ui,-apple-system,Roboto,Arial;background:#0b0b10;color:#
       orgName: document.getElementById('orgName').value.trim() || document.getElementById('orgKey').value.trim(),
       orgKey:  document.getElementById('orgKey').value.trim(),
       accent:  document.getElementById('accent').value.trim() || '#8fd3ff',
-      logoUrl: document.getElementById('logoUrl').value.trim(),
+      logoUrl: window._uploadedLogoDataUrl || document.getElementById('logoUrl').value.trim(),
       logoBg:  document.getElementById('logoBg').value.trim(),
       name:    document.getElementById('name').value.trim(),
       title:   document.getElementById('title').value.trim(),
