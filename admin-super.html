@@ -555,14 +555,267 @@
 
 
     <!-- Ordrer -->
-    <section id="tab-orders" class="hidden" role="tabpanel">
-      <div class="card"><h2>Ordrer</h2><p class="muted">Filter, liste, detaljpanel …</p></div>
-    </section>
+    <section id="tab-orders" class="" role="tabpanel">
+  <div class="card" style="margin-bottom:12px">
+    <h2>Ordrer</h2>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <input id="ordSearch" type="search" placeholder="Søk navn/e-post/varenavn…" style="flex:1;min-width:240px" />
+      <label>Status
+        <select id="ordStatus">
+          <option value="">Alle</option>
+          <option value="new">new</option>
+          <option value="paid">paid</option>
+          <option value="fulfilled">fulfilled</option>
+          <option value="refunded">refunded</option>
+          <option value="cancelled">cancelled</option>
+        </select>
+      </label>
+      <label>Fra
+        <input id="ordFrom" type="date" />
+      </label>
+      <label>Til
+        <input id="ordTo" type="date" />
+      </label>
+      <button id="ordReload" class="tab-btn">Oppdater</button>
+      <span id="ordMsg" class="muted"></span>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:12px">
+    <div style="overflow:auto;max-height:460px">
+      <table id="ordTable" style="width:100%;border-collapse:collapse">
+        <thead>
+          <tr>
+            <th style="text-align:left;padding:8px;border-bottom:1px solid #222736">Tid</th>
+            <th style="text-align:left;padding:8px;border-bottom:1px solid #222736">Kunde</th>
+            <th style="text-align:left;padding:8px;border-bottom:1px solid #222736">Vare(r)</th>
+            <th style="text-align:left;padding:8px;border-bottom:1px solid #222736">Beløp</th>
+            <th style="text-align:left;padding:8px;border-bottom:1px solid #222736">Status</th>
+            <th style="text-align:left;padding:8px;border-bottom:1px solid #222736;width:260px">Handling</th>
+          </tr>
+        </thead>
+        <tbody><!-- fylles i JS --></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Detaljpanel -->
+  <div id="ordDrawer" class="card hidden">
+    <h3 id="ordTitle">Ordre</h3>
+    <div class="grid cols-2" style="gap:12px">
+      <div>
+        <p class="muted" id="ordMeta">—</p>
+        <label>Status
+          <select id="ordEditStatus">
+            <option value="new">new</option>
+            <option value="paid">paid</option>
+            <option value="fulfilled">fulfilled</option>
+            <option value="refunded">refunded</option>
+            <option value="cancelled">cancelled</option>
+          </select>
+        </label>
+        <label>Notater
+          <textarea id="ordEditNotes" rows="4" placeholder="Interne notater…"></textarea>
+        </label>
+        <details>
+          <summary>Frakt</summary>
+          <div class="grid" style="gap:8px;margin-top:8px">
+            <label>Adresse
+              <input id="ordShipAddr" type="text" />
+            </label>
+            <label>Sporing #
+              <input id="ordShipTrack" type="text" />
+            </label>
+            <label>Transportør
+              <input id="ordShipCarrier" type="text" />
+            </label>
+          </div>
+        </details>
+        <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
+          <button id="ordSave" class="tab-btn">Lagre</button>
+          <button id="ordInvoice" class="tab-btn">Faktura (PDF)</button>
+          <button id="ordEmail" class="tab-btn">Send e-post</button>
+          <button id="ordRefund" class="tab-btn">Refund</button>
+          <button id="ordClose" class="tab-btn">Lukk</button>
+          <span id="ordEditMsg" class="muted"></span>
+        </div>
+      </div>
+      <div>
+        <h4>Varer</h4>
+        <ul id="ordItems" style="margin:0;padding-left:18px"></ul>
+        <h4 style="margin-top:12px">Stripe</h4>
+        <div id="ordStripe" class="muted">—</div>
+      </div>
+    </div>
+  </div>
+</section>
+
 
     <!-- NFC -->
-    <section id="tab-nfc" class="hidden" role="tabpanel">
-      <div class="card"><h2>NFC-Batch</h2><p class="muted">Batch-opprettelse, jobb-kø, verifisering …</p></div>
-    </section>
+    <section id="tab-nfc" class="" role="tabpanel">
+  <div class="card" style="margin-bottom:12px">
+    <h2>NFC-batcher</h2>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <label>Status
+        <select id="nfcStatus">
+          <option value="">Alle</option>
+          <option value="draft">draft</option>
+          <option value="queued">queued</option>
+          <option value="processing">processing</option>
+          <option value="stopped">stopped</option>
+          <option value="done">done</option>
+        </select>
+      </label>
+      <button id="nfcReload" class="tab-btn">Oppdater</button>
+      <button id="nfcNewOpen" class="tab-btn">+ Ny batch</button>
+      <span id="nfcMsg" class="muted"></span>
+    </div>
+  </div>
+
+  <!-- Liste -->
+  <div class="card" style="margin-bottom:12px">
+    <div style="overflow:auto;max-height:420px">
+      <table id="nfcTable" style="width:100%;border-collapse:collapse">
+        <thead>
+          <tr>
+            <th style="text-align:left;padding:8px;border-bottom:1px solid #222736">Opprettet</th>
+            <th style="text-align:left;padding:8px;border-bottom:1px solid #222736">Batch-ID</th>
+            <th style="text-align:left;padding:8px;border-bottom:1px solid #222736">Status</th>
+            <th style="text-align:left;padding:8px;border-bottom:1px solid #222736">Antall</th>
+            <th style="text-align:left;padding:8px;border-bottom:1px solid #222736;width:280px">Handling</th>
+          </tr>
+        </thead>
+        <tbody><!-- fylles i JS --></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Ny batch -->
+  <div id="nfcNew" class="card hidden" style="margin-bottom:12px">
+    <h3>Opprett ny batch</h3>
+    <div class="grid cols-2" style="gap:10px">
+      <label>Org
+        <input id="nbOrg" type="text" placeholder="Wayback" />
+      </label>
+      <label>Preset-ID (valgfritt)
+        <input id="nbPreset" type="text" placeholder="preset-standard" />
+      </label>
+      <label>Kilde
+        <select id="nbSource">
+          <option value="orders-filter">orders-filter</option>
+          <option value="manual">manual</option>
+        </select>
+      </label>
+      <label>Lock tag etter skriving?
+        <select id="nbLock">
+          <option value="true">Ja</option>
+          <option value="false">Nei</option>
+        </select>
+      </label>
+
+      <label style="grid-column:1/-1">Order-IDer (en per linje) — valgfritt
+        <textarea id="nbOrderIds" rows="4" placeholder="ord_123
+ord_456"></textarea>
+      </label>
+
+      <details style="grid-column:1/-1">
+        <summary>NDEF-innhold</summary>
+        <div class="grid" style="gap:8px;margin-top:8px">
+          <label>Type
+            <select id="nbNdefType">
+              <option value="URL">URL</option>
+              <option value="TEXT">TEXT</option>
+            </select>
+          </label>
+          <label>Verdi
+            <input id="nbNdefVal" type="text" placeholder="https://nfcking.no/u/{orderId}" />
+          </label>
+        </div>
+      </details>
+    </div>
+    <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
+      <button id="nbCreate" class="tab-btn">Opprett batch</button>
+      <button id="nbCancel" class="tab-btn">Avbryt</button>
+      <span id="nbMsg" class="muted"></span>
+    </div>
+  </div>
+
+  <!-- Detaljer / jobber / verifisering -->
+  <div id="nfcDrawer" class="card hidden">
+    <h3 id="ndTitle">Batch</h3>
+    <p id="ndMeta" class="muted">—</p>
+
+    <div class="grid cols-2" style="gap:12px">
+      <div>
+        <h4>Kontroll</h4>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+          <button id="ndStart" class="tab-btn">Start</button>
+          <button id="ndStop" class="tab-btn">Stopp</button>
+          <button id="ndZip" class="tab-btn">Last ned ZIP</button>
+          <button id="ndClose" class="tab-btn">Lukk</button>
+          <span id="ndMsg" class="muted"></span>
+        </div>
+
+        <h4>Status</h4>
+        <ul id="ndStats" style="margin:0;padding-left:18px">
+          <li>engrave: <span id="stEng">0</span></li>
+          <li>encode: <span id="stEnc">0</span></li>
+          <li>verify: <span id="stVer">0</span></li>
+          <li>failed: <span id="stFail">0</span></li>
+        </ul>
+      </div>
+
+      <div>
+        <h4>Encode enkeltkort</h4>
+        <div class="grid" style="gap:8px">
+          <label>Order-ID
+            <input id="encOrder" type="text" placeholder="ord_123" />
+          </label>
+          <label>Chip UID
+            <input id="encUID" type="text" placeholder="04:A2:…" />
+          </label>
+          <label>Payload (JSON)
+            <textarea id="encPayload" rows="4" placeholder='{"type":"URL","value":"https://nfcking.no/u/ord_123"}'></textarea>
+          </label>
+          <label>Lock
+            <select id="encLock">
+              <option value="true">Ja</option>
+              <option value="false">Nei</option>
+            </select>
+          </label>
+        </div>
+        <div style="margin-top:8px;display:flex;gap:8px">
+          <button id="encSave" class="tab-btn">Registrer encode</button>
+          <span id="encMsg" class="muted"></span>
+        </div>
+
+        <h4 style="margin-top:14px">Verifiser</h4>
+        <div class="grid" style="gap:8px">
+          <label>Batch-ID
+            <input id="verBatch" type="text" placeholder="(auto fra valgt batch)" />
+          </label>
+          <label>Chip UID
+            <input id="verUID" type="text" placeholder="04:A2:…" />
+          </label>
+          <label>Resultat
+            <select id="verResult">
+              <option value="success">success</option>
+              <option value="failed">failed</option>
+            </select>
+          </label>
+          <label>Payload-hash (valgfritt)
+            <input id="verHash" type="text" placeholder="abcdef..." />
+          </label>
+        </div>
+        <div style="margin-top:8px;display:flex;gap:8px">
+          <button id="verSave" class="tab-btn">Registrer verifisering</button>
+          <span id="verMsg" class="muted"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
 
     <!-- SEO -->
     <section id="tab-seo" class="hidden" role="tabpanel">
@@ -1792,6 +2045,220 @@
     if(active==='stripe'){
       loadCfg(); loadProducts(); loadCharges(); loadCustomers();
     }
+  }
+  window.addEventListener('hashchange', onTabChange);
+  onTabChange();
+})();
+</script>
+<script>
+(function(){
+  const qs=(s,r=document)=>r.querySelector(s);
+  const ce=(t)=>document.createElement(t);
+  const API={
+    list:'/.netlify/functions/orders.list',
+    get: '/.netlify/functions/orders.get',
+    upd: '/.netlify/functions/orders.update',
+    inv: '/.netlify/functions/orders.invoice',
+    mail:'/.netlify/functions/orders.email',
+    refund:'/.netlify/functions/orders.refund'
+  };
+  async function token(){ return localStorage.getItem('nfcking.idToken') || ''; }
+  async function get(url, params={}){
+    const t = await token();
+    const q = new URLSearchParams(params).toString();
+    const res = await fetch(url+(q?`?${q}`:''), { headers:{ Authorization: t?`Bearer ${t}`:'' }});
+    if(!res.ok) throw new Error(await res.text());
+    return res.json();
+  }
+  async function post(url, body){
+    const t = await token();
+    const res = await fetch(url, { method:'POST', headers:{'Content-Type':'application/json', Authorization: t?`Bearer ${t}`:''}, body: JSON.stringify(body||{}) });
+    if(!res.ok) throw new Error(await res.text());
+    return res.json();
+  }
+
+  const el = {
+    msg: qs('#ordMsg'),
+    table: qs('#ordTable tbody'),
+    search: qs('#ordSearch'),
+    status: qs('#ordStatus'),
+    from: qs('#ordFrom'),
+    to: qs('#ordTo'),
+    reload: qs('#ordReload'),
+
+    drawer: qs('#ordDrawer'),
+    title: qs('#ordTitle'),
+    meta: qs('#ordMeta'),
+    items: qs('#ordItems'),
+    stripe: qs('#ordStripe'),
+    editStatus: qs('#ordEditStatus'),
+    editNotes: qs('#ordEditNotes'),
+    shipAddr: qs('#ordShipAddr'),
+    shipTrack: qs('#ordShipTrack'),
+    shipCarrier: qs('#ordShipCarrier'),
+    save: qs('#ordSave'),
+    invoice: qs('#ordInvoice'),
+    email: qs('#ordEmail'),
+    refund: qs('#ordRefund'),
+    close: qs('#ordClose'),
+    editMsg: qs('#ordEditMsg')
+  };
+
+  let cacheList = [];
+  let currentId = null;
+
+  function fmt(ts){ try{ return new Date(ts).toLocaleString(); }catch{ return '—'; } }
+  function money(n,c='NOK'){ return `${(n/100).toFixed(2)} ${String(c).toUpperCase()}`; }
+
+  function renderTable(){
+    const q=(el.search.value||'').toLowerCase();
+    const rows = [];
+    cacheList.forEach(o=>{
+      const searchable = [
+        o.customer?.name||'', o.customer?.email||'',
+        (o.items||[]).map(x=>x.name||x.sku||'').join(' ')
+      ].join(' ').toLowerCase();
+      if(q && !searchable.includes(q)) return;
+
+      const tr = ce('tr');
+      const td=(n)=>{ const t=ce('td'); t.style.cssText='padding:8px;border-bottom:1px solid #1b2030;vertical-align:top'; t.append(n); return t; };
+      tr.appendChild(td(document.createTextNode(fmt(o.createdAt || Date.now()))));
+      tr.appendChild(td(document.createTextNode(`${o.customer?.name||''} <${o.customer?.email||''}>`)));
+      tr.appendChild(td(document.createTextNode((o.items||[]).map(x=>`${x.name||x.sku} ×${x.qty}`).join(', '))));
+      tr.appendChild(td(document.createTextNode(money(o.amountTotal||0, o.items?.[0]?.currency||'NOK'))));
+      tr.appendChild(td(document.createTextNode(o.status||'new')));
+
+      const actions = ce('div'); actions.style.cssText='display:flex;gap:6px;flex-wrap:wrap';
+      const edit = ce('button'); edit.className='tab-btn'; edit.textContent='Åpne';
+      edit.onclick = ()=> openDrawer(o.id);
+      actions.append(edit);
+      tr.appendChild(td(actions));
+
+      rows.push(tr);
+    });
+    el.table.replaceChildren(...rows);
+  }
+
+  async function loadOrders(){
+    el.msg.textContent='Laster…';
+    try{
+      const d = await get(API.list, {
+        status: el.status.value || '',
+        limit: 100
+      });
+      cacheList = d.data || [];
+      // enkel dato-filter i frontend (API har createdAt-index? hvis ikke, filtrer her)
+      const from = el.from.value ? new Date(el.from.value).getTime() : null;
+      const to   = el.to.value ? new Date(el.to.value).getTime() + 24*3600*1000 - 1 : null;
+      if(from || to){
+        cacheList = cacheList.filter(o=>{
+          const t = o.createdAt || 0;
+          if(from && t < from) return false;
+          if(to && t > to) return false;
+          return true;
+        });
+      }
+      el.msg.textContent = `Rader: ${cacheList.length}`;
+      renderTable();
+    }catch(e){ el.msg.textContent='Kunne ikke hente ordrer.'; }
+  }
+
+  async function openDrawer(id){
+    el.editMsg.textContent='Laster…';
+    try{
+      const d = await get(API.get, { id });
+      currentId = id;
+      el.title.textContent = `Ordre #${id}`;
+      el.meta.textContent = `${fmt(d.createdAt)} — ${d.customer?.name||''} <${d.customer?.email||''}>`;
+      el.editStatus.value = d.status || 'new';
+      el.editNotes.value = d.notes || '';
+      el.shipAddr.value = d.shipping?.address || '';
+      el.shipTrack.value = d.shipping?.tracking || '';
+      el.shipCarrier.value = d.shipping?.carrier || '';
+
+      // Varer
+      const lis = (d.items||[]).map(x=>{
+        const li = ce('li');
+        li.textContent = `${x.name||x.sku} ×${x.qty} — ${money((x.unit||0)* (x.qty||1), x.currency||'NOK')}`;
+        return li;
+      });
+      el.items.replaceChildren(...lis);
+
+      // Stripe-info
+      const s = d.stripe||{};
+      el.stripe.textContent = `PI: ${s.paymentIntent||'—'}  •  Charge: ${s.charge||'—'}  •  Customer: ${s.customerId||'—'}`;
+
+      el.drawer.classList.remove('hidden');
+      el.editMsg.textContent='';
+    }catch(e){ el.editMsg.textContent='Kunne ikke åpne ordren.'; }
+  }
+
+  async function saveOrder(){
+    if(!currentId){ return; }
+    el.editMsg.textContent='Lagrer…';
+    try{
+      await post(API.upd, {
+        id: currentId,
+        status: el.editStatus.value,
+        notes: el.editNotes.value,
+        shipping: {
+          address: el.shipAddr.value || null,
+          tracking: el.shipTrack.value || null,
+          carrier: el.shipCarrier.value || null
+        }
+      });
+      el.editMsg.textContent='Lagret.';
+      await loadOrders();
+    }catch(e){ el.editMsg.textContent='Lagring feilet.'; }
+  }
+
+  async function makeInvoice(){
+    if(!currentId){ return; }
+    el.editMsg.textContent='Lager faktura…';
+    try{
+      const r = await post(API.inv, { id: currentId });
+      el.editMsg.innerHTML = `Faktura generert: <a href="${r.pdfUrl}" target="_blank">${r.pdfUrl}</a>`;
+    }catch(e){ el.editMsg.textContent='Fakturering feilet.'; }
+  }
+
+  async function sendEmail(){
+    if(!currentId){ return; }
+    const subject = prompt('Emne (valgfritt):','Ordrebekreftelse');
+    el.editMsg.textContent='Sender e-post…';
+    try{
+      const r = await post(API.mail, { id: currentId, subject, template: 'order-confirmation' });
+      el.editMsg.textContent = `Sendt til ${r.to || 'kunde'}  (msg: ${r.messageId||'—'})`;
+    }catch(e){ el.editMsg.textContent='E-post feilet.'; }
+  }
+
+  async function refund(){
+    if(!currentId){ return; }
+    if(!confirm('Refunder betalingen?')) return;
+    el.editMsg.textContent='Refunderer…';
+    try{
+      await post(API.refund, { id: currentId });
+      el.editMsg.textContent='Refundert.';
+      await loadOrders(); // status → refunded
+    }catch(e){ el.editMsg.textContent='Refund feilet.'; }
+  }
+
+  // Events
+  el.reload.addEventListener('click', loadOrders);
+  el.search.addEventListener('input', renderTable);
+  el.status.addEventListener('change', loadOrders);
+  el.from.addEventListener('change', loadOrders);
+  el.to.addEventListener('change', loadOrders);
+
+  el.save.addEventListener('click', saveOrder);
+  el.invoice.addEventListener('click', makeInvoice);
+  el.email.addEventListener('click', sendEmail);
+  el.refund.addEventListener('click', refund);
+  el.close.addEventListener('click', ()=> el.drawer.classList.add('hidden'));
+
+  // Autoload når fanen åpnes
+  function onTabChange(){
+    const active = (location.hash||'#branding').replace('#','');
+    if(active==='orders'){ loadOrders(); }
   }
   window.addEventListener('hashchange', onTabChange);
   onTabChange();
