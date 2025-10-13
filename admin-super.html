@@ -1502,6 +1502,301 @@
 
   })();
   </script>
+<script>
+(function(){
+  // ----- helpers -----
+  const qs=(s,r=document)=>r.querySelector(s);
+  const ce=(t)=>document.createElement(t);
+  const API={
+    cfg:'/.netlify/functions/stripe.config',
+    prods:'/-.netlify/functions/stripe.products'.replace('/-','/.netlify'), // liten guard i tilfelle refactor
+    prices:'/.netlify/functions/stripe.prices',
+    charges:'/.netlify/functions/stripe.charges',
+    customers:'/.netlify/functions/stripe.customers',
+    refund:'/.netlify/functions/stripe.refund',
+    test:'/-.netlify/functions/stripe.test-payment'.replace('/-','/.netlify'),
+  };
+  async function token(){ return localStorage.getItem('nfcking.idToken') || ''; }
+  async function get(url, params={}){
+    const t = await token();
+    const q = new URLSearchParams(params).toString();
+    const res = await fetch(url+(q?`?${q}`:''), { headers:{ Authorization: t?`Bearer ${t}`:'' }});
+    if(!res.ok) throw new Error(await res.text());
+    return res.json();
+  }
+  async function post(url, body){
+    const t = await token();
+    const res = await fetch(url, { method:'POST', headers:{'Content-Type':'application/json', Authorization: t?`Bearer ${t}`:''}, body: JSON.stringify(body||{}) });
+    if(!res.ok) throw new Error(await res.text());
+    return res.json();
+  }
+
+  // ----- Konfig -----
+  const el = {
+    mode: qs('#stMode'),
+    pub: qs('#stPubKey'),
+    connect: qs('#stConnect'),
+    webhookInfo: qs('#stWebhookInfo'),
+    load: qs('#stLoad'),
+    save: qs('#stSave'),
+    msg: qs('#stMsg'),
+
+    // produkter
+    prodReload: qs('#stProdReload'),
+    prodNew: qs('#stProdNew'),
+    prodForm: qs('#stProdForm'),
+    prodName: qs('#stNewProdName'),
+    prodDesc: qs('#stNewProdDesc'),
+    prodCreate: qs('#stProdCreate'),
+    prodCancel: qs('#stProdCancel'),
+    prodMsg: qs('#stProdMsg'),
+    prodSearch: qs('#stProdSearch'),
+    prodTable: qs('#stProdTable tbody'),
+
+    // priser (skapes inline pr produkt)
+    // betalinger
+    chStatus: qs('#stChStatus'),
+    chFrom: qs('#stChFrom'),
+    chTo: qs('#stChTo'),
+    chReload: qs('#stChReload'),
+    chMsg: qs('#stChMsg'),
+    chTable: qs('#stChTable tbody'),
+
+    // kunder
+    custEmail: qs('#stCustEmail'),
+    custReload: qs('#stCustReload'),
+    custCreate: qs('#stCustCreate'),
+    custMsg: qs('#stCustMsg'),
+    custTable: qs('#stCustTable tbody'),
+
+    // test
+    testPrice: qs('#stTestPrice'),
+    testQty: qs('#stTestQty'),
+    testStart: qs('#stStartCheckout'),
+    testMsg: qs('#stTestMsg'),
+  };
+
+  async function loadCfg(){
+    el.msg.textContent='Laster...';
+    try{
+      const d = await get(API.cfg, {});
+      el.mode.value = d.mode || 'test';
+      el.pub.value = d.publishableKey || '';
+      el.connect.value = String(d.connect?.enabled || false);
+      el.webhookInfo.textContent = 'Webhook secret: ' + (d.hasWebhookSecret ? 'satt ✅' : 'mangler ❌');
+      el.msg.textContent='OK';
+    }catch(e){ el.msg.textContent='Kunne ikke hente konfig.'; }
+  }
+  async function saveCfg(){
+    el.msg.textContent='Lagrer...';
+    try{
+      await post(API.cfg, {
+        mode: el.mode.value,
+        publishableKey: el.pub.value,
+        connect: { enabled: el.connect.value === 'true' }
+      });
+      el.msg.textContent='Lagret.';
+    }catch(e){ el.msg.textContent='Lagring feilet.'; }
+  }
+  el.load.addEventListener('click', loadCfg);
+  el.save.addEventListener('click', saveCfg);
+
+  // ----- Produkter & priser -----
+  let products = [];
+  function renderProducts(){
+    const q = (el.prodSearch.value||'').toLowerCase();
+    const rows = [];
+    products.forEach(p=>{
+      if(q && !String(p.name||'').toLowerCase().includes(q)) return;
+      const tr = ce('tr');
+      const td=(n)=>{ const t=ce('td'); t.style.cssText='padding:8px;border-bottom:1px solid #1b2030;vertical-align:top'; t.append(n); return t; };
+
+      // navn
+      tr.appendChild(td(document.createTextNode(p.name)));
+
+      // priser
+      const wrap = ce('div'); wrap.style.display='flex'; wrap.style.flexDirection='column'; wrap.style.gap='4px';
+      (p.prices||[]).forEach(pr=>{
+        const line = ce('div');
+        line.textContent = `${(pr.unit_amount/100).toFixed(2)} ${String(pr.currency||'').toUpperCase()} ${pr.recurring? `(${pr.recurring.interval})`:''}`;
+        wrap.append(line);
+      });
+      tr.appendChild(td(wrap));
+
+      // handlinger
+      const actions = ce('div'); actions.style.display='flex'; actions.style.gap='6px'; actions.style.flexWrap='wrap';
+      const makePrice = ce('button'); makePrice.className='tab-btn'; makePrice.textContent='+ Pris';
+      makePrice.onclick = ()=> openPriceForm(p.id);
+      actions.append(makePrice);
+      tr.appendChild(td(actions));
+
+      rows.push(tr);
+    });
+    el.prodTable.replaceChildren(...rows);
+  }
+  async function loadProducts(){
+    el.prodMsg.textContent='Laster...';
+    try{
+      const d = await get(API.prods, { active:'true', limit: 50 });
+      products = d.data || [];
+      el.prodMsg.textContent = `Fant ${products.length} produkt.`;
+      renderProducts();
+    }catch(e){ el.prodMsg.textContent='Kunne ikke hente produkter.'; }
+  }
+  function toggleProdForm(show){
+    el.prodForm.classList.toggle('hidden', !show);
+    if(show) el.prodName.focus();
+  }
+  el.prodNew.addEventListener('click', ()=> toggleProdForm(true));
+  el.prodCancel.addEventListener('click', ()=> toggleProdForm(false));
+  el.prodCreate.addEventListener('click', async ()=>{
+    const name = el.prodName.value.trim();
+    if(!name){ el.prodMsg.textContent='Navn mangler.'; return; }
+    el.prodMsg.textContent='Oppretter...';
+    try{
+      await post(API.prods, { name, description: el.prodDesc.value.trim(), prices: [] });
+      el.prodMsg.textContent='Opprettet.';
+      toggleProdForm(false); el.prodName.value=''; el.prodDesc.value='';
+      await loadProducts();
+    }catch(e){ el.prodMsg.textContent='Opprettelse feilet.'; }
+  });
+  el.prodReload.addEventListener('click', loadProducts);
+  el.prodSearch.addEventListener('input', renderProducts);
+
+  // inline pris-form (modal-ish)
+  function openPriceForm(productId){
+    const dlg = ce('div'); dlg.className='card'; dlg.style.cssText='position:fixed;inset:20% auto auto 50%;transform:translateX(-50%);max-width:480px;z-index:50';
+    dlg.innerHTML = `
+      <h3>Ny pris</h3>
+      <div class="grid" style="gap:8px">
+        <label>Valuta
+          <input type="text" id="prCur" value="nok" />
+        </label>
+        <label>Beløp (øre)
+          <input type="number" id="prAmt" value="9900" />
+        </label>
+        <label>Type
+          <select id="prType"><option value="one_time">one_time</option><option value="recurring">recurring</option></select>
+        </label>
+        <label>Intervall (ved abonnement)
+          <select id="prInterval"><option>month</option><option>year</option><option>week</option></select>
+        </label>
+      </div>
+      <div style="margin-top:8px;display:flex;gap:8px">
+        <button id="prSave" class="tab-btn">Lagre</button>
+        <button id="prClose" class="tab-btn">Lukk</button>
+        <span id="prMsg" class="muted"></span>
+      </div>`;
+    document.body.appendChild(dlg);
+    qs('#prClose', dlg).onclick = ()=> dlg.remove();
+    qs('#prSave', dlg).onclick = async ()=>{
+      const cur = qs('#prCur', dlg).value.trim() || 'nok';
+      const amt = Number(qs('#prAmt', dlg).value || 0);
+      const type = qs('#prType', dlg).value;
+      const interval = qs('#prInterval', dlg).value;
+      qs('#prMsg', dlg).textContent='Lagrer...';
+      try{
+        await post(API.prices, { product: productId, currency: cur, unit_amount: amt, type: type==='recurring'?'recurring':'one_time', interval });
+        qs('#prMsg', dlg).textContent='Lagret.';
+        await loadProducts();
+        setTimeout(()=> dlg.remove(), 400);
+      }catch(e){ qs('#prMsg', dlg).textContent='Feil ved lagring.'; }
+    };
+  }
+
+  // ----- Betalinger -----
+  function renderCharges(list){
+    const rows = (list||[]).map(c=>{
+      const tr = ce('tr');
+      const td=(n)=>{ const t=ce('td'); t.style.cssText='padding:8px;border-bottom:1px solid #1b2030;vertical-align:top'; t.append(n); return t; };
+      tr.appendChild(td(document.createTextNode(new Date(c.created).toLocaleString())));
+      tr.appendChild(td(document.createTextNode(`${(c.amount/100).toFixed(2)} ${c.currency}`)));
+      tr.appendChild(td(document.createTextNode(c.customer?.email || c.customer?.id || '')));
+      const actions = ce('div'); actions.style.display='flex'; actions.style.gap='6px';
+      const refund = ce('button'); refund.className='tab-btn'; refund.textContent='Refund';
+      refund.onclick = async ()=>{
+        el.chMsg.textContent='Refunderer...';
+        try{
+          await post(API.refund, { chargeId: c.id });
+          el.chMsg.textContent='Refundert.';
+          await loadCharges();
+        }catch(e){ el.chMsg.textContent='Refund feilet.'; }
+      };
+      actions.append(refund);
+      tr.appendChild(td(actions));
+      return tr;
+    });
+    el.chTable.replaceChildren(...rows);
+  }
+  async function loadCharges(){
+    el.chMsg.textContent='Laster...';
+    try{
+      const params = { status: el.chStatus.value || '', limit: 50 };
+      if(el.chFrom.value) params.from = el.chFrom.value;
+      if(el.chTo.value) params.to = el.chTo.value;
+      const d = await get(API.charges, params);
+      renderCharges(d.data||[]);
+      el.chMsg.textContent = `Rader: ${(d.data||[]).length}`;
+    }catch(e){ el.chMsg.textContent='Kunne ikke hente betalinger.'; }
+  }
+  el.chReload.addEventListener('click', loadCharges);
+
+  // ----- Kunder -----
+  function renderCustomers(list){
+    const rows = (list||[]).map(c=>{
+      const tr = ce('tr');
+      const td=(n)=>{ const t=ce('td'); t.style.cssText='padding:8px;border-bottom:1px solid #1b2030'; t.append(n); return t; };
+      tr.appendChild(td(document.createTextNode(c.name || '—')));
+      tr.appendChild(td(document.createTextNode(c.email || '—')));
+      return tr;
+    });
+    el.custTable.replaceChildren(...rows);
+  }
+  async function loadCustomers(){
+    el.custMsg.textContent='Laster...';
+    try{
+      const d = await get(API.customers, { email: (el.custEmail.value||'').trim() || undefined, limit: 50 });
+      renderCustomers(d.data||[]);
+      el.custMsg.textContent = `Kunder: ${(d.data||[]).length}`;
+    }catch(e){ el.custMsg.textContent='Kunne ikke hente kunder.'; }
+  }
+  async function createCustomer(){
+    const email = prompt('E-post for ny kunde:');
+    if(!email) return;
+    el.custMsg.textContent='Oppretter...';
+    try{
+      await post(API.customers, { email });
+      el.custMsg.textContent='Opprettet.';
+      await loadCustomers();
+    }catch(e){ el.custMsg.textContent='Feil ved opprettelse.'; }
+  }
+  el.custReload.addEventListener('click', loadCustomers);
+  el.custCreate.addEventListener('click', createCustomer);
+
+  // ----- Test-checkout -----
+  el.testStart.addEventListener('click', async ()=>{
+    const priceId = (el.testPrice.value||'').trim();
+    const qty = Math.max(1, Number(el.testQty.value||1));
+    if(!priceId){ el.testMsg.textContent='Sett Price ID.'; return; }
+    el.testMsg.textContent='Oppretter sesjon...';
+    try{
+      const d = await post(API.test, { priceId, quantity: qty, successUrl: location.origin + '/demo.html', cancelUrl: location.href });
+      if(d.checkoutUrl){ window.open(d.checkoutUrl, '_blank'); el.testMsg.textContent='Åpnet Stripe Checkout.'; }
+      else { el.testMsg.textContent='Fikk ikke URL.'; }
+    }catch(e){ el.testMsg.textContent='Feil ved opprettelse.'; }
+  });
+
+  // Autoload når Stripe-fanen åpnes
+  function onTabChange(){
+    const active = (location.hash||'#branding').replace('#','');
+    if(active==='stripe'){
+      loadCfg(); loadProducts(); loadCharges(); loadCustomers();
+    }
+  }
+  window.addEventListener('hashchange', onTabChange);
+  onTabChange();
+})();
+</script>
 
 </body>
 </html>
