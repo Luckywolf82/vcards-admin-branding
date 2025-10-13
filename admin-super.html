@@ -1761,13 +1761,21 @@ ord_456"></textarea>
   const qs=(s,r=document)=>r.querySelector(s);
   const ce=(t)=>document.createElement(t);
   const API={
-    cfg:'/.netlify/functions/stripe.config',
-    prods:'/-.netlify/functions/stripe.products'.replace('/-','/.netlify'), // liten guard i tilfelle refactor
-    prices:'/.netlify/functions/stripe.prices',
-    charges:'/.netlify/functions/stripe.charges',
-    customers:'/.netlify/functions/stripe.customers',
-    refund:'/.netlify/functions/stripe.refund',
-    test:'/-.netlify/functions/stripe.test-payment'.replace('/-','/.netlify'),
+    - cfg:'/.netlify/functions/stripe.config',
+- prods:'/.netlify/functions/stripe.products',
+- prices:'/.netlify/functions/stripe.prices',
+- charges:'/.netlify/functions/stripe.charges',
+- customers:'/.netlify/functions/stripe.customers',
+- refund:'/.netlify/functions/stripe.refund',
+- test:'/.netlify/functions/stripe.test-payment',
++ cfg:'/.netlify/functions/stripe-config',
++ prods:'/.netlify/functions/stripe-products',
++ prices:'/.netlify/functions/stripe-prices',
++ charges:'/.netlify/functions/stripe-charges',
++ customers:'/.netlify/functions/stripe-customers',
++ refund:'/.netlify/functions/stripe-refund',
++ test:'/.netlify/functions/stripe-test-payment',
+
   };
   async function token(){ return localStorage.getItem('nfcking.idToken') || ''; }
   async function get(url, params={}){
