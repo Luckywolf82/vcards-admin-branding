@@ -2264,6 +2264,232 @@ ord_456"></textarea>
   onTabChange();
 })();
 </script>
+<script>
+(function(){
+  const qs=(s,r=document)=>r.querySelector(s);
+  const ce=(t)=>document.createElement(t);
+
+  const API={
+    list:'/.netlify/functions/nfc-batches.list',
+    create:'/.netlify/functions/nfc-batches.create',
+    get:'/.netlify/functions/nfc-batches.get',
+    start:'/.netlify/functions/nfc-batches.start',
+    stop:'/.netlify/functions/nfc-batches.stop',
+    files:'/.netlify/functions/nfc-batches.files',
+    encode:'/.netlify/functions/nfc.encode',
+    verify:'/.netlify/functions/nfc-batches.verify'
+  };
+
+  async function token(){ return localStorage.getItem('nfcking.idToken') || ''; }
+  async function get(url, params={}){
+    const t = await token();
+    const q = new URLSearchParams(params).toString();
+    const res = await fetch(url+(q?`?${q}`:''), { headers:{ Authorization: t?`Bearer ${t}`:'' }});
+    if(!res.ok) throw new Error(await res.text());
+    return res.json();
+  }
+  async function post(url, body){
+    const t = await token();
+    const res = await fetch(url, { method:'POST', headers:{'Content-Type':'application/json', Authorization: t?`Bearer ${t}`:''}, body: JSON.stringify(body||{}) });
+    if(!res.ok) throw new Error(await res.text());
+    return res.json();
+  }
+
+  const el = {
+    msg: qs('#nfcMsg'),
+    status: qs('#nfcStatus'),
+    reload: qs('#nfcReload'),
+    newOpen: qs('#nfcNewOpen'),
+    table: qs('#nfcTable tbody'),
+
+    // new
+    box: qs('#nfcNew'),
+    nbOrg: qs('#nbOrg'),
+    nbPreset: qs('#nbPreset'),
+    nbSource: qs('#nbSource'),
+    nbLock: qs('#nbLock'),
+    nbOrderIds: qs('#nbOrderIds'),
+    nbType: qs('#nbNdefType'),
+    nbVal: qs('#nbNdefVal'),
+    nbCreate: qs('#nbCreate'),
+    nbCancel: qs('#nbCancel'),
+    nbMsg: qs('#nbMsg'),
+
+    // drawer
+    drawer: qs('#nfcDrawer'),
+    title: qs('#ndTitle'),
+    meta: qs('#ndMeta'),
+    stEng: qs('#stEng'), stEnc: qs('#stEnc'), stVer: qs('#stVer'), stFail: qs('#stFail'),
+    start: qs('#ndStart'), stop: qs('#ndStop'), zip: qs('#ndZip'), close: qs('#ndClose'),
+    dMsg: qs('#ndMsg'),
+
+    // encode
+    eOrder: qs('#encOrder'),
+    eUID: qs('#encUID'),
+    ePayload: qs('#encPayload'),
+    eLock: qs('#encLock'),
+    eSave: qs('#encSave'),
+    eMsg: qs('#encMsg'),
+
+    // verify
+    vBatch: qs('#verBatch'),
+    vUID: qs('#verUID'),
+    vRes: qs('#verResult'),
+    vHash: qs('#verHash'),
+    vSave: qs('#verSave'),
+    vMsg: qs('#verMsg')
+  };
+
+  let cache = [];
+  let currentBatch = null;
+
+  function fmt(ts){ try{ return new Date(ts).toLocaleString(); }catch{ return '—'; } }
+
+  function renderTable(){
+    const rows = cache.map(b=>{
+      const tr = ce('tr');
+      const td=(n)=>{ const t=ce('td'); t.style.cssText='padding:8px;border-bottom:1px solid #1b2030;vertical-align:top'; t.append(n); return t; };
+      tr.appendChild(td(document.createTextNode(fmt(b.createdAt || 0))));
+      tr.appendChild(td(document.createTextNode(b.id)));
+      tr.appendChild(td(document.createTextNode(b.status || 'draft')));
+      tr.appendChild(td(document.createTextNode(String(b.count || 0))));
+
+      const actions = ce('div'); actions.style.cssText='display:flex;gap:6px;flex-wrap:wrap';
+      const open = ce('button'); open.className='tab-btn'; open.textContent='Åpne';
+      open.onclick = ()=> openDrawer(b.id);
+      actions.append(open);
+      tr.appendChild(td(actions));
+
+      return tr;
+    });
+    el.table.replaceChildren(...rows);
+  }
+
+  async function loadList(){
+    el.msg.textContent='Laster…';
+    try{
+      const d = await get(API.list, { status: el.status.value || '', limit: 100 });
+      cache = d.data || [];
+      el.msg.textContent = `Batcher: ${cache.length}`;
+      renderTable();
+    }catch(e){ el.msg.textContent='Kunne ikke hente batcher.'; }
+  }
+
+  function toggleNew(show){
+    el.box.classList.toggle('hidden', !show);
+    if(show) el.nbOrg.focus();
+  }
+
+  async function createBatch(){
+    el.nbMsg.textContent='Oppretter…';
+    try{
+      const ids = (el.nbOrderIds.value||'').split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
+      const payload = {
+        orgKey: (el.nbOrg.value||'').trim() || null,
+        presetId: (el.nbPreset.value||'').trim() || null,
+        source: el.nbSource.value,
+        ndef: { type: el.nbType.value, value: el.nbVal.value || 'https://nfcking.no/u/{orderId}', lock: el.nbLock.value==='true' },
+        orderIds: ids
+      };
+      const r = await post(API.create, payload);
+      el.nbMsg.textContent = `Batch opprettet: ${r.id}`;
+      toggleNew(false);
+      await loadList();
+      openDrawer(r.id);
+    }catch(e){ el.nbMsg.textContent='Opprettelse feilet.'; }
+  }
+
+  async function openDrawer(id){
+    el.dMsg.textContent='Laster…';
+    try{
+      const d = await get(API.get, { id });
+      currentBatch = id;
+      el.title.textContent = `Batch #${id}`;
+      el.meta.textContent = `${d.status} • ${d.count||d.orderIds?.length||0} kort • Opprettet ${fmt(d.createdAt)}`;
+      el.stEng.textContent = d.stats?.engrave ?? 0;
+      el.stEnc.textContent = d.stats?.encode ?? 0;
+      el.stVer.textContent = d.stats?.verify ?? 0;
+      el.stFail.textContent = d.stats?.failed ?? 0;
+      el.drawer.classList.remove('hidden');
+      el.vBatch.value = id;
+      el.dMsg.textContent='';
+    }catch(e){ el.dMsg.textContent='Kunne ikke åpne batch.'; }
+  }
+
+  async function startBatch(){
+    if(!currentBatch) return;
+    el.dMsg.textContent='Starter…';
+    try{ await post(API.start, { id: currentBatch }); el.dMsg.textContent='Startet.'; await openDrawer(currentBatch); }
+    catch(e){ el.dMsg.textContent='Start feilet.'; }
+  }
+  async function stopBatch(){
+    if(!currentBatch) return;
+    el.dMsg.textContent='Stopper…';
+    try{ await post(API.stop, { id: currentBatch }); el.dMsg.textContent='Stoppet.'; await openDrawer(currentBatch); }
+    catch(e){ el.dMsg.textContent='Stopp feilet.'; }
+  }
+  async function downloadZip(){
+    if(!currentBatch) return;
+    el.dMsg.textContent='Lager lenke…';
+    try{
+      const r = await get(API.files, { id: currentBatch, type: 'zip' });
+      window.open(r.downloadUrl, '_blank');
+      el.dMsg.textContent='Åpnet ZIP.';
+    }catch(e){ el.dMsg.textContent='Kunne ikke lage ZIP-lenke.'; }
+  }
+
+  async function saveEncode(){
+    el.eMsg.textContent='Registrerer…';
+    try{
+      const payload = JSON.parse(el.ePayload.value || '{}');
+      await post(API.encode, {
+        orderId: (el.eOrder.value||'').trim(),
+        chipUID: (el.eUID.value||'').trim(),
+        payload,
+        lock: el.eLock.value==='true'
+      });
+      el.eMsg.textContent='Registrert.';
+    }catch(e){ el.eMsg.textContent='Feil ved registrering (sjekk JSON).'; }
+  }
+
+  async function saveVerify(){
+    el.vMsg.textContent='Registrerer…';
+    try{
+      await post(API.verify, {
+        batchId: (el.vBatch.value||'').trim(),
+        chipUID: (el.vUID.value||'').trim(),
+        result: el.vRes.value,
+        payloadHash: (el.vHash.value||'').trim() || null
+      });
+      el.vMsg.textContent='Registrert.';
+      if(currentBatch) await openDrawer(currentBatch);
+    }catch(e){ el.vMsg.textContent='Feil ved verifisering.'; }
+  }
+
+  // Events
+  el.reload.addEventListener('click', loadList);
+  el.status.addEventListener('change', loadList);
+  el.newOpen.addEventListener('click', ()=> toggleNew(true));
+  el.nbCancel.addEventListener('click', ()=> toggleNew(false));
+  el.nbCreate.addEventListener('click', createBatch);
+
+  el.start.addEventListener('click', startBatch);
+  el.stop.addEventListener('click', stopBatch);
+  el.zip.addEventListener('click', downloadZip);
+  el.close.addEventListener('click', ()=> el.drawer.classList.add('hidden'));
+
+  el.eSave.addEventListener('click', saveEncode);
+  el.vSave.addEventListener('click', saveVerify);
+
+  // Auto-load når fanen åpnes
+  function onTabChange(){
+    const active = (location.hash||'#branding').replace('#','');
+    if(active==='nfc'){ loadList(); }
+  }
+  window.addEventListener('hashchange', onTabChange);
+  onTabChange();
+})();
+</script>
 
 </body>
 </html>
