@@ -1511,8 +1511,8 @@ ord_456"></textarea>
       save:   '/.netlify/functions/pages.save',
       publish:'/.netlify/functions/pages.publish',
       del:    '/.netlify/functions/pages.delete',
-      menuGet:'/.netlify/functions/menu.get',
-      menuSave:'/.netlify/functions/menu.save',
+      menuGet:'/.netlify/functions/menu-get',
+      menuSave:'/.netlify/functions/menu-save',
       preview:'/preview/'
     };
 
@@ -1761,13 +1761,13 @@ ord_456"></textarea>
   const qs=(s,r=document)=>r.querySelector(s);
   const ce=(t)=>document.createElement(t);
   const API={
-    - cfg:'/.netlify/functions/stripe.config',
-- prods:'/.netlify/functions/stripe.products',
-- prices:'/.netlify/functions/stripe.prices',
-- charges:'/.netlify/functions/stripe.charges',
-- customers:'/.netlify/functions/stripe.customers',
-- refund:'/.netlify/functions/stripe.refund',
-- test:'/.netlify/functions/stripe.test-payment',
+    - cfg:'/.netlify/functions/stripe-config',
+- prods:'/.netlify/functions/stripe-products',
+- prices:'/.netlify/functions/stripe-prices',
+- charges:'/.netlify/functions/stripe-charges',
+- customers:'/.netlify/functions/stripe-customers',
+- refund:'/.netlify/functions/stripe-refund',
+- test:'/.netlify/functions/stripe-test-payment',
 + cfg:'/.netlify/functions/stripe-config',
 + prods:'/.netlify/functions/stripe-products',
 + prices:'/.netlify/functions/stripe-prices',
@@ -2063,12 +2063,12 @@ ord_456"></textarea>
   const qs=(s,r=document)=>r.querySelector(s);
   const ce=(t)=>document.createElement(t);
   const API={
-    list:'/.netlify/functions/orders.list',
-    get: '/.netlify/functions/orders.get',
-    upd: '/.netlify/functions/orders.update',
-    inv: '/.netlify/functions/orders.invoice',
-    mail:'/.netlify/functions/orders.email',
-    refund:'/.netlify/functions/orders.refund'
+    list:'/.netlify/functions/orders-list',
+    get: '/.netlify/functions/orders-get',
+    upd: '/.netlify/functions/orders-update',
+    inv: '/.netlify/functions/orders-invoice',
+    mail:'/.netlify/functions/orders-email',
+    refund:'/.netlify/functions/orders-refund'
   };
   async function token(){ return localStorage.getItem('nfcking.idToken') || ''; }
   async function get(url, params={}){
@@ -2278,14 +2278,14 @@ ord_456"></textarea>
   const ce=(t)=>document.createElement(t);
 
   const API={
-    list:'/.netlify/functions/nfc-batches.list',
-    create:'/.netlify/functions/nfc-batches.create',
-    get:'/.netlify/functions/nfc-batches.get',
-    start:'/.netlify/functions/nfc-batches.start',
-    stop:'/.netlify/functions/nfc-batches.stop',
-    files:'/.netlify/functions/nfc-batches.files',
-    encode:'/.netlify/functions/nfc.encode',
-    verify:'/.netlify/functions/nfc-batches.verify'
+    list:'/.netlify/functions/nfc-batches-list',
+    create:'/.netlify/functions/nfc-batches-create',
+    get:'/.netlify/functions/nfc-batches-get',
+    start:'/.netlify/functions/nfc-batches-start',
+    stop:'/.netlify/functions/nfc-batches-stop',
+    files:'/.netlify/functions/nfc-batches-files',
+    encode:'/.netlify/functions/nfc-encode',
+    verify:'/.netlify/functions/nfc-batches-verify'
   };
 
   async function token(){ return localStorage.getItem('nfcking.idToken') || ''; }
