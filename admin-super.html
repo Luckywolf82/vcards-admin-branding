@@ -1,6 +1,68 @@
 ﻿<!doctype html>
 <html lang="no">
 <head>
+  <!-- Firebase Web SDK (compat for enkelhet) -->
+<script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-auth-compat.js"></script>
+<script>
+  // TODO: BYTT til dine faktiske verdier
+  const firebaseConfig = {
+    apiKey: AIzaSyDypfSLkWWRQh9TFrIjWpYWKmO3dBDnb_s
+    authDomain: "nfcking-bb143.firebaseapp.com",
+    projectId: "nfcking-bb143",
+  };
+  firebase.initializeApp(firebaseConfig);
+  const auth = firebase.auth();
+
+  // lagre/oppdatere tokenet som backend forventer
+  async function refreshIdToken(user){
+    if(!user){ localStorage.removeItem('nfcking.idToken'); return; }
+    const t = await user.getIdToken(/* forceRefresh */ true);
+    localStorage.setItem('nfcking.idToken', t);
+    return t;
+  }
+  <div id="authBox" class="flex items-center gap-2" style="position:absolute;top:12px;right:12px;">
+  <span id="loginStatus">Ikke innlogget</span>
+  <button id="btnLogin" class="tab-btn" onclick="doLogin()">Logg inn</button>
+  <button id="btnLogout" class="tab-btn hidden" onclick="doLogout()">Logg ut</button>
+</div>
+
+
+  // hold UI og token i synk
+  auth.onIdTokenChanged(async (user)=>{
+    const el = document.getElementById('loginStatus');
+    const btnIn = document.getElementById('btnLogin');
+    const btnOut = document.getElementById('btnLogout');
+    if(user){
+      await refreshIdToken(user);
+      el.textContent = `Innlogget: ${user.email||'ukjent'}`;
+      btnIn.classList.add('hidden');
+      btnOut.classList.remove('hidden');
+    }else{
+      el.textContent = 'Ikke innlogget';
+      btnIn.classList.remove('hidden');
+      btnOut.classList.add('hidden');
+    }
+  });
+
+  async function doLogin(){
+    const email = prompt('E-post:');
+    if(!email) return;
+    const password = prompt('Passord:');
+    if(!password) return;
+    try{
+      await auth.signInWithEmailAndPassword(email, password);
+      alert('Innlogget ✅');
+      // token oppdateres av onIdTokenChanged
+    }catch(e){
+      alert('Innlogging feilet: '+e.message);
+    }
+  }
+  async function doLogout(){
+    await auth.signOut();
+    alert('Logget ut');
+  }
+</script>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>NFCKING â€“ Superadmin</title>
