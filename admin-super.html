@@ -407,16 +407,152 @@
     </section>
 
     <!-- Stripe -->
-    <section id="tab-stripe" class="hidden" role="tabpanel">
-      <div class="grid cols-2">
-        <div class="card"><h2>Stripe – Konfig</h2><p class="muted">Nøkler, modus, webhook …</p></div>
-        <div class="card"><h2>Stripe – Produkter/Priser</h2><p class="muted">Liste og redigering …</p></div>
+    <section id="tab-stripe" class="" role="tabpanel">
+  <div class="grid cols-2">
+    <!-- Konfig -->
+    <div class="card">
+      <h2>Stripe – Konfig</h2>
+      <p class="muted">Les/oppdater konfig. Hemmeligheter holdes i miljøvariabler (server).</p>
+      <div class="grid" style="gap:10px">
+        <label>Mode
+          <select id="stMode">
+            <option value="test">test</option>
+            <option value="live">live</option>
+          </select>
+        </label>
+        <label>Publishable key
+          <input id="stPubKey" type="text" placeholder="pk_test_..." />
+        </label>
+        <label>Connect aktivert
+          <select id="stConnect">
+            <option value="false">Nei</option>
+            <option value="true">Ja</option>
+          </select>
+        </label>
+        <div class="muted" id="stWebhookInfo">Webhook secret: ukjent</div>
       </div>
-      <div class="grid cols-2" style="margin-top:16px">
-        <div class="card"><h2>Betalinger</h2><p class="muted">Siste transaksjoner …</p></div>
-        <div class="card"><h2>Kunder</h2><p class="muted">Opprett og oversikt …</p></div>
+      <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
+        <button id="stLoad" class="tab-btn">Last konfig</button>
+        <button id="stSave" class="tab-btn">Lagre</button>
+        <span id="stMsg" class="muted"></span>
       </div>
-    </section>
+    </div>
+
+    <!-- Produkter/Priser -->
+    <div class="card">
+      <h2>Produkter & priser</h2>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:6px">
+        <input id="stProdSearch" type="search" placeholder="Søk produktnavn…" style="flex:1;min-width:200px" />
+        <button id="stProdReload" class="tab-btn">Oppdater</button>
+        <button id="stProdNew" class="tab-btn">+ Nytt produkt</button>
+      </div>
+      <div id="stProdForm" class="hidden" style="border:1px solid #1b2030;padding:10px;border-radius:12px;margin-bottom:8px">
+        <div class="grid" style="gap:8px">
+          <label>Navn
+            <input id="stNewProdName" type="text" placeholder="Kort / Abonnement" />
+          </label>
+          <label>Beskrivelse
+            <input id="stNewProdDesc" type="text" />
+          </label>
+        </div>
+        <div style="margin-top:6px;display:flex;gap:8px">
+          <button id="stProdCreate" class="tab-btn">Opprett produkt</button>
+          <button id="stProdCancel" class="tab-btn">Avbryt</button>
+          <span id="stProdMsg" class="muted"></span>
+        </div>
+      </div>
+      <div style="overflow:auto;max-height:420px">
+        <table id="stProdTable" style="width:100%;border-collapse:collapse">
+          <thead>
+            <tr>
+              <th style="text-align:left;padding:8px;border-bottom:1px solid #222736">Produkt</th>
+              <th style="text-align:left;padding:8px;border-bottom:1px solid #222736">Priser</th>
+              <th style="text-align:left;padding:8px;border-bottom:1px solid #222736;width:240px">Handling</th>
+            </tr>
+          </thead>
+          <tbody><!-- fylles i JS --></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid cols-2" style="margin-top:16px">
+    <!-- Betalinger -->
+    <div class="card">
+      <h2>Betalinger</h2>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:6px">
+        <label>Status
+          <select id="stChStatus">
+            <option value="">Alle</option>
+            <option value="succeeded">succeeded</option>
+            <option value="pending">pending</option>
+            <option value="failed">failed</option>
+          </select>
+        </label>
+        <label>Fra
+          <input id="stChFrom" type="date" />
+        </label>
+        <label>Til
+          <input id="stChTo" type="date" />
+        </label>
+        <button id="stChReload" class="tab-btn">Oppdater</button>
+        <span id="stChMsg" class="muted"></span>
+      </div>
+      <div style="overflow:auto;max-height:420px">
+        <table id="stChTable" style="width:100%;border-collapse:collapse">
+          <thead>
+            <tr>
+              <th style="text-align:left;padding:8px;border-bottom:1px solid #222736">Tid</th>
+              <th style="text-align:left;padding:8px;border-bottom:1px solid #222736">Beløp</th>
+              <th style="text-align:left;padding:8px;border-bottom:1px solid #222736">Kunde</th>
+              <th style="text-align:left;padding:8px;border-bottom:1px solid #222736;width:200px">Handling</th>
+            </tr>
+          </thead>
+          <tbody><!-- fylles i JS --></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Kunder / Testbetaling -->
+    <div class="card">
+      <h2>Kunder & testbetaling</h2>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:6px">
+        <input id="stCustEmail" type="email" placeholder="Filter e-post…" />
+        <button id="stCustReload" class="tab-btn">Hent kunder</button>
+        <button id="stCustCreate" class="tab-btn">+ Ny kunde</button>
+        <span id="stCustMsg" class="muted"></span>
+      </div>
+      <div style="overflow:auto;max-height:300px;margin-bottom:10px">
+        <table id="stCustTable" style="width:100%;border-collapse:collapse">
+          <thead>
+            <tr>
+              <th style="text-align:left;padding:8px;border-bottom:1px solid #222736">Navn</th>
+              <th style="text-align:left;padding:8px;border-bottom:1px solid #222736">E-post</th>
+            </tr>
+          </thead>
+          <tbody><!-- fylles i JS --></tbody>
+        </table>
+      </div>
+
+      <details>
+        <summary>Test-checkout</summary>
+        <div class="grid" style="gap:10px;margin-top:8px">
+          <label>Price ID
+            <input id="stTestPrice" type="text" placeholder="price_..." />
+          </label>
+          <label>Antall
+            <input id="stTestQty" type="number" value="1" min="1" />
+          </label>
+        </div>
+        <div style="margin-top:8px;display:flex;gap:8px">
+          <button id="stStartCheckout" class="tab-btn">Start Checkout</button>
+          <span id="stTestMsg" class="muted"></span>
+        </div>
+      </details>
+    </div>
+  </div>
+</section>
+
 
     <!-- Ordrer -->
     <section id="tab-orders" class="hidden" role="tabpanel">
