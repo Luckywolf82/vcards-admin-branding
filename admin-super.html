@@ -2589,8 +2589,244 @@ ord_456"></textarea>
       };
     })();
   </script>
+  <!-- users-mini-panel -->
+  <style id="usersMiniPanelCSS">
+    #usersMiniPanel{display:none;position:sticky;top:12px;z-index:40; margin:12px 0; }
+    #usersMiniPanel .card{background:#0f1422;border:1px solid #1b2030;border-radius:14px;padding:14px;box-shadow:0 4px 12px rgba(0,0,0,.25)}
+    #usersMiniPanel h3{margin:0 0 8px 0;font-size:1.05rem}
+    #usersMiniPanel .row{display:grid;grid-template-columns:1fr 1fr; gap:10px}
+    #usersMiniPanel .row > div{display:flex;flex-direction:column;gap:6px}
+    #usersMiniPanel label{font-size:.85rem;opacity:.85}
+    #usersMiniPanel input, #usersMiniPanel select{
+      background:#0a1020;border:1px solid #222a3f;border-radius:10px;padding:8px;color:#e7ecff
+    }
+    #usersMiniPanel .btns{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+    #usersMiniPanel button{background:#1e2a4a;border:1px solid #2c3b63;border-radius:10px;padding:8px 10px;color:#e7ecff;cursor:pointer}
+    #usersMiniPanel button:hover{filter:brightness(1.1)}
+    #usersMiniPanel small{opacity:.7}
+    #usersMiniPanel .muted{opacity:.7}
+  </style>
+
+  <div id="usersMiniPanel">
+    <div class="card">
+      <h3>Bruker-kontroller</h3>
+
+      <div class="row">
+        <div>
+          <label>Ny bruker</label>
+          <input id="umNewEmail" type="email" placeholder="epost@domene.no">
+          <input id="umNewPass" type="password" placeholder="minst 6 tegn">
+          <input id="umNewName" type="text" placeholder="Visningsnavn (valgfritt)">
+          <select id="umNewRole">
+            <option value="viewer">viewer</option>
+            <option value="support">support</option>
+            <option value="editor">editor</option>
+            <option value="admin">admin</option>
+            <option value="owner">owner</option>
+          </select>
+          <div class="btns">
+            <button id="umCreate">➕ Opprett</button>
+          </div>
+          <small class="muted">Merk: kun <b>owner</b> kan tildele admin/owner.</small>
+        </div>
+
+        <div>
+          <label>Valgt bruker (fra liste)</label>
+          <input id="umSelUid" type="text" placeholder="uid">
+          <select id="umSelRole">
+            <option value="viewer">viewer</option>
+            <option value="support">support</option>
+            <option value="editor">editor</option>
+            <option value="admin">admin</option>
+            <option value="owner">owner</option>
+          </select>
+          <div class="btns">
+            <button id="umSetRole">✏️ Sett rolle</button>
+            <button id="umDisable">🚫 Deaktiver</button>
+            <button id="umEnable">✅ Aktiver</button>
+            <button id="umImpersonate">🕵️ Impersoner</button>
+          </div>
+          <small class="muted">For å fylle <i>uid</i>: klikk på en bruker i lista (se under).</small>
+        </div>
+      </div>
+
+      <div class="btns" style="margin-top:12px">
+        <button id="umRefresh">🔄 Oppdater liste</button>
+        <span id="umMsg" class="muted"></span>
+      </div>
+
+      <div id="umList" style="margin-top:8px;max-height:260px;overflow:auto;border:1px solid #1b2030;border-radius:10px;padding:8px"></div>
+    </div>
+  </div>
+
+  <script id="usersMiniPanelJS">
+    (function(){
+      if (window.__usersMiniPanelReady) return; window.__usersMiniPanelReady = true;
+
+      // Mount panel etter Users-seksjonen hvis mulig, ellers på body-top
+      function mountPanel(){
+        const panel = document.getElementById('usersMiniPanel');
+        if (!panel) return;
+
+        // Finn en seksjon som sannsynligvis er "Brukere"
+        const anchor =
+          document.querySelector('#users') ||
+          Array.from(document.querySelectorAll('section,div,h2,h3')).find(el => /bruker|users/i.test(el.id||el.textContent||'')) ||
+          null;
+
+        if (anchor && anchor.parentElement && !panel.parentElement){
+          anchor.parentElement.insertBefore(panel, anchor.nextSibling);
+        } else if (!panel.parentElement){
+          // fallback: legg øverst i body
+          document.body.insertBefore(panel, document.body.firstChild);
+        }
+      }
+
+      // Vis/Skjul kun på #users
+      function applyVisibility(){
+        const hash = (location.hash||'').replace('#','');
+        const show = hash.toLowerCase().includes('user');
+        const panel = document.getElementById('usersMiniPanel');
+        if (panel) panel.style.display = show ? 'block' : 'none';
+      }
+
+      // Enkle helpers
+      const qs = (s,r=document)=>r.querySelector(s);
+      const el = {
+        msg: ()=>qs('#umMsg'),
+        list: ()=>qs('#umList'),
+        newEmail: ()=>qs('#umNewEmail'),
+        newPass: ()=>qs('#umNewPass'),
+        newName: ()=>qs('#umNewName'),
+        newRole: ()=>qs('#umNewRole'),
+        selUid: ()=>qs('#umSelUid'),
+        selRole: ()=>qs('#umSelRole'),
+        btnCreate: ()=>qs('#umCreate'),
+        btnSetRole: ()=>qs('#umSetRole'),
+        btnDisable: ()=>qs('#umDisable'),
+        btnEnable: ()=>qs('#umEnable'),
+        btnImp: ()=>qs('#umImpersonate'),
+        btnRefresh: ()=>qs('#umRefresh')
+      };
+
+      function setMsg(t){ const m=el.msg(); if(m) m.textContent=t||''; }
+
+      async function api(path, method='GET', body){
+        const res = await fetch(path, { method, body: body?JSON.stringify(body):undefined });
+        if(!res.ok){
+          const txt = await res.text().catch(()=>res.statusText);
+          throw new Error(txt||('HTTP '+res.status));
+        }
+        return res.json();
+      }
+
+      async function loadList(){
+        try{
+          setMsg('Laster brukere…');
+          const d = await api('/.netlify/functions/users-list');
+          const users = d.data || [];
+          const box = el.list(); if(!box) return;
+          // Render
+          const rows = users.map(u=>{
+            const role = (u.customClaims?.role) || u.role || '';
+            const li = document.createElement('div');
+            li.style.cssText='display:flex;gap:8px;align-items:center;padding:6px 4px;border-bottom:1px solid #1b2030;cursor:pointer';
+            li.innerHTML = `
+              <code style="opacity:.8">${u.uid}</code>
+              <span style="min-width:220px">${u.email||''}</span>
+              <span style="opacity:.8">${u.displayName||''}</span>
+              <span style="padding:2px 6px;border:1px solid #2c3b63;border-radius:8px">${role||'—'}</span>
+              <span style="opacity:.6">${u.disabled ? 'disabled' : ''}</span>
+            `;
+            li.addEventListener('click', ()=>{
+              const uidEl = el.selUid(); if(uidEl) uidEl.value = u.uid;
+              const roleEl = el.selRole(); if(roleEl && role) roleEl.value = role;
+            });
+            return li;
+          });
+          box.replaceChildren(...rows);
+          setMsg(`OK – ${users.length} brukere`);
+        }catch(e){
+          setMsg('Kunne ikke laste brukere');
+        }
+      }
+
+      async function doCreate(){
+        try{
+          const email = el.newEmail().value.trim();
+          const password = el.newPass().value;
+          const displayName = el.newName().value.trim();
+          const role = el.newRole().value;
+          if(!email || !password){ alert('E-post og passord må fylles ut'); return; }
+          setMsg('Oppretter…');
+          const r = await api('/.netlify/functions/users-create','POST',{ email, password, displayName, role });
+          setMsg('Opprettet: '+ (r.email||r.uid));
+          el.newPass().value='';
+          await loadList();
+        }catch(e){ alert('Opprettelse feilet:\n'+e.message); }
+      }
+
+      async function doSetRole(){
+        try{
+          const uid = el.selUid().value.trim(); if(!uid) return alert('Velg uid');
+          const role = el.selRole().value;
+          setMsg('Setter rolle…');
+          await api('/.netlify/functions/users-role','POST',{ uid, role });
+          setMsg('Rolle satt: '+role);
+          await loadList();
+        }catch(e){ alert('Rolle-feil:\n'+e.message); }
+      }
+
+      async function doStatus(disabled){
+        try{
+          const uid = el.selUid().value.trim(); if(!uid) return alert('Velg uid');
+          setMsg(disabled?'Deaktiverer…':'Aktiverer…');
+          await api('/.netlify/functions/users-status','POST',{ uid, disabled });
+          setMsg(disabled?'Deaktivert':'Aktivert');
+          await loadList();
+        }catch(e){ alert('Status-feil:\n'+e.message); }
+      }
+
+      async function doImpersonate(){
+        try{
+          const uid = el.selUid().value.trim(); if(!uid) return alert('Velg uid');
+          setMsg('Impersonerer…');
+          const r = await api('/.netlify/functions/users-impersonate','POST',{ uid });
+          if(!r.ok || !r.customToken) throw new Error('mangler token');
+          await firebase.auth().signInWithCustomToken(r.customToken);
+          setMsg('Impersonert ✅');
+        }catch(e){ alert('Impersonate-feil:\n'+e.message); }
+      }
+
+      function wire(){
+        const bNew = el.btnCreate();   if(bNew) bNew.addEventListener('click', doCreate);
+        const bRol = el.btnSetRole();  if(bRol) bRol.addEventListener('click', doSetRole);
+        const bDis = el.btnDisable();  if(bDis) bDis.addEventListener('click', ()=>doStatus(true));
+        const bEn  = el.btnEnable();   if(bEn)  bEn.addEventListener('click', ()=>doStatus(false));
+        const bImp = el.btnImp();      if(bImp) bImp.addEventListener('click', doImpersonate);
+        const bRef = el.btnRefresh();  if(bRef) bRef.addEventListener('click', loadList);
+      }
+
+      document.addEventListener('DOMContentLoaded', ()=>{
+        mountPanel();
+        applyVisibility();
+        wire();
+        if ((location.hash||'').toLowerCase().includes('user')) {
+          loadList();
+        }
+      });
+
+      window.addEventListener('hashchange', ()=>{
+        applyVisibility();
+        if ((location.hash||'').toLowerCase().includes('user')) {
+          loadList();
+        }
+      });
+    })();
+  </script>
 </body>
 </html>
+
 
 
 
