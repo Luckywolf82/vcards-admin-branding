@@ -2556,8 +2556,42 @@ ord_456"></textarea>
     window.doLogin  = doLogin;
     window.doLogout = doLogout;
   </script>
+  <!-- auto auth header for Netlify Functions -->
+  <script>
+    (function(){
+      if (window.__nfckingFetchPatched) return; // idempotent
+      window.__nfckingFetchPatched = true;
+
+      const origFetch = window.fetch.bind(window);
+
+      window.fetch = async function(input, init){
+        try{
+          const url = (typeof input === "string") ? input : (input && input.url) || "";
+          const isFn = url.startsWith("/.netlify/functions/");
+
+          if (isFn) {
+            const t = localStorage.getItem("nfcking.idToken") || "";
+            init = init || {};
+            // Normaliser headers
+            const hdrs = new Headers(init.headers || (input && input.headers) || {});
+            if (t && !hdrs.has("Authorization")) hdrs.set("Authorization", "Bearer " + t);
+
+            // Sett Content-Type automatisk for ikke-GET (hvis ikke FormData)
+            const method = (init.method || (input && input.method) || "GET").toUpperCase();
+            const isForm = (init && init.body && typeof FormData !== "undefined" && init.body instanceof FormData);
+            if (method !== "GET" && !isForm && !hdrs.has("Content-Type")) {
+              hdrs.set("Content-Type", "application/json");
+            }
+            init.headers = hdrs;
+          }
+        }catch(e){ /* stille */ }
+        return origFetch(input, init);
+      };
+    })();
+  </script>
 </body>
 </html>
+
 
 
 
