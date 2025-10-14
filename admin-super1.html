@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>NFCKING – Superadmin</title>
+  <title>NFCKING â€“ Superadmin</title>
   <meta name="color-scheme" content="dark light" />
   <link rel="icon" href="/favicon.ico" />
   <style>
@@ -43,12 +43,7 @@
     @media (min-width:1000px){ .grid.cols-2{grid-template-columns:1fr 1fr} .grid.cols-3{grid-template-columns:2fr 1fr 1fr} }
     .muted{color:var(--sub)}
     .hidden{display:none !important}
-  
-    .status-pill{display:inline-flex;align-items:center;gap:8px;padding:6px 10px;border-radius:999px;background:#1a1c25;border:1px solid #222736}
-    .status-dot{width:8px;height:8px;border-radius:999px;background:#ff6b6b;box-shadow:0 0 0 2px rgba(0,0,0,.2)}
-    .status-dot.ok{background:#21c36a}
-
-</style>
+  </style>
   <!-- 🔐 Firebase SDK (compat) -->
   <script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-auth-compat.js"></script>
@@ -61,6 +56,8 @@
     firebase.initializeApp(firebaseConfig);
   </script>
 </head>
+ 
+ param($m) "<body$($m.Groups[1].Value)>" + "`r`n" + $guard 
   <header class="nav">
     <div class="nav-inner">
       <div class="brand"><span class="dot"></span> NFCKING Superadmin</div>
@@ -78,18 +75,18 @@
     <button id="btnLogout" class="tab-btn hidden">Logg ut</button>
   </div>
       <div class="spacer"></div>
-      <div id="userBadge" class="status-pill"><span class="status-dot" id="ubDot"></span><span id="ubText">Ikke innlogget</span></div>
+      <div id="userBadge" class="muted">Ikke innlogget</div>
     </div>
   </header>
 
   <main class="container">
     <h1>Superadmin</h1>
-    <p class="muted">Full kontroll over farger, språk, brukere, sider, Stripe, ordrer, NFC-batcher, SEO m.m.</p>
+    <p class="muted">Full kontroll over farger, sprÃ¥k, brukere, sider, Stripe, ordrer, NFC-batcher, SEO m.m.</p>
 
     <!-- Tab knapper -->
     <div class="tabs" role="tablist" aria-label="Superadmin seksjoner">
       <button class="tab-btn" role="tab" aria-selected="true" data-tab="branding">ðŸŽ¨ Branding</button>
-      <button class="tab-btn" role="tab" aria-selected="false" data-tab="lang">ðŸŒ Språk</button>
+      <button class="tab-btn" role="tab" aria-selected="false" data-tab="lang">ðŸŒ SprÃ¥k</button>
       <button class="tab-btn" role="tab" aria-selected="false" data-tab="users">ðŸ‘¤ Brukere</button>
       <button class="tab-btn" role="tab" aria-selected="false" data-tab="pages">ðŸ§¾ Sider</button>
       <button class="tab-btn" role="tab" aria-selected="false" data-tab="stripe">ðŸ’³ Stripe</button>
@@ -104,13 +101,13 @@
       <div class="grid cols-2">
         <form id="brandForm" class="card">
           <h2>Branding</h2>
-          <p class="muted">Velg farger, radius og lys/mørk modus. Last opp logo. Lagre lokalt nå – senere kan vi koble til Firestore.</p>
+          <p class="muted">Velg farger, radius og lys/mÃ¸rk modus. Last opp logo. Lagre lokalt nÃ¥ â€“ senere kan vi koble til Firestore.</p>
 
           <div class="grid" style="gap:10px">
-            <label>Primærfarge
+            <label>PrimÃ¦rfarge
               <input type="color" id="themePrimary" value="#ff1a1a" />
             </label>
-            <label>Sekundærfarge
+            <label>SekundÃ¦rfarge
               <input type="color" id="themeSecondary" value="#111827" />
             </label>
             <label>Bakgrunn
@@ -131,7 +128,7 @@
             <label>Modus
               <select id="themeMode">
                 <option value="auto">Auto (system)</option>
-                <option value="dark" selected>Mørk</option>
+                <option value="dark" selected>MÃ¸rk</option>
                 <option value="light">Lys</option>
               </select>
             </label>
@@ -159,7 +156,7 @@
 
         <div class="card" id="brandPreview" style="border-radius:var(--radius)">
           <h2 style="margin-top:0">Live-preview</h2>
-          <p class="muted">Forhåndsvis farger/typografi under. Logo vises dersom opplastet.</p>
+          <p class="muted">ForhÃ¥ndsvis farger/typografi under. Logo vises dersom opplastet.</p>
           <div id="logoWrap" style="display:flex;align-items:center;gap:10px;margin:6px 0 14px">
             <img id="logoImg" alt="Logo" style="max-height:46px;display:none;border-radius:8px" />
             <span id="siteName" style="font-weight:800">NFCKING</span>
@@ -168,12 +165,12 @@
           <div style="display:grid;gap:10px;grid-template-columns:repeat(2,minmax(0,1fr))">
             <div style="background:var(--muted);padding:12px;border-radius:12px;border:1px solid #222736">
               <strong>Kort</strong>
-              <p class="muted">Sekundærtekst – slik ser â€œmutedâ€ ut.</p>
+              <p class="muted">SekundÃ¦rtekst â€“ slik ser â€œmutedâ€ ut.</p>
               <button class="tab-btn">Knapp</button>
             </div>
             <div style="background:var(--card);padding:12px;border-radius:12px;border:1px solid #1b2030">
               <strong>Panel</strong>
-              <p style="margin:0">Primær: <span id="pvPrimary"></span></p>
+              <p style="margin:0">PrimÃ¦r: <span id="pvPrimary"></span></p>
               <p style="margin:0">Bakgrunn: <span id="pvBg"></span></p>
             </div>
           </div>
@@ -181,23 +178,23 @@
       </div>
     </section>
 
-    <!-- Språk -->
+    <!-- SprÃ¥k -->
     <section id="tab-lang" class="hidden" role="tabpanel">
       <div class="card" style="margin-bottom:12px">
-        <h2>Språk & oversettelser</h2>
-        <p class="muted">Rediger nøkkel/verdier for flere språk. â€œManglendeâ€ markeres rødt. Data lagres lokalt nå (kan kobles mot Firestore senere).</p>
+        <h2>SprÃ¥k & oversettelser</h2>
+        <p class="muted">Rediger nÃ¸kkel/verdier for flere sprÃ¥k. â€œManglendeâ€ markeres rÃ¸dt. Data lagres lokalt nÃ¥ (kan kobles mot Firestore senere).</p>
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-          <label>Standard språk
+          <label>Standard sprÃ¥k
             <select id="i18nDefaultLang">
               <option value="nb">nb</option>
               <option value="en">en</option>
             </select>
           </label>
-          <label>Aktive språk
+          <label>Aktive sprÃ¥k
             <input id="i18nLangs" type="text" value="nb,en" style="min-width:160px" />
           </label>
-          <input id="i18nSearch" type="search" placeholder="Søk nøkkel/tekst…" style="flex:1;min-width:220px" />
-          <button id="i18nAddKey" class="tab-btn">+ Ny nøkkel</button>
+          <input id="i18nSearch" type="search" placeholder="SÃ¸k nÃ¸kkel/tekstâ€¦" style="flex:1;min-width:220px" />
+          <button id="i18nAddKey" class="tab-btn">+ Ny nÃ¸kkel</button>
           <button id="i18nSave" class="tab-btn">Lagre</button>
           <button id="i18nReset" class="tab-btn">Nullstill</button>
           <button id="i18nExportJson" class="tab-btn">Eksporter JSON</button>
@@ -217,8 +214,8 @@
           <table id="i18nTable" style="width:100%;border-collapse:collapse">
             <thead>
               <tr>
-                <th style="text-align:left;padding:8px;border-bottom:1px solid #222736;width:280px">Nøkkel</th>
-                <!-- språk-kolonner genereres i JS -->
+                <th style="text-align:left;padding:8px;border-bottom:1px solid #222736;width:280px">NÃ¸kkel</th>
+                <!-- sprÃ¥k-kolonner genereres i JS -->
                 <th style="text-align:left;padding:8px;border-bottom:1px solid #222736;width:120px">Handling</th>
               </tr>
             </thead>
@@ -232,9 +229,9 @@
     <section id="tab-users" role="tabpanel" class="hidden">
       <div class="card" style="margin-bottom:12px">
         <h2>Brukere & roller</h2>
-        <p class="muted">Opprett, deaktiver/aktiver, endre roller. (Kaller backend-endepunkt når de kobles.)</p>
+        <p class="muted">Opprett, deaktiver/aktiver, endre roller. (Kaller backend-endepunkt nÃ¥r de kobles.)</p>
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-          <input id="usrSearch" type="search" placeholder="Søk navn/e-post…" style="flex:1;min-width:220px" />
+          <input id="usrSearch" type="search" placeholder="SÃ¸k navn/e-postâ€¦" style="flex:1;min-width:220px" />
           <label>Rolle
             <select id="usrRoleFilter">
               <option value="">Alle</option>
@@ -296,7 +293,7 @@
               <option value="superadmin">superadmin</option>
             </select>
           </label>
-          <label>Org-nøkkel
+          <label>Org-nÃ¸kkel
             <input id="invOrg" type="text" placeholder="Wayback" />
           </label>
         </div>
@@ -313,7 +310,7 @@
         <h2>Sider</h2>
         <p class="muted">Opprett, rediger, planlegg og publiser sider. Menybygger nederst.</p>
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-          <input id="pgSearch" type="search" placeholder="Søk tittel/slug…" style="flex:1;min-width:240px" />
+          <input id="pgSearch" type="search" placeholder="SÃ¸k tittel/slugâ€¦" style="flex:1;min-width:240px" />
           <label>Status
             <select id="pgStatus">
               <option value="">Alle</option>
@@ -372,11 +369,11 @@
             <input id="pgTitleEn" type="text" placeholder="Title (English)" />
           </label>
 
-          <label style="grid-column:1/-1">Innhold (HTML – nb)
-            <textarea id="pgBodyNb" rows="10" placeholder="&lt;section&gt;…&lt;/section&gt;"></textarea>
+          <label style="grid-column:1/-1">Innhold (HTML â€“ nb)
+            <textarea id="pgBodyNb" rows="10" placeholder="&lt;section&gt;â€¦&lt;/section&gt;"></textarea>
           </label>
-          <label style="grid-column:1/-1">Innhold (HTML – en)
-            <textarea id="pgBodyEn" rows="10" placeholder="&lt;section&gt;…&lt;/section&gt;"></textarea>
+          <label style="grid-column:1/-1">Innhold (HTML â€“ en)
+            <textarea id="pgBodyEn" rows="10" placeholder="&lt;section&gt;â€¦&lt;/section&gt;"></textarea>
           </label>
 
           <details style="grid-column:1/-1">
@@ -410,7 +407,7 @@
         <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
           <button id="pgSaveDraft" class="tab-btn">Lagre kladd</button>
           <button id="pgPublish" class="tab-btn">Publiser</button>
-          <button id="pgPreview" class="tab-btn">Forhåndsvis</button>
+          <button id="pgPreview" class="tab-btn">ForhÃ¥ndsvis</button>
           <button id="pgClose" class="tab-btn">Lukk</button>
           <span id="pgEditMsg" class="muted"></span>
         </div>
@@ -418,7 +415,7 @@
 
       <div class="card">
         <h3>Menybygger</h3>
-        <p class="muted">Bygg toppmeny. Dra/endre rekkefølge med pilknapper.</p>
+        <p class="muted">Bygg toppmeny. Dra/endre rekkefÃ¸lge med pilknapper.</p>
         <div id="menuList" style="display:flex;flex-direction:column;gap:8px;margin-bottom:10px"></div>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
           <button id="menuAdd" class="tab-btn">+ Legg til</button>
@@ -433,8 +430,8 @@
   <div class="grid cols-2">
     <!-- Konfig -->
     <div class="card">
-      <h2>Stripe – Konfig</h2>
-      <p class="muted">Les/oppdater konfig. Hemmeligheter holdes i miljøvariabler (server).</p>
+      <h2>Stripe â€“ Konfig</h2>
+      <p class="muted">Les/oppdater konfig. Hemmeligheter holdes i miljÃ¸variabler (server).</p>
       <div class="grid" style="gap:10px">
         <label>Mode
           <select id="stMode">
@@ -464,7 +461,7 @@
     <div class="card">
       <h2>Produkter & priser</h2>
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:6px">
-        <input id="stProdSearch" type="search" placeholder="Søk produktnavn…" style="flex:1;min-width:200px" />
+        <input id="stProdSearch" type="search" placeholder="SÃ¸k produktnavnâ€¦" style="flex:1;min-width:200px" />
         <button id="stProdReload" class="tab-btn">Oppdater</button>
         <button id="stProdNew" class="tab-btn">+ Nytt produkt</button>
       </div>
@@ -525,7 +522,7 @@
           <thead>
             <tr>
               <th style="text-align:left;padding:8px;border-bottom:1px solid #222736">Tid</th>
-              <th style="text-align:left;padding:8px;border-bottom:1px solid #222736">Beløp</th>
+              <th style="text-align:left;padding:8px;border-bottom:1px solid #222736">BelÃ¸p</th>
               <th style="text-align:left;padding:8px;border-bottom:1px solid #222736">Kunde</th>
               <th style="text-align:left;padding:8px;border-bottom:1px solid #222736;width:200px">Handling</th>
             </tr>
@@ -539,7 +536,7 @@
     <div class="card">
       <h2>Kunder & testbetaling</h2>
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:6px">
-        <input id="stCustEmail" type="email" placeholder="Filter e-post…" />
+        <input id="stCustEmail" type="email" placeholder="Filter e-postâ€¦" />
         <button id="stCustReload" class="tab-btn">Hent kunder</button>
         <button id="stCustCreate" class="tab-btn">+ Ny kunde</button>
         <span id="stCustMsg" class="muted"></span>
@@ -581,7 +578,7 @@
   <div class="card" style="margin-bottom:12px">
     <h2>Ordrer</h2>
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-      <input id="ordSearch" type="search" placeholder="Søk navn/e-post/varenavn…" style="flex:1;min-width:240px" />
+      <input id="ordSearch" type="search" placeholder="SÃ¸k navn/e-post/varenavnâ€¦" style="flex:1;min-width:240px" />
       <label>Status
         <select id="ordStatus">
           <option value="">Alle</option>
@@ -611,7 +608,7 @@
             <th style="text-align:left;padding:8px;border-bottom:1px solid #222736">Tid</th>
             <th style="text-align:left;padding:8px;border-bottom:1px solid #222736">Kunde</th>
             <th style="text-align:left;padding:8px;border-bottom:1px solid #222736">Vare(r)</th>
-            <th style="text-align:left;padding:8px;border-bottom:1px solid #222736">Beløp</th>
+            <th style="text-align:left;padding:8px;border-bottom:1px solid #222736">BelÃ¸p</th>
             <th style="text-align:left;padding:8px;border-bottom:1px solid #222736">Status</th>
             <th style="text-align:left;padding:8px;border-bottom:1px solid #222736;width:260px">Handling</th>
           </tr>
@@ -626,7 +623,7 @@
     <h3 id="ordTitle">Ordre</h3>
     <div class="grid cols-2" style="gap:12px">
       <div>
-        <p class="muted" id="ordMeta">—</p>
+        <p class="muted" id="ordMeta">â€”</p>
         <label>Status
           <select id="ordEditStatus">
             <option value="new">new</option>
@@ -637,7 +634,7 @@
           </select>
         </label>
         <label>Notater
-          <textarea id="ordEditNotes" rows="4" placeholder="Interne notater…"></textarea>
+          <textarea id="ordEditNotes" rows="4" placeholder="Interne notaterâ€¦"></textarea>
         </label>
         <details>
           <summary>Frakt</summary>
@@ -648,7 +645,7 @@
             <label>Sporing #
               <input id="ordShipTrack" type="text" />
             </label>
-            <label>Transportør
+            <label>TransportÃ¸r
               <input id="ordShipCarrier" type="text" />
             </label>
           </div>
@@ -666,7 +663,7 @@
         <h4>Varer</h4>
         <ul id="ordItems" style="margin:0;padding-left:18px"></ul>
         <h4 style="margin-top:12px">Stripe</h4>
-        <div id="ordStripe" class="muted">—</div>
+        <div id="ordStripe" class="muted">â€”</div>
       </div>
     </div>
   </div>
@@ -735,7 +732,7 @@
         </select>
       </label>
 
-      <label style="grid-column:1/-1">Order-IDer (en per linje) — valgfritt
+      <label style="grid-column:1/-1">Order-IDer (en per linje) â€” valgfritt
         <textarea id="nbOrderIds" rows="4" placeholder="ord_123
 ord_456"></textarea>
       </label>
@@ -765,7 +762,7 @@ ord_456"></textarea>
   <!-- Detaljer / jobber / verifisering -->
   <div id="nfcDrawer" class="card hidden">
     <h3 id="ndTitle">Batch</h3>
-    <p id="ndMeta" class="muted">—</p>
+    <p id="ndMeta" class="muted">â€”</p>
 
     <div class="grid cols-2" style="gap:12px">
       <div>
@@ -794,7 +791,7 @@ ord_456"></textarea>
             <input id="encOrder" type="text" placeholder="ord_123" />
           </label>
           <label>Chip UID
-            <input id="encUID" type="text" placeholder="04:A2:…" />
+            <input id="encUID" type="text" placeholder="04:A2:â€¦" />
           </label>
           <label>Payload (JSON)
             <textarea id="encPayload" rows="4" placeholder='{"type":"URL","value":"https://nfcking.no/u/ord_123"}'></textarea>
@@ -817,7 +814,7 @@ ord_456"></textarea>
             <input id="verBatch" type="text" placeholder="(auto fra valgt batch)" />
           </label>
           <label>Chip UID
-            <input id="verUID" type="text" placeholder="04:A2:…" />
+            <input id="verUID" type="text" placeholder="04:A2:â€¦" />
           </label>
           <label>Resultat
             <select id="verResult">
@@ -841,16 +838,16 @@ ord_456"></textarea>
 
     <!-- SEO -->
     <section id="tab-seo" class="hidden" role="tabpanel">
-      <div class="card"><h2>SEO</h2><p class="muted">Globalt, sider, sitemap/robots, schema …</p></div>
+      <div class="card"><h2>SEO</h2><p class="muted">Globalt, sider, sitemap/robots, schema â€¦</p></div>
     </section>
 
     <!-- System -->
     <section id="tab-settings" class="hidden" role="tabpanel">
-      <div class="card"><h2>System</h2><p class="muted">Miljø, API-nøkler (maskert), audit, backup …</p></div>
+      <div class="card"><h2>System</h2><p class="muted">MiljÃ¸, API-nÃ¸kler (maskert), audit, backup â€¦</p></div>
     </section>
   </main>
 
-  <!-- Del 6 – del 2/6: Tab logic -->
+  <!-- Del 6 â€“ del 2/6: Tab logic -->
   <script>
     (function(){
       const TAB_MAP = [
@@ -918,7 +915,7 @@ ord_456"></textarea>
     })();
   </script>
 
-  <!-- Del 6 – del 3/6: Branding script -->
+  <!-- Del 6 â€“ del 3/6: Branding script -->
   <script>
   (function(){
     const qs = (s, r=document)=>r.querySelector(s);
@@ -1037,8 +1034,8 @@ ord_456"></textarea>
 
     qs('#btnUploadLogo').addEventListener('click', async ()=>{
       const f = el.logoFile.files?.[0];
-      if(!f){ el.msg.textContent = 'Velg en logo-fil først.'; return; }
-      el.msg.textContent = 'Laster opp logo …';
+      if(!f){ el.msg.textContent = 'Velg en logo-fil fÃ¸rst.'; return; }
+      el.msg.textContent = 'Laster opp logo â€¦';
       try{
         const url = await uploadLogo(f);
         if(url){
@@ -1055,7 +1052,7 @@ ord_456"></textarea>
   })();
   </script>
 
-  <!-- Del 6 – del 4/6: Språk script -->
+  <!-- Del 6 â€“ del 4/6: SprÃ¥k script -->
   <script>
   (function(){
     const qs=(s,r=document)=>r.querySelector(s);
@@ -1150,11 +1147,11 @@ ord_456"></textarea>
         keyInput.addEventListener('change', ()=>{
           const newKey = keyInput.value.trim();
           if(!newKey || newKey===key) return;
-          if(state.data[newKey]){ setMsg('Nøkkel finnes allerede.'); keyInput.value=key; return; }
+          if(state.data[newKey]){ setMsg('NÃ¸kkel finnes allerede.'); keyInput.value=key; return; }
           state.data[newKey] = {...state.data[key]};
           delete state.data[key];
           tr.setAttribute('data-key', newKey);
-          setMsg(`Endret nøkkel: ${key} â†’ ${newKey}`);
+          setMsg(`Endret nÃ¸kkel: ${key} â†’ ${newKey}`);
         });
         tdKey.appendChild(keyInput);
         tr.appendChild(tdKey);
@@ -1188,7 +1185,7 @@ ord_456"></textarea>
           const k = tr.getAttribute('data-key');
           delete state.data[k];
           tr.remove();
-          setMsg(`Slettet nøkkel: ${k}`);
+          setMsg(`Slettet nÃ¸kkel: ${k}`);
         });
         tdAct.appendChild(delBtn);
         tr.appendChild(tdAct);
@@ -1202,16 +1199,16 @@ ord_456"></textarea>
     el.search.addEventListener('input', renderTable);
     el.def.addEventListener('change', ()=>{
       state.defaultLang = el.def.value;
-      setMsg(`Standard språk: ${state.defaultLang}`);
+      setMsg(`Standard sprÃ¥k: ${state.defaultLang}`);
     });
-    el.langs.addEventListener('change', ()=>{ renderTable(); setMsg('Oppdatert språk-liste.'); });
+    el.langs.addEventListener('change', ()=>{ renderTable(); setMsg('Oppdatert sprÃ¥k-liste.'); });
 
     el.addKey.addEventListener('click', ()=>{
       let base='section.title', i=1, key=base;
       while(state.data[key]){ i++; key=`${base}.${i}`; }
       state.data[key] = Object.fromEntries(state.langs.map(L=>[L,'']));
       renderTable();
-      setMsg(`La til nøkkel: ${key}`);
+      setMsg(`La til nÃ¸kkel: ${key}`);
     });
 
     el.save.addEventListener('click', ()=>{
@@ -1263,7 +1260,7 @@ ord_456"></textarea>
           }
         }
         hydrateControls(); renderTable(); saveState(state);
-        setMsg('Importert JSON og slått sammen.');
+        setMsg('Importert JSON og slÃ¥tt sammen.');
       }catch{
         setMsg('Kunne ikke importere JSON.');
       }
@@ -1301,7 +1298,7 @@ ord_456"></textarea>
   })();
   </script>
 
-  <!-- Del 6 – del 5/6: Brukere script -->
+  <!-- Del 6 â€“ del 5/6: Brukere script -->
   <script>
   (function(){
     const qs=(s,r=document)=>r.querySelector(s);
@@ -1365,9 +1362,9 @@ ord_456"></textarea>
         const tr = document.createElement('tr');
         const td = (...nodes)=>{ const t=document.createElement('td'); t.style.cssText='padding:8px;border-bottom:1px solid #1b2030;vertical-align:top'; nodes.forEach(n=>t.append(n)); return t; };
 
-        tr.appendChild(td(document.createTextNode(u.name || '—')));
+        tr.appendChild(td(document.createTextNode(u.name || 'â€”')));
 
-        const aMail = document.createElement('a'); aMail.href = `mailto:${u.email}`; aMail.textContent = u.email||'—';
+        const aMail = document.createElement('a'); aMail.href = `mailto:${u.email}`; aMail.textContent = u.email||'â€”';
         tr.appendChild(td(aMail));
 
         const roleSel = document.createElement('select');
@@ -1384,7 +1381,7 @@ ord_456"></textarea>
         });
         tr.appendChild(td(roleSel));
 
-        tr.appendChild(td(document.createTextNode(u.orgKey || '—')));
+        tr.appendChild(td(document.createTextNode(u.orgKey || 'â€”')));
 
         const statusBadge = document.createElement('span');
         statusBadge.textContent = u.status || 'active';
@@ -1434,7 +1431,7 @@ ord_456"></textarea>
         limit: 20
       };
       lastQuery = params;
-      setMsg('Laster brukere …');
+      setMsg('Laster brukere â€¦');
       try{
         const data = await apiGet(API.list, params);
         renderRows(data.users || []);
@@ -1459,11 +1456,11 @@ ord_456"></textarea>
       const email = el.invEmail.value.trim();
       const role = el.invRole.value;
       const org  = el.invOrg.value.trim() || null;
-      if(!email){ setMsg('E-post er påkrevd.'); return; }
-      setMsg('Sender invitasjon …');
+      if(!email){ setMsg('E-post er pÃ¥krevd.'); return; }
+      setMsg('Sender invitasjon â€¦');
       try{
         const res = await apiPost(API.create, { name, email, role, orgKey: org });
-        setMsg(`Invitasjon sendt til ${email}. UID: ${res.uid || '—'}`);
+        setMsg(`Invitasjon sendt til ${email}. UID: ${res.uid || 'â€”'}`);
         toggleInvite(false); el.invName.value=''; el.invEmail.value='';
         await loadUsers();
       }catch{
@@ -1488,7 +1485,7 @@ ord_456"></textarea>
   })();
   </script>
 
-  <!-- Del 6 – del 6/6: Sider script -->
+  <!-- Del 6 â€“ del 6/6: Sider script -->
   <script>
   (function(){
     const qs=(s,r=document)=>r.querySelector(s);
@@ -1563,7 +1560,7 @@ ord_456"></textarea>
     }
 
     function fmtDate(ts){
-      try{ const d = new Date(ts); return d.toLocaleString(); }catch{ return '—'; }
+      try{ const d = new Date(ts); return d.toLocaleString(); }catch{ return 'â€”'; }
     }
 
     function renderPages(pages){
@@ -1572,10 +1569,10 @@ ord_456"></textarea>
         const tr = ce('tr');
         const td = (n)=>{ const t=ce('td'); t.style.cssText='padding:8px;border-bottom:1px solid #1b2030;vertical-align:top'; t.append(n); return t; };
 
-        tr.appendChild(td(document.createTextNode((p.title?.nb || p.title?.en || '—'))));
-        tr.appendChild(td(document.createTextNode(p.slug || '—')));
+        tr.appendChild(td(document.createTextNode((p.title?.nb || p.title?.en || 'â€”'))));
+        tr.appendChild(td(document.createTextNode(p.slug || 'â€”')));
         tr.appendChild(td(document.createTextNode(p.status || 'draft')));
-        tr.appendChild(td(document.createTextNode(p.updatedAt ? fmtDate(p.updatedAt) : '—')));
+        tr.appendChild(td(document.createTextNode(p.updatedAt ? fmtDate(p.updatedAt) : 'â€”')));
 
         const actions = ce('div'); actions.style.display='flex'; actions.style.gap='6px'; actions.style.flexWrap='wrap';
         const bEdit = ce('button'); bEdit.className='tab-btn'; bEdit.textContent='Rediger';
@@ -1585,7 +1582,7 @@ ord_456"></textarea>
 
         bEdit.onclick = ()=> openEditor(p.slug);
         bPub.onclick  = async ()=>{
-          setMsg('Publiserer …');
+          setMsg('Publiserer â€¦');
           try{
             await apiPost(API.publish, { slug:p.slug });
             setMsg(`Publisert: /${p.slug}`);
@@ -1595,7 +1592,7 @@ ord_456"></textarea>
         bPrev.onclick = ()=> window.open(`/${p.slug}`, '_blank');
         bDel.onclick = async ()=>{
           if(!confirm(`Slette side /${p.slug}?`)) return;
-          setMsg('Sletter …');
+          setMsg('Sletter â€¦');
           try{
             await apiPost(API.del, { slug:p.slug });
             setMsg(`Slettet /${p.slug}`);
@@ -1612,7 +1609,7 @@ ord_456"></textarea>
     }
 
     async function loadPages(){
-      setMsg('Laster sider …');
+      setMsg('Laster sider â€¦');
       try{
         const data = await apiGet(API.list, { q: el.search.value || '', status: el.status.value || '', limit: 100 });
         renderPages(data.pages || []);
@@ -1635,7 +1632,7 @@ ord_456"></textarea>
         el.editor.classList.remove('hidden');
         return;
       }
-      setMsg('Åpner side …');
+      setMsg('Ã…pner side â€¦');
       apiGet(API.get, { slug }).then(p=>{
         editingId = slug;
         el.editorTitle.textContent = `Rediger: /${slug}`;
@@ -1656,7 +1653,7 @@ ord_456"></textarea>
         setEditMsg('');
         el.editor.classList.remove('hidden');
         setMsg('');
-      }).catch(()=> setMsg('Kunne ikke åpne side.'));
+      }).catch(()=> setMsg('Kunne ikke Ã¥pne side.'));
     }
 
     function collectPage(statusOverride){
@@ -1675,8 +1672,8 @@ ord_456"></textarea>
 
     async function saveDraft(){
       const doc = collectPage('draft');
-      if(!doc.slug){ setEditMsg('Slug er påkrevd.'); return; }
-      setEditMsg('Lagrer kladd …');
+      if(!doc.slug){ setEditMsg('Slug er pÃ¥krevd.'); return; }
+      setEditMsg('Lagrer kladd â€¦');
       try{
         await apiPost(API.save, doc);
         setEditMsg('Kladd lagret.');
@@ -1686,8 +1683,8 @@ ord_456"></textarea>
 
     async function publishNow(){
       const doc = collectPage('published');
-      if(!doc.slug){ setEditMsg('Slug er påkrevd.'); return; }
-      setEditMsg('Publiserer …');
+      if(!doc.slug){ setEditMsg('Slug er pÃ¥krevd.'); return; }
+      setEditMsg('Publiserer â€¦');
       try{
         await apiPost(API.save, doc);
         await apiPost(API.publish, { slug: doc.slug });
@@ -1704,7 +1701,7 @@ ord_456"></textarea>
     el.publish.addEventListener('click', publishNow);
     el.preview.addEventListener('click', ()=>{
       const slug = (el.slug.value||'').trim();
-      if(!slug) { setEditMsg('Sett slug først.'); return; }
+      if(!slug) { setEditMsg('Sett slug fÃ¸rst.'); return; }
       window.open(`/${slug}`, '_blank');
     });
     el.close.addEventListener('click', ()=> el.editor.classList.add('hidden'));
@@ -1749,7 +1746,7 @@ ord_456"></textarea>
     }
 
     async function loadMenu(){
-      setMenuMsg('Laster meny …');
+      setMenuMsg('Laster meny â€¦');
       try{
         const data = await apiGet(API.menuGet, {});
         state.menu = Array.isArray(data.nav) ? data.nav : [];
@@ -1760,7 +1757,7 @@ ord_456"></textarea>
       }
     }
     async function saveMenu(){
-      setMenuMsg('Lagrer meny …');
+      setMenuMsg('Lagrer meny â€¦');
       try{
         await apiPost(API.menuSave, { nav: state.menu });
         setMenuMsg('Meny lagret.');
@@ -1852,7 +1849,7 @@ ord_456"></textarea>
       el.mode.value = d.mode || 'test';
       el.pub.value = d.publishableKey || '';
       el.connect.value = String(d.connect?.enabled || false);
-      el.webhookInfo.textContent = 'Webhook secret: ' + (d.hasWebhookSecret ? 'satt ✅' : 'mangler ❌');
+      el.webhookInfo.textContent = 'Webhook secret: ' + (d.hasWebhookSecret ? 'satt âœ…' : 'mangler âŒ');
       el.msg.textContent='OK';
     }catch(e){ el.msg.textContent='Kunne ikke hente konfig.'; }
   }
@@ -1941,7 +1938,7 @@ ord_456"></textarea>
         <label>Valuta
           <input type="text" id="prCur" value="nok" />
         </label>
-        <label>Beløp (øre)
+        <label>BelÃ¸p (Ã¸re)
           <input type="number" id="prAmt" value="9900" />
         </label>
         <label>Type
@@ -2015,8 +2012,8 @@ ord_456"></textarea>
     const rows = (list||[]).map(c=>{
       const tr = ce('tr');
       const td=(n)=>{ const t=ce('td'); t.style.cssText='padding:8px;border-bottom:1px solid #1b2030'; t.append(n); return t; };
-      tr.appendChild(td(document.createTextNode(c.name || '—')));
-      tr.appendChild(td(document.createTextNode(c.email || '—')));
+      tr.appendChild(td(document.createTextNode(c.name || 'â€”')));
+      tr.appendChild(td(document.createTextNode(c.email || 'â€”')));
       return tr;
     });
     el.custTable.replaceChildren(...rows);
@@ -2050,12 +2047,12 @@ ord_456"></textarea>
     el.testMsg.textContent='Oppretter sesjon...';
     try{
       const d = await post(API.test, { priceId, quantity: qty, successUrl: location.origin + '/demo.html', cancelUrl: location.href });
-      if(d.checkoutUrl){ window.open(d.checkoutUrl, '_blank'); el.testMsg.textContent='Åpnet Stripe Checkout.'; }
+      if(d.checkoutUrl){ window.open(d.checkoutUrl, '_blank'); el.testMsg.textContent='Ã…pnet Stripe Checkout.'; }
       else { el.testMsg.textContent='Fikk ikke URL.'; }
     }catch(e){ el.testMsg.textContent='Feil ved opprettelse.'; }
   });
 
-  // Autoload når Stripe-fanen åpnes
+  // Autoload nÃ¥r Stripe-fanen Ã¥pnes
   function onTabChange(){
     const active = (location.hash||'#branding').replace('#','');
     if(active==='stripe'){
@@ -2123,7 +2120,7 @@ ord_456"></textarea>
   let cacheList = [];
   let currentId = null;
 
-  function fmt(ts){ try{ return new Date(ts).toLocaleString(); }catch{ return '—'; } }
+  function fmt(ts){ try{ return new Date(ts).toLocaleString(); }catch{ return 'â€”'; } }
   function money(n,c='NOK'){ return `${(n/100).toFixed(2)} ${String(c).toUpperCase()}`; }
 
   function renderTable(){
@@ -2140,12 +2137,12 @@ ord_456"></textarea>
       const td=(n)=>{ const t=ce('td'); t.style.cssText='padding:8px;border-bottom:1px solid #1b2030;vertical-align:top'; t.append(n); return t; };
       tr.appendChild(td(document.createTextNode(fmt(o.createdAt || Date.now()))));
       tr.appendChild(td(document.createTextNode(`${o.customer?.name||''} <${o.customer?.email||''}>`)));
-      tr.appendChild(td(document.createTextNode((o.items||[]).map(x=>`${x.name||x.sku} ×${x.qty}`).join(', '))));
+      tr.appendChild(td(document.createTextNode((o.items||[]).map(x=>`${x.name||x.sku} Ã—${x.qty}`).join(', '))));
       tr.appendChild(td(document.createTextNode(money(o.amountTotal||0, o.items?.[0]?.currency||'NOK'))));
       tr.appendChild(td(document.createTextNode(o.status||'new')));
 
       const actions = ce('div'); actions.style.cssText='display:flex;gap:6px;flex-wrap:wrap';
-      const edit = ce('button'); edit.className='tab-btn'; edit.textContent='Åpne';
+      const edit = ce('button'); edit.className='tab-btn'; edit.textContent='Ã…pne';
       edit.onclick = ()=> openDrawer(o.id);
       actions.append(edit);
       tr.appendChild(td(actions));
@@ -2156,7 +2153,7 @@ ord_456"></textarea>
   }
 
   async function loadOrders(){
-    el.msg.textContent='Laster…';
+    el.msg.textContent='Lasterâ€¦';
     try{
       const d = await get(API.list, {
         status: el.status.value || '',
@@ -2180,12 +2177,12 @@ ord_456"></textarea>
   }
 
   async function openDrawer(id){
-    el.editMsg.textContent='Laster…';
+    el.editMsg.textContent='Lasterâ€¦';
     try{
       const d = await get(API.get, { id });
       currentId = id;
       el.title.textContent = `Ordre #${id}`;
-      el.meta.textContent = `${fmt(d.createdAt)} — ${d.customer?.name||''} <${d.customer?.email||''}>`;
+      el.meta.textContent = `${fmt(d.createdAt)} â€” ${d.customer?.name||''} <${d.customer?.email||''}>`;
       el.editStatus.value = d.status || 'new';
       el.editNotes.value = d.notes || '';
       el.shipAddr.value = d.shipping?.address || '';
@@ -2195,23 +2192,23 @@ ord_456"></textarea>
       // Varer
       const lis = (d.items||[]).map(x=>{
         const li = ce('li');
-        li.textContent = `${x.name||x.sku} ×${x.qty} — ${money((x.unit||0)* (x.qty||1), x.currency||'NOK')}`;
+        li.textContent = `${x.name||x.sku} Ã—${x.qty} â€” ${money((x.unit||0)* (x.qty||1), x.currency||'NOK')}`;
         return li;
       });
       el.items.replaceChildren(...lis);
 
       // Stripe-info
       const s = d.stripe||{};
-      el.stripe.textContent = `PI: ${s.paymentIntent||'—'}  â€¢  Charge: ${s.charge||'—'}  â€¢  Customer: ${s.customerId||'—'}`;
+      el.stripe.textContent = `PI: ${s.paymentIntent||'â€”'}  â€¢  Charge: ${s.charge||'â€”'}  â€¢  Customer: ${s.customerId||'â€”'}`;
 
       el.drawer.classList.remove('hidden');
       el.editMsg.textContent='';
-    }catch(e){ el.editMsg.textContent='Kunne ikke åpne ordren.'; }
+    }catch(e){ el.editMsg.textContent='Kunne ikke Ã¥pne ordren.'; }
   }
 
   async function saveOrder(){
     if(!currentId){ return; }
-    el.editMsg.textContent='Lagrer…';
+    el.editMsg.textContent='Lagrerâ€¦';
     try{
       await post(API.upd, {
         id: currentId,
@@ -2230,7 +2227,7 @@ ord_456"></textarea>
 
   async function makeInvoice(){
     if(!currentId){ return; }
-    el.editMsg.textContent='Lager faktura…';
+    el.editMsg.textContent='Lager fakturaâ€¦';
     try{
       const r = await post(API.inv, { id: currentId });
       el.editMsg.innerHTML = `Faktura generert: <a href="${r.pdfUrl}" target="_blank">${r.pdfUrl}</a>`;
@@ -2240,17 +2237,17 @@ ord_456"></textarea>
   async function sendEmail(){
     if(!currentId){ return; }
     const subject = prompt('Emne (valgfritt):','Ordrebekreftelse');
-    el.editMsg.textContent='Sender e-post…';
+    el.editMsg.textContent='Sender e-postâ€¦';
     try{
       const r = await post(API.mail, { id: currentId, subject, template: 'order-confirmation' });
-      el.editMsg.textContent = `Sendt til ${r.to || 'kunde'}  (msg: ${r.messageId||'—'})`;
+      el.editMsg.textContent = `Sendt til ${r.to || 'kunde'}  (msg: ${r.messageId||'â€”'})`;
     }catch(e){ el.editMsg.textContent='E-post feilet.'; }
   }
 
   async function refund(){
     if(!currentId){ return; }
     if(!confirm('Refunder betalingen?')) return;
-    el.editMsg.textContent='Refunderer…';
+    el.editMsg.textContent='Refundererâ€¦';
     try{
       await post(API.refund, { id: currentId });
       el.editMsg.textContent='Refundert.';
@@ -2271,7 +2268,7 @@ ord_456"></textarea>
   el.refund.addEventListener('click', refund);
   el.close.addEventListener('click', ()=> el.drawer.classList.add('hidden'));
 
-  // Autoload når fanen åpnes
+  // Autoload nÃ¥r fanen Ã¥pnes
   function onTabChange(){
     const active = (location.hash||'#branding').replace('#','');
     if(active==='orders'){ loadOrders(); }
@@ -2359,7 +2356,7 @@ ord_456"></textarea>
   let cache = [];
   let currentBatch = null;
 
-  function fmt(ts){ try{ return new Date(ts).toLocaleString(); }catch{ return '—'; } }
+  function fmt(ts){ try{ return new Date(ts).toLocaleString(); }catch{ return 'â€”'; } }
 
   function renderTable(){
     const rows = cache.map(b=>{
@@ -2371,7 +2368,7 @@ ord_456"></textarea>
       tr.appendChild(td(document.createTextNode(String(b.count || 0))));
 
       const actions = ce('div'); actions.style.cssText='display:flex;gap:6px;flex-wrap:wrap';
-      const open = ce('button'); open.className='tab-btn'; open.textContent='Åpne';
+      const open = ce('button'); open.className='tab-btn'; open.textContent='Ã…pne';
       open.onclick = ()=> openDrawer(b.id);
       actions.append(open);
       tr.appendChild(td(actions));
@@ -2382,7 +2379,7 @@ ord_456"></textarea>
   }
 
   async function loadList(){
-    el.msg.textContent='Laster…';
+    el.msg.textContent='Lasterâ€¦';
     try{
       const d = await get(API.list, { status: el.status.value || '', limit: 100 });
       cache = d.data || [];
@@ -2397,7 +2394,7 @@ ord_456"></textarea>
   }
 
   async function createBatch(){
-    el.nbMsg.textContent='Oppretter…';
+    el.nbMsg.textContent='Oppretterâ€¦';
     try{
       const ids = (el.nbOrderIds.value||'').split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
       const payload = {
@@ -2416,7 +2413,7 @@ ord_456"></textarea>
   }
 
   async function openDrawer(id){
-    el.dMsg.textContent='Laster…';
+    el.dMsg.textContent='Lasterâ€¦';
     try{
       const d = await get(API.get, { id });
       currentBatch = id;
@@ -2429,33 +2426,33 @@ ord_456"></textarea>
       el.drawer.classList.remove('hidden');
       el.vBatch.value = id;
       el.dMsg.textContent='';
-    }catch(e){ el.dMsg.textContent='Kunne ikke åpne batch.'; }
+    }catch(e){ el.dMsg.textContent='Kunne ikke Ã¥pne batch.'; }
   }
 
   async function startBatch(){
     if(!currentBatch) return;
-    el.dMsg.textContent='Starter…';
+    el.dMsg.textContent='Starterâ€¦';
     try{ await post(API.start, { id: currentBatch }); el.dMsg.textContent='Startet.'; await openDrawer(currentBatch); }
     catch(e){ el.dMsg.textContent='Start feilet.'; }
   }
   async function stopBatch(){
     if(!currentBatch) return;
-    el.dMsg.textContent='Stopper…';
+    el.dMsg.textContent='Stopperâ€¦';
     try{ await post(API.stop, { id: currentBatch }); el.dMsg.textContent='Stoppet.'; await openDrawer(currentBatch); }
     catch(e){ el.dMsg.textContent='Stopp feilet.'; }
   }
   async function downloadZip(){
     if(!currentBatch) return;
-    el.dMsg.textContent='Lager lenke…';
+    el.dMsg.textContent='Lager lenkeâ€¦';
     try{
       const r = await get(API.files, { id: currentBatch, type: 'zip' });
       window.open(r.downloadUrl, '_blank');
-      el.dMsg.textContent='Åpnet ZIP.';
+      el.dMsg.textContent='Ã…pnet ZIP.';
     }catch(e){ el.dMsg.textContent='Kunne ikke lage ZIP-lenke.'; }
   }
 
   async function saveEncode(){
-    el.eMsg.textContent='Registrerer…';
+    el.eMsg.textContent='Registrererâ€¦';
     try{
       const payload = JSON.parse(el.ePayload.value || '{}');
       await post(API.encode, {
@@ -2469,7 +2466,7 @@ ord_456"></textarea>
   }
 
   async function saveVerify(){
-    el.vMsg.textContent='Registrerer…';
+    el.vMsg.textContent='Registrererâ€¦';
     try{
       await post(API.verify, {
         batchId: (el.vBatch.value||'').trim(),
@@ -2497,7 +2494,7 @@ ord_456"></textarea>
   el.eSave.addEventListener('click', saveEncode);
   el.vSave.addEventListener('click', saveVerify);
 
-  // Auto-load når fanen åpnes
+  // Auto-load nÃ¥r fanen Ã¥pnes
   function onTabChange(){
     const active = (location.hash||'#branding').replace('#','');
     if(active==='nfc'){ loadList(); }
@@ -2517,31 +2514,9 @@ ord_456"></textarea>
       return token;
     }
 
-    
     auth.onIdTokenChanged(async (user) => {
       const status = document.getElementById("loginStatus");
       const btnIn  = document.getElementById("btnLogin");
-      const btnOut = document.getElementById("btnLogout");
-      const ubText = document.getElementById("ubText");
-      const ubDot  = document.getElementById("ubDot");
-
-      if (user) {
-        const tok = await refreshIdToken(user);
-        let role = localStorage.getItem('nfcking.role') || 'owner';
-        if (status) status.textContent = `Innlogget: ${user.email || "ukjent"}`;
-        if (ubText) ubText.textContent = `${user.email || "ukjent"} (${role})`;
-        if (ubDot) ubDot.classList.add('ok');
-        if (btnIn) btnIn.classList.add("hidden");
-        if (btnOut) btnOut.classList.remove("hidden");
-      } else {
-        if (status) status.textContent = "Ikke innlogget";
-        if (ubText) ubText.textContent = "Ikke innlogget";
-        if (ubDot) ubDot.classList.remove('ok');
-        if (btnIn) btnIn.classList.remove("hidden");
-        if (btnOut) btnOut.classList.add("hidden");
-      }
-    });
-    const btnIn  = document.getElementById("btnLogin");
       const btnOut = document.getElementById("btnLogout");
       if (user) {
         await refreshIdToken(user);
@@ -2614,106 +2589,8 @@ ord_456"></textarea>
       };
     })();
   </script>
-  <style>
-  .invite-status{margin-top:8px;font-size:.9rem;opacity:.95}
-  .invite-status.ok{color:#21c36a}
-  .invite-status.err{color:#ff6b6b}
-</style>
-
-<!-- Wire "Send invitasjon" til serverless users-invite + visuell feedback -->
-<script>
-(function(){
-  const $ = (s,r=document)=>r.querySelector(s);
-
-  // Finn knappen enten via id/klasse eller ved tekst
-  function findInviteBtn(){
-    const byId = $('#umInvite');
-    if (byId) return byId;
-    const all = Array.from(document.querySelectorAll('button, [role="button"], a'));
-    return all.find(b => (b.textContent||'').trim().toLowerCase() === 'send invitasjon');
-  }
-
-  // Finn feltene i samme seksjon som knappen
-  function getFields(scope){
-    const email = scope.querySelector('#umNewEmail, input[type="email"], input[placeholder*="E-post" i]');
-    const name  = scope.querySelector('#umNewName, input[name*="name" i], input[id*="name" i]');
-    const role  = scope.querySelector('#umNewRole, select');
-    return { email, name, role };
-  }
-
-  // Lag/returnér en status-linje rett under knapperaden
-  function ensureStatus(container){
-    let s = container.querySelector('.invite-status');
-    if (!s) {
-      s = document.createElement('div');
-      s.className = 'invite-status';
-      container.appendChild(s);
-    }
-    s.classList.remove('ok','err');
-    return s;
-  }
-
-  async function sendInvite(payload){
-    const res = await fetch('/.netlify/functions/users-invite', {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify(payload)
-    });
-    const text = await res.text().catch(()=> '');
-    let data;
-    try { data = JSON.parse(text); } catch { data = { ok:false, error:text||res.statusText }; }
-    if (!res.ok || data.ok === false) {
-      const msg = (data && (data.error||data.message)) || text || ('HTTP '+res.status);
-      throw new Error(msg);
-    }
-    return data;
-  }
-
-  function wire(){
-    const btn = findInviteBtn();
-    if (!btn || btn.__wiredInvite) return;
-    btn.__wiredInvite = true;
-
-    btn.addEventListener('click', async (e)=>{
-      e.preventDefault();
-      const scope = btn.closest('section,form,div') || document;
-      const { email, name, role } = getFields(scope);
-      const s = ensureStatus(btn.parentElement || scope);
-
-      const vEmail = (email && email.value || '').trim();
-      const vName  = (name  && name.value  || '').trim();
-      const vRole  = (role  && role.value  || 'viewer').trim();
-
-      if (!vEmail){ s.textContent = 'Skriv inn e-post først.'; s.classList.add('err'); return; }
-
-      btn.disabled = true;
-      const prev = btn.textContent;
-      btn.textContent = 'Sender…';
-      s.textContent = 'Sender invitasjon…';
-
-      try{
-        const r = await sendInvite({ email: vEmail, displayName: vName, role: vRole });
-        s.textContent = r.emailSent ? '✅ Invitasjon sendt!' : '✅ Lenke generert (men e-post ikke bekreftet sendt).';
-        s.classList.add('ok');
-      }catch(err){
-        s.textContent = 'Feil: ' + (err.message || 'ukjent feil');
-        s.classList.add('err');
-      }finally{
-        btn.disabled = false;
-        btn.textContent = prev;
-      }
-    });
-  }
-
-  document.addEventListener('DOMContentLoaded', wire);
-})();
-</script>
-
 </body>
 </html>
-
-
-
 
 
 
