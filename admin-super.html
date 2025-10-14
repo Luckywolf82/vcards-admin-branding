@@ -44,6 +44,17 @@
     .muted{color:var(--sub)}
     .hidden{display:none !important}
   </style>
+  <!-- 🔐 Firebase SDK (compat) -->
+  <script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-auth-compat.js"></script>
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyDypfSLkWWRQh9TFrIjWpYWKmO3dBDnb_s",
+      authDomain: "nfcking-bb143.firebaseapp.com",
+      projectId: "nfcking-bb143"
+    };
+    firebase.initializeApp(firebaseConfig);
+  </script>
 </head>
 <body>
   <header class="nav">
@@ -55,6 +66,13 @@
         <a href="/bestill-kort.html">Bestill kort</a>
         <a href="/admin-super.html" aria-current="page">Superadmin</a>
       </nav>
+  <!-- 🔐 Login status + knapper -->
+  <div id="authBox" class="flex items-center gap-2"
+       style="position:absolute;top:12px;right:12px;z-index:50;">
+    <span id="loginStatus">Ikke innlogget</span>
+    <button id="btnLogin" class="tab-btn">Logg inn</button>
+    <button id="btnLogout" class="tab-btn hidden">Logg ut</button>
+  </div>
       <div class="spacer"></div>
       <div id="userBadge" class="muted">Ikke innlogget</div>
     </div>
@@ -2485,6 +2503,59 @@ ord_456"></textarea>
 })();
 </script>
 
+  <script>
+    const auth = firebase.auth();
+
+    async function refreshIdToken(user) {
+      if (!user) { localStorage.removeItem("nfcking.idToken"); return null; }
+      const token = await user.getIdToken(true);
+      localStorage.setItem("nfcking.idToken", token);
+      return token;
+    }
+
+    auth.onIdTokenChanged(async (user) => {
+      const status = document.getElementById("loginStatus");
+      const btnIn  = document.getElementById("btnLogin");
+      const btnOut = document.getElementById("btnLogout");
+      if (user) {
+        await refreshIdToken(user);
+        status.textContent = `Innlogget: ${user.email || "ukjent"}`;
+        btnIn.classList.add("hidden");
+        btnOut.classList.remove("hidden");
+      } else {
+        status.textContent = "Ikke innlogget";
+        btnIn.classList.remove("hidden");
+        btnOut.classList.add("hidden");
+      }
+    });
+
+    async function doLogin() {
+      const email = prompt("E-post:"); if (!email) return;
+      const password = prompt("Passord:"); if (!password) return;
+      try {
+        await auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+        await auth.signInWithEmailAndPassword(email.trim(), password);
+        alert("Innlogget ✅");
+      } catch (err) { alert("Innlogging feilet: " + err.message); }
+    }
+
+    async function doLogout() {
+      try { await auth.signOut(); alert("Logget ut"); }
+      catch (err) { alert("Utlogging feilet: " + err.message); }
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+      const li = document.getElementById("btnLogin");
+      const lo = document.getElementById("btnLogout");
+      if (li) li.addEventListener("click", doLogin);
+      if (lo) lo.addEventListener("click", doLogout);
+    });
+
+    // Eksponer globalt hvis noe i HTML bruker onclick
+    window.doLogin  = doLogin;
+    window.doLogout = doLogout;
+  </script>
 </body>
 </html>
+
 
