@@ -2614,6 +2614,101 @@ ord_456"></textarea>
       };
     })();
   </script>
+  <style>
+  .invite-status{margin-top:8px;font-size:.9rem;opacity:.95}
+  .invite-status.ok{color:#21c36a}
+  .invite-status.err{color:#ff6b6b}
+</style>
+
+<!-- Wire "Send invitasjon" til serverless users-invite + visuell feedback -->
+<script>
+(function(){
+  const $ = (s,r=document)=>r.querySelector(s);
+
+  // Finn knappen enten via id/klasse eller ved tekst
+  function findInviteBtn(){
+    const byId = $('#umInvite');
+    if (byId) return byId;
+    const all = Array.from(document.querySelectorAll('button, [role="button"], a'));
+    return all.find(b => (b.textContent||'').trim().toLowerCase() === 'send invitasjon');
+  }
+
+  // Finn feltene i samme seksjon som knappen
+  function getFields(scope){
+    const email = scope.querySelector('#umNewEmail, input[type="email"], input[placeholder*="E-post" i]');
+    const name  = scope.querySelector('#umNewName, input[name*="name" i], input[id*="name" i]');
+    const role  = scope.querySelector('#umNewRole, select');
+    return { email, name, role };
+  }
+
+  // Lag/returnér en status-linje rett under knapperaden
+  function ensureStatus(container){
+    let s = container.querySelector('.invite-status');
+    if (!s) {
+      s = document.createElement('div');
+      s.className = 'invite-status';
+      container.appendChild(s);
+    }
+    s.classList.remove('ok','err');
+    return s;
+  }
+
+  async function sendInvite(payload){
+    const res = await fetch('/.netlify/functions/users-invite', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(payload)
+    });
+    const text = await res.text().catch(()=> '');
+    let data;
+    try { data = JSON.parse(text); } catch { data = { ok:false, error:text||res.statusText }; }
+    if (!res.ok || data.ok === false) {
+      const msg = (data && (data.error||data.message)) || text || ('HTTP '+res.status);
+      throw new Error(msg);
+    }
+    return data;
+  }
+
+  function wire(){
+    const btn = findInviteBtn();
+    if (!btn || btn.__wiredInvite) return;
+    btn.__wiredInvite = true;
+
+    btn.addEventListener('click', async (e)=>{
+      e.preventDefault();
+      const scope = btn.closest('section,form,div') || document;
+      const { email, name, role } = getFields(scope);
+      const s = ensureStatus(btn.parentElement || scope);
+
+      const vEmail = (email && email.value || '').trim();
+      const vName  = (name  && name.value  || '').trim();
+      const vRole  = (role  && role.value  || 'viewer').trim();
+
+      if (!vEmail){ s.textContent = 'Skriv inn e-post først.'; s.classList.add('err'); return; }
+
+      btn.disabled = true;
+      const prev = btn.textContent;
+      btn.textContent = 'Sender…';
+      s.textContent = 'Sender invitasjon…';
+
+      try{
+        const r = await sendInvite({ email: vEmail, displayName: vName, role: vRole });
+        s.textContent = r.emailSent ? '✅ Invitasjon sendt!' : '✅ Lenke generert (men e-post ikke bekreftet sendt).';
+        s.classList.add('ok');
+      }catch(err){
+        s.textContent = 'Feil: ' + (err.message || 'ukjent feil');
+        s.classList.add('err');
+      }finally{
+        btn.disabled = false;
+        btn.textContent = prev;
+      }
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', wire);
+})();
+</script>
+
 </body>
 </html>
 
