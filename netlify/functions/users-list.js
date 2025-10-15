@@ -1,44 +1,58 @@
-﻿// netlify/functions/users-list.js
-const admin = require('firebase-admin');
+const admin = require("firebase-admin");
+if (!admin.apps.length) admin.initializeApp();
 
-if (!admin.apps.length) {
-  admin.initializeApp({
-    credential: admin.credential.cert({
-      projectId: process.env.FIREBASE_PROJECT_ID,
-      clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-      privateKey: (process.env.FIREBASE_PRIVATE_KEY || "").replace(/\\n/g, "\n"),
-    }),
-  });
-}
-
-exports.handler = async () => {
+exports.handler = async (event) => {
   try {
-    const auth = admin.auth();
-    const users = [];
-    let nextPageToken = undefined;
+    const { q, role, status, limit, pageToken } = event.queryStringParameters || {};
 
-    do {
-      const result = await auth.listUsers(1000, nextPageToken);
-      result.users.forEach(u =>
-        users.push({
-          uid: u.uid,
-          email: u.email,
-          displayName: u.displayName || "",
-          disabled: u.disabled,
-          createdAt: u.metadata.creationTime,
-        })
+    const maxResults = parseInt(limit) || 100;
+    const listOpts = { maxResults };
+    if (pageToken) listOpts.pageToken = pageToken;
+
+    const res = await admin.auth().listUsers(maxResults, pageToken || undefined);
+    let users = res.users.map(u => ({
+      uid: u.uid,
+      email: u.email,
+      displayName: u.displayName,
+      disabled: u.disabled,
+      customClaims: u.customClaims || {},
+      metadata: u.metadata
+    }));
+
+    // Tekstsøk i epost/navn
+    if (q) {
+      const qLow = q.toLowerCase();
+      users = users.filter(u =>
+        (u.email && u.email.toLowerCase().includes(qLow)) ||
+        (u.displayName && u.displayName.toLowerCase().includes(qLow))
       );
-      nextPageToken = result.pageToken;
-    } while (nextPageToken);
+    }
+
+    // Filtrer på rolle
+    if (role) {
+      users = users.filter(u => (u.customClaims.role || '').toLowerCase() === role.toLowerCase());
+    }
+
+    // Filtrer på status
+    if (status) {
+      const wantActive = status.toLowerCase() === "active";
+      users = users.filter(u => !u.disabled === wantActive);
+    }
 
     return {
       statusCode: 200,
-      body: JSON.stringify({ ok: true, data: users }),
+      body: JSON.stringify({
+        ok: true,
+        count: users.length,
+        nextPageToken: res.pageToken || null,
+        users
+      }),
     };
   } catch (err) {
+    console.error("users-list error", err);
     return {
       statusCode: 500,
-      body: JSON.stringify({ ok: false, error: err.message }),
+      body: JSON.stringify({ ok: false, error: err.message || String(err) }),
     };
   }
 };
