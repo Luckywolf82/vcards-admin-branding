@@ -2555,7 +2555,7 @@ ord_456"></textarea>
       }
     });
 
-    async async function doLogin(){
+    async async async function doLogin(){
       const email = prompt("E-post:"); if (!email) return;
       const password = prompt("Passord:"); if (!password) return;
       try {
@@ -2565,7 +2565,7 @@ ord_456"></textarea>
       } catch (err) { alert("Innlogging feilet: " + err.message); }
     }
 
-    async async function doLogout(){
+    async async async function doLogout(){
       try { await auth.signOut(); alert("Logget ut"); }
       catch (err) { alert("Utlogging feilet: " + err.message); }
     }
@@ -2802,6 +2802,8 @@ ord_456"></textarea>
 </script>
 </body>
 </html>
+
+
 
 
 
