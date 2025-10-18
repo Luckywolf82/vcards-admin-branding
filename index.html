@@ -91,7 +91,11 @@
       <div class="inline" style="justify-content:space-between;align-items:flex-end;gap:8px">
         <div>
           <h3 style="margin:0 0 6px">Siste opplastede filer</h3>
-          <p class="note" id="recentFilesSub" style="margin:0">Viser siste endringer i <code>/&lt;basePath&gt;/&lt;orgKey&gt;/&lt;slug&gt;/files/</code></p>
+          <p class="note" id="recentFilesSub" style="margin:0">
+  <span id="recentModeLabel">Viser vedlegg</span>
+  &nbsp;|&nbsp;
+  <a href="#" id="switchToCards" style="color:#8fd3ff;text-decoration:none;">Kort</a>
+</p>
         </div>
         <button id="btnRecentRefresh" class="pill" type="button">Oppdater</button>
       </div>
@@ -598,217 +602,238 @@
     window._collectAttachments = collectAttachments;
   </script>
 
-  <!-- Recent files banner (GitHub) – Del 2+3 med caching/Se flere -->
-  <script>
-    const $recentList    = document.getElementById('recentFilesList');
-    const $recentSub     = document.getElementById('recentFilesSub');
-    const $recentStatus  = document.getElementById('recentFilesStatus');
-    const $recentBtn     = document.getElementById('btnRecentRefresh');
-    const $recentMoreBtn = document.getElementById('btnRecentMore');
+  <!-- Recent files banner (GitHub) – med modus-bytte (Vedlegg/Kort) -->
+<script>
+  const $recentList    = document.getElementById('recentFilesList');
+  const $recentSub     = document.getElementById('recentFilesSub');
+  const $recentStatus  = document.getElementById('recentFilesStatus');
+  const $recentBtn     = document.getElementById('btnRecentRefresh');
+  const $recentMoreBtn = document.getElementById('btnRecentMore');
+  const $switchToCards = document.getElementById('switchToCards');
+  const $recentModeLbl = document.getElementById('recentModeLabel');
 
-    // Konfig
-    const RECENT_DEFAULT_SHOW = 10;
-    const RECENT_MAX_DETAILS  = 6;   // hvor mange commits vi henter detaljer for
-    const CACHE_TTL_MS        = 2 * 60 * 1000; // 2 minutter
+  const RECENT_DEFAULT_SHOW = 10;
+  const RECENT_MAX_DETAILS  = 6;
+  const CACHE_TTL_MS        = 2 * 60 * 1000;
 
-    let _recentAllItems = []; // siste fullstendige resultat (for "Se flere")
+  let _recentAllItems = [];
+  let _recentMode = 'files'; // 'files' | 'cards'
 
-    function getField(id){ const el = document.getElementById(id); return (el?.value || '').trim(); }
-    function pathJoin(...parts){ return parts.filter(Boolean).join('/').replace(/\/+/g,'/'); }
-    function trimSlashes(s){ return (s||'').replace(/^\/+|\/+$/g,''); }
+  function getField(id){ const el = document.getElementById(id); return (el?.value || '').trim(); }
+  function pathJoin(){ return Array.from(arguments).filter(Boolean).join('/').replace(/\/+/g,'/'); }
+  function trimSlashes(s){ return (s||'').replace(/^\/+|\/+$/g,''); }
 
-    function currentFilesPath(){
-      const basePath = trimSlashes(getField('basePath') || 'Vcards');
-      const orgKey = getField('orgKey'); const slug = getField('slug');
-      return pathJoin(basePath, orgKey, slug, 'files');
+  function currentFilesPath(){
+    const basePath = trimSlashes(getField('basePath') || 'Vcards');
+    const orgKey = getField('orgKey'); const slug = getField('slug');
+    return pathJoin(basePath, orgKey, slug, 'files');
+  }
+  function currentCardsPath(){
+    const basePath = trimSlashes(getField('basePath') || 'Vcards');
+    const orgKey = getField('orgKey');
+    return pathJoin(basePath, orgKey);
+  }
+  function currentRepoInfo(){
+    return { owner:getField('ghUser'), repo:getField('ghRepo') };
+  }
+  function pagesFileUrl(owner, repo, basePath, orgKey, slug, file){
+    const bp = trimSlashes(basePath || 'Vcards');
+    return 'https://'+owner+'.github.io/'+repo+(bp?'/'+bp:'')+'/'+orgKey+'/'+slug+'/files/'+file;
+  }
+  function pagesCardUrl(owner, repo, basePath, orgKey, slug){
+    const bp = trimSlashes(basePath || 'Vcards');
+    return 'https://'+owner+'.github.io/'+repo+(bp?'/'+bp:'')+'/'+orgKey+'/'+slug+'/index.html';
+  }
+  function githubDirUrl(owner, repo, basePath, orgKey, slug){
+    const bp = trimSlashes(basePath || 'Vcards');
+    const dir = bp+'/'+orgKey+'/'+slug+'/files';
+    return 'https://github.com/'+owner+'/'+repo+'/tree/HEAD/'+encodeURIComponent(dir);
+  }
+
+  function setRecentStatus(cls, msg){
+    $recentStatus.className = 'note ' + (cls||'');
+    $recentStatus.innerHTML = msg || '';
+  }
+
+  function cacheKey(){
+    const { owner, repo } = currentRepoInfo();
+    const basePath = trimSlashes(getField('basePath') || 'Vcards');
+    const orgKey = getField('orgKey');
+    const slug = getField('slug');
+    return 'rf:'+owner+':'+repo+':'+basePath+':'+orgKey+':'+(slug||'')+':'+_recentMode;
+  }
+  function cacheStore(items){
+    try { localStorage.setItem(cacheKey(), JSON.stringify({ t: Date.now(), items })); } catch {}
+  }
+  function cacheLoad(){
+    try {
+      const raw = localStorage.getItem(cacheKey()); if(!raw) return null;
+      const o = JSON.parse(raw);
+      if (!o || !o.t || !Array.isArray(o.items)) return null;
+      if (Date.now() - o.t > CACHE_TTL_MS) return null;
+      return o.items;
+    } catch { return null; }
+  }
+
+  function renderItems(items, limit = RECENT_DEFAULT_SHOW){
+    _recentAllItems = items.slice();
+    const slice = items.slice(0, limit);
+    function fmt(iso){ try { const d = new Date(iso); return d.toLocaleString('no-NO'); } catch { return iso||''; } }
+    $recentList.innerHTML = slice.map(it =>
+      '<li><a href="'+it.url+'" target="_blank" rel="noopener">'+it.file+'</a> <span class="note" style="margin-left:6px">'+fmt(it.when)+'</span></li>'
+    ).join('');
+
+    if (items.length > slice.length) {
+      $recentMoreBtn.style.display = '';
+      $recentMoreBtn.dataset.shown = String(slice.length);
+    } else {
+      $recentMoreBtn.style.display = 'none';
     }
-    function currentRepoInfo(){
-      return { owner:getField('ghUser'), repo:getField('ghRepo') };
-    }
-    function pagesUrlFor(owner, repo, basePath, orgKey, slug, file){
-      const bp = trimSlashes(basePath || 'Vcards');
-      return `https://${owner}.github.io/${repo}${bp?`/${bp}`:''}/${orgKey}/${slug}/files/${file}`;
-    }
-    function githubDirUrl(owner, repo, basePath, orgKey, slug){
-      const bp = trimSlashes(basePath || 'Vcards');
-      const dir = `${bp}/${orgKey}/${slug}/files`;
-      return `https://github.com/${owner}/${repo}/tree/HEAD/${encodeURIComponent(dir)}`;
-    }
+  }
 
-    function setRecentStatus(cls, msg){
-      $recentStatus.className = 'note ' + (cls||'');
-      $recentStatus.innerHTML = msg || '';
+  async function fetchJson(url, init){
+    const r = await fetch(url, { headers:{'Accept':'application/vnd.github+json'}, ...(init||{}) });
+    if (!r.ok) {
+      const err = new Error(r.status+' '+r.statusText);
+      err.status = r.status;
+      err.body = await r.text().catch(()=> '');
+      throw err;
     }
+    return r.json();
+  }
 
-    function cacheKey(){
-      const { owner, repo } = currentRepoInfo();
-      const basePath = trimSlashes(getField('basePath') || 'Vcards');
-      const orgKey = getField('orgKey'); const slug = getField('slug');
-      return `rf:${owner}:${repo}:${basePath}:${orgKey}:${slug}`;
-    }
+  async function fetchRecentFiles(limit = RECENT_DEFAULT_SHOW, useCache = true){
+    $recentList.innerHTML = '';
+    setRecentStatus('', 'Laster…');
 
-    function cacheStore(items){
-      try {
-        localStorage.setItem(cacheKey(), JSON.stringify({ t: Date.now(), items }));
-      } catch {}
-    }
-    function cacheLoad(){
-      try {
-        const raw = localStorage.getItem(cacheKey()); if(!raw) return null;
-        const { t, items } = JSON.parse(raw);
-        if (!t || !Array.isArray(items)) return null;
-        if (Date.now() - t > CACHE_TTL_MS) return null;
-        return items;
-      } catch { return null; }
+    const { owner, repo } = currentRepoInfo();
+    const basePath = trimSlashes(getField('basePath') || 'Vcards');
+    const orgKey = getField('orgKey');
+    const slug   = getField('slug');
+
+    if (!owner || !repo || !orgKey) {
+      setRecentStatus('err','Fyll ut GitHub owner/repo og OrgKey (og Slug for vedlegg).');
+      return;
     }
 
-    function renderItems(items, limit = RECENT_DEFAULT_SHOW){
-      _recentAllItems = items.slice(); // copy
-      const slice = items.slice(0, limit);
-      const fmt = (iso)=> {
-        try { const d = new Date(iso); return d.toLocaleString('no-NO'); } catch { return iso||''; }
-      };
-      $recentList.innerHTML = slice.map(it =>
-        `<li>
-           <a href="${it.url}" target="_blank" rel="noopener">${it.file}</a>
-           <span class="note" style="margin-left:6px">${fmt(it.when)}</span>
-         </li>`
-      ).join('');
-
-      // Vis/skjul "Se flere"
-      if (items.length > slice.length) {
-        $recentMoreBtn.style.display = '';
-        $recentMoreBtn.dataset.shown = String(slice.length);
-      } else {
-        $recentMoreBtn.style.display = 'none';
-      }
+    if (_recentMode === 'cards') {
+      $recentModeLbl.textContent = 'Viser kort';
+      $recentSub.innerHTML = 'Viser siste endringer i <code>/' + currentCardsPath() + '/(index.html)</code>';
+    } else {
+      $recentModeLbl.textContent = 'Viser vedlegg';
+      $recentSub.innerHTML = 'Viser siste endringer i <code>/' + currentFilesPath() + '/</code>';
     }
 
-    async function fetchJson(url, init){
-      const r = await fetch(url, { headers:{'Accept':'application/vnd.github+json'}, ...init });
-      if (!r.ok) {
-        const txt = await r.text().catch(()=> '');
-        const err = new Error(`${r.status} ${r.statusText}`);
-        err.status = r.status; err.body = txt;
-        throw err;
-      }
-      return r.json();
-    }
-
-    async function fetchRecentFiles(limit = RECENT_DEFAULT_SHOW, useCache = true){
-      $recentList.innerHTML = '';
-      setRecentStatus('', 'Laster…');
-
-      const { owner, repo } = currentRepoInfo();
-      const basePath = trimSlashes(getField('basePath') || 'Vcards');
-      const orgKey = getField('orgKey'); const slug = getField('slug');
-
-      if (!owner || !repo || !orgKey || !slug){
-        setRecentStatus('err','Fyll ut GitHub owner/repo, OrgKey og Slug for å vise filer.');
+    if (useCache){
+      const cached = cacheLoad();
+      if (cached && cached.length){
+        renderItems(cached, limit);
+        setRecentStatus('ok','Viser hurtigbuffer (trykk Oppdater for fersk liste).');
         return;
       }
+    }
 
-      const filesDir = currentFilesPath();
-      $recentSub.innerHTML = `Viser siste endringer i <code>/${filesDir}/</code>`;
+    try{
+      const dir = _recentMode === 'cards' ? currentCardsPath() : currentFilesPath();
+      const commits = await fetchJson(
+        'https://api.github.com/repos/'+owner+'/'+repo+'/commits?path='+encodeURIComponent(dir)+'&per_page=15'
+      );
 
-      // 1) Prøv cache
-      if (useCache){
-        const cached = cacheLoad();
-        if (cached && cached.length){
-          renderItems(cached, limit);
-          setRecentStatus('ok','Viser hurtigbuffer (trykk Oppdater for fersk liste).');
-          return;
-        }
-      }
+      const detailCommits = await Promise.all(
+        (commits || []).slice(0, RECENT_MAX_DETAILS).map(c => fetchJson(c.url).catch(()=>null))
+      );
 
-      try{
-        // 2) Hent commits som påvirker files/-mappa
-        const commits = await fetchJson(
-          `https://api.github.com/repos/${owner}/${repo}/commits?path=${encodeURIComponent(filesDir)}&per_page=15`
-        );
-
-        // 3) Hent commit-detaljer (begrenset antall)
-        const detailCommits = await Promise.all(
-          (commits || []).slice(0, RECENT_MAX_DETAILS).map(c => fetchJson(c.url).catch(()=>null))
-        );
-
-        // 4) Pakk ut filer
-        const seen = new Set();
-        const items = [];
-        for (const dc of detailCommits){
-          if (!dc || !Array.isArray(dc.files)) continue;
-          const dt = dc.commit?.author?.date || dc.commit?.committer?.date || '';
-          for (const f of dc.files){
-            const p = f.filename || '';
-            if (!p.startsWith(filesDir + '/')) continue;
+      const seen = new Set();
+      const items = [];
+      for (const dc of detailCommits){
+        if (!dc || !Array.isArray(dc.files)) continue;
+        const dt = (dc.commit && (dc.commit.author?.date || dc.commit.committer?.date)) || '';
+        for (const f of dc.files){
+          const p = f.filename || '';
+          if (_recentMode === 'files') {
+            if (!slug) continue;
+            if (!p.startsWith(dir + '/')) continue;
             const fileName = p.split('/').pop();
-            const key = `${p}@${dt}`;
+            const key = p + '@' + dt;
             if (seen.has(key)) continue;
             seen.add(key);
             items.push({
               path: p,
               file: fileName,
               when: dt,
-              url: pagesUrlFor(owner, repo, basePath, orgKey, slug, fileName)
+              url: pagesFileUrl(owner, repo, basePath, orgKey, slug, fileName)
+            });
+          } else {
+            if (!p.endsWith('/index.html')) continue;
+            if (!p.includes('/'+orgKey+'/')) continue;
+            const parts = p.split('/');
+            const slugFromPath = parts[parts.length-2] || '';
+            const key = p + '@' + dt;
+            if (seen.has(key)) continue;
+            seen.add(key);
+            items.push({
+              path: p,
+              file: orgKey + '/' + slugFromPath + '/index.html',
+              when: dt,
+              url: pagesCardUrl(owner, repo, basePath, orgKey, slugFromPath)
             });
           }
         }
-
-        // 5) Sorter nyest → el. vis tom-state
-        items.sort((a,b)=> new Date(b.when) - new Date(a.when));
-        if (items.length === 0){
-          const dirUrl = githubDirUrl(owner, repo, basePath, orgKey, slug);
-          setRecentStatus('', `Ingen endringer funnet i denne mappen enda. <a href="${dirUrl}" target="_blank" rel="noopener">Se mappen i GitHub</a>.`);
-          $recentList.innerHTML = '';
-          $recentMoreBtn.style.display = 'none';
-          return;
-        }
-
-        // 6) Render og cache
-        renderItems(items, limit);
-        cacheStore(items);
-        setRecentStatus('ok','Oppdatert.');
-      }catch(e){
-        // Bedre feilmeldinger
-        if (e.status === 403){
-          setRecentStatus(
-            'err',
-            'GitHub rate limit (403). Vent litt, eller trykk “Oppdater” senere. Du kan også bruke en enkel proxy/token hvis ønskelig.'
-          );
-        } else if (e.status === 404){
-          const dirUrl = githubDirUrl(owner, repo, basePath, orgKey, slug);
-          setRecentStatus('err', `Fant ikke mappen. Sjekk sti/branch. <a href="${dirUrl}" target="_blank" rel="noopener">Åpne i GitHub</a>.`);
-        } else {
-          setRecentStatus('err', 'Kunne ikke hente filer: ' + (e.message || e));
-        }
-        $recentMoreBtn.style.display = 'none';
       }
+
+      items.sort((a,b)=> new Date(b.when) - new Date(a.when));
+      if (items.length === 0){
+        const dirUrl = _recentMode === 'files'
+          ? githubDirUrl(owner, repo, basePath, orgKey, slug||'')
+          : 'https://github.com/'+owner+'/'+repo+'/tree/HEAD/'+encodeURIComponent(currentCardsPath());
+        setRecentStatus('', 'Ingen endringer funnet. <a href="'+dirUrl+'" target="_blank" rel="noopener">Se i GitHub</a>.');
+        $recentList.innerHTML = '';
+        $recentMoreBtn.style.display = 'none';
+        return;
+      }
+
+      renderItems(items, limit);
+      cacheStore(items);
+      setRecentStatus('ok','Oppdatert.');
+    }catch(e){
+      if (e.status === 403){
+        setRecentStatus('err','GitHub rate limit (403). Vent litt og prøv igjen.');
+      } else if (e.status === 404){
+        const dirUrl = _recentMode === 'files'
+          ? githubDirUrl(owner, repo, basePath, getField('orgKey'), getField('slug')||'')
+          : 'https://github.com/'+getField('ghUser')+'/'+getField('ghRepo')+'/tree/HEAD/'+encodeURIComponent(currentCardsPath());
+        setRecentStatus('err','Fant ikke mappen. Sjekk sti/branch. <a href="'+dirUrl+'" target="_blank" rel="noopener">Åpne i GitHub</a>.');
+      } else {
+        setRecentStatus('err','Kunne ikke hente: ' + (e.message || e));
+      }
+      $recentMoreBtn.style.display = 'none';
     }
+  }
 
-    // “Oppdater”-knapp
-    $recentBtn?.addEventListener('click', ()=> fetchRecentFiles(RECENT_DEFAULT_SHOW, /*useCache=*/false));
+  $recentBtn?.addEventListener('click', ()=> fetchRecentFiles(RECENT_DEFAULT_SHOW, false));
+  $recentMoreBtn?.addEventListener('click', ()=>{
+    if (!_recentAllItems.length) return;
+    renderItems(_recentAllItems, _recentAllItems.length);
+    setRecentStatus('ok','Viser alle.');
+  });
+  $switchToCards?.addEventListener('click', (e)=>{
+    e.preventDefault();
+    _recentMode = _recentMode === 'cards' ? 'files' : 'cards';
+    fetchRecentFiles(RECENT_DEFAULT_SHOW, false);
+  });
 
-    // “Se flere”-knapp
-    $recentMoreBtn?.addEventListener('click', ()=>{
-      if (!_recentAllItems.length) return;
-      renderItems(_recentAllItems, _recentAllItems.length); // vis alt
-      setRecentStatus('ok','Viser alle.');
+  ['ghUser','ghRepo','basePath','orgKey','slug'].forEach(id=>{
+    const el = document.getElementById(id);
+    el?.addEventListener('input', () => {
+      clearTimeout(el.__rfTimer);
+      el.__rfTimer = setTimeout(()=> fetchRecentFiles(RECENT_DEFAULT_SHOW, true), 400);
     });
+  });
 
-    // Auto-oppdater når feltene endres (owner/repo/basePath/orgKey/slug)
-    ['ghUser','ghRepo','basePath','orgKey','slug'].forEach(id=>{
-      const el = document.getElementById(id);
-      el?.addEventListener('input', () => {
-        clearTimeout(el.__rfTimer);
-        el.__rfTimer = setTimeout(()=> fetchRecentFiles(RECENT_DEFAULT_SHOW, true), 400);
-      });
-    });
-
-    // Oppdater etter login/fylling
-    document.addEventListener('DOMContentLoaded', ()=>{
-      setTimeout(()=> fetchRecentFiles(RECENT_DEFAULT_SHOW, true), 800);
-    });
-  </script>
+  document.addEventListener('DOMContentLoaded', ()=>{
+    setTimeout(()=> fetchRecentFiles(RECENT_DEFAULT_SHOW, true), 800);
+  });
+</script>
 
   <!-- Branding & logo -->
   <script>
