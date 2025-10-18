@@ -11,3 +11,8 @@
   from = "/api/*"
   to   = "/.netlify/functions/:splat"   # <-- uten punktum foran
   status = 200
+
+[[redirects]]
+  from = "/api/deleteFile"
+  to   = "/.netlify/functions/deleteFile"
+  status = 200
