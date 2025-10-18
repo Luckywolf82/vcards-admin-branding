@@ -902,12 +902,33 @@
         return `<div class="link-block" style="margin-top:10px">${pre}<a class="btn" href="${esc(l.url)}" target="_blank" rel="noopener">${esc(l.label)}</a>${post}</div>`;
       }).join('');
     }
-    function makeHTML(d, vcfFile, links, attachments){
+      function makeDownloadsHTML(attachments){
+    attachments = attachments || [];
+    if (!attachments.length) return '';
+    const rows = attachments.map(a=>{
+      if (typeof a === 'string') {
+        const name = a.split('/').pop();
+        const href = `./files/${encodeURIComponent(name)}`;
+        return `<li><a class="btn" href="${href}" download rel="noopener">${esc(name)}</a></li>`;
+      }
+      const raw  = (a.name || a.url || '').split('/').pop();
+      const isAbs = a.url && /^https?:\/\//i.test(a.url);
+      const href = isAbs ? a.url : (`./files/${encodeURIComponent(a.url || raw)}`);
+      const label = esc(a.name || raw);
+      return `<li><a class="btn" href="${href}" download rel="noopener">${label}</a></li>`;
+    }).join('');
+    return `<section id="downloads" style="margin-top:16px">
+      <h2 style="margin:0 0 8px">Last ned</h2>
+      <ul style="margin:0;padding-left:18px">${rows}</ul>
+    </section>`;
+  }
+function makeHTML(d, vcfFile, links){
       const accent  = d.accent || '#8fd3ff';
       const bgStyle = `background:${d.logoBg || '#ffffff'};border-radius:8px;padding:6px;`;
       const logoTag = d.logoUrl ? `<img class="brand-logo" src="${d.logoUrl}" style="${bgStyle}" alt="${esc(d.orgName||d.orgKey)} logo">` : '';
       const extras  = makeLinksHTML(links);
-      return `<!doctype html>
+      const downloads = makeDownloadsHTML(d.attachments||[]);
+return `<!doctype html>
 <html lang="no">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Kontaktkort – ${esc(d.name)}</title>
 <style>
@@ -933,6 +954,9 @@ body{font-family:system-ui,-apple-system,Roboto,Arial;background:#0b0b10;color:#
     <a href="../index.html" class="btn">← Tilbake</a>
   </div>
   ${extras}
+  
+  ${downloads}
+  
   <p style="margin-top:14px">Adresse: ${esc(d.address||'')}</p>
   <p style="margin-top:8px;font-size:0.9rem;color:#9aa6b2">NFC-URL: <code id="nfcInline"></code></p>
   ${
@@ -1008,10 +1032,10 @@ body{font-family:system-ui,-apple-system,Roboto,Arial;background:#0b0b10;color:#
         post:  tr.querySelector('.post').value.trim()
       })).filter(x=>x.label && x.url);
 
-      const attachments = window._collectAttachments ? window._collectAttachments() : [];
-
+            const attachments = (window._collectAttachments ? window._collectAttachments() : []);
+      d.attachments = attachments;
       const vcf  = makeVcard(d);
-      const html = makeHTML(d, d.vcfFilename, links, attachments);
+      const html = makeHTML(d, d.vcfFilename, links);
       document.getElementById('vcfPreview').value  = vcf;
       document.getElementById('htmlPreview').value = html;
       updateLivePreview(html);
