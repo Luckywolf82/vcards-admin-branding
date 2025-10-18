@@ -1,0 +1,145 @@
+*** a/index.html
+--- b/index.html
+@@
+-      <div class="inline" style="justify-content:space-between;align-items:flex-end;gap:8px">
+-        <div>
+-          <h3 style="margin:0 0 6px">Siste opplastede filer</h3>
+-          <p class="note" id="recentFilesSub" style="margin:0">Viser siste endringer i <code>/&lt;basePath&gt;/&lt;orgKey&gt;/&lt;slug&gt;/files/</code></p>
+-        </div>
+-        <button id="btnRecentRefresh" class="pill" type="button">Oppdater</button>
+-      </div>
++      <div class="inline" style="justify-content:space-between;align-items:flex-end;gap:8px">
++        <div>
++          <h3 style="margin:0 0 6px">Siste opplastede filer</h3>
++          <p class="note" id="recentFilesSub" style="margin:0">
++            <span id="recentModeLabel">📄 Viser vedlegg</span>
++             &nbsp;|&nbsp;
++            <a href="#" id="switchToCards" style="color:#8fd3ff;text-decoration:none;">💳 Kort</a>
++          </p>
++        </div>
++        <button id="btnRecentRefresh" class="pill" type="button">Oppdater</button>
++      </div>
+@@
+-    const $recentList    = document.getElementById('recentFilesList');
++    const $recentList    = document.getElementById('recentFilesList');
+     const $recentSub     = document.getElementById('recentFilesSub');
+     const $recentStatus  = document.getElementById('recentFilesStatus');
+     const $recentBtn     = document.getElementById('btnRecentRefresh');
+     const $recentMoreBtn = document.getElementById('btnRecentMore');
++    const $switchToCards = document.getElementById('switchToCards');
++    const $recentModeLbl = document.getElementById('recentModeLabel');
+@@
+-    let _recentAllItems = []; // siste fullstendige resultat (for "Se flere")
++    let _recentAllItems = []; // siste fullstendige resultat (for "Se flere")
++    let _recentMode = 'files'; // 'files' | 'cards'
+@@
+-    function currentFilesPath(){
++    function currentFilesPath(){
+       const basePath = trimSlashes(getField('basePath') || 'Vcards');
+       const orgKey = getField('orgKey'); const slug = getField('slug');
+       return pathJoin(basePath, orgKey, slug, 'files');
+     }
++    function currentCardsPath(){
++      const basePath = trimSlashes(getField('basePath') || 'Vcards');
++      const orgKey = getField('orgKey');
++      return pathJoin(basePath, orgKey); // vi filtrerer index.html i commit-detaljer
++    }
+@@
+-    function cacheKey(){
++    function cacheKey(){
+       const { owner, repo } = currentRepoInfo();
+       const basePath = trimSlashes(getField('basePath') || 'Vcards');
+       const orgKey = getField('orgKey'); const slug = getField('slug');
+-      return `rf:${owner}:${repo}:${basePath}:${orgKey}:${slug}`;
++      return `rf:${owner}:${repo}:${basePath}:${orgKey}:${slug}:${_recentMode}`;
+     }
+@@
+-    function renderItems(items, limit = RECENT_DEFAULT_SHOW){
++    function renderItems(items, limit = RECENT_DEFAULT_SHOW){
+       _recentAllItems = items.slice(); // copy
+       const slice = items.slice(0, limit);
+       const fmt = (iso)=> {
+         try { const d = new Date(iso); return d.toLocaleString('no-NO'); } catch { return iso||''; }
+       };
+@@
+-    async function fetchRecentFiles(limit = RECENT_DEFAULT_SHOW, useCache = true){
++    async function fetchRecentFiles(limit = RECENT_DEFAULT_SHOW, useCache = true){
+       $recentList.innerHTML = '';
+       setRecentStatus('', 'Laster…');
+@@
+-      const filesDir = currentFilesPath();
+-      $recentSub.innerHTML = `Viser siste endringer i <code>/${filesDir}/</code>`;
++      const filesDir = _recentMode === 'cards' ? currentCardsPath() : currentFilesPath();
++      const pathDisplay = _recentMode === 'cards'
++        ? `/${filesDir}/(index.html)`
++        : `/${filesDir}/`;
++      $recentModeLbl.textContent = _recentMode === 'cards' ? '💳 Viser genererte kort' : '📄 Viser vedlegg';
++      $recentSub.innerHTML = `Viser siste endringer i <code>${pathDisplay}</code>`;
+@@
+-        // 3) Hent commit-detaljer (begrenset antall)
++        // 3) Hent commit-detaljer (begrenset antall)
+         const detailCommits = await Promise.all(
+           (commits || []).slice(0, RECENT_MAX_DETAILS).map(c => fetchJson(c.url).catch(()=>null))
+         );
+@@
+-        for (const dc of detailCommits){
++        for (const dc of detailCommits){
+           if (!dc || !Array.isArray(dc.files)) continue;
+           const dt = dc.commit?.author?.date || dc.commit?.committer?.date || '';
+           for (const f of dc.files){
+             const p = f.filename || '';
+-            if (!p.startsWith(filesDir + '/')) continue;
+-            const fileName = p.split('/').pop();
++            if (_recentMode === 'files') {
++              if (!p.startsWith(filesDir + '/')) continue;
++            } else {
++              // Kort-modus: vis index.html under orgKey/…/slug/
++              if (!p.endsWith('/index.html')) continue;
++              const orgKey = getField('orgKey');
++              if (!p.includes(`/${orgKey}/`)) continue;
++            }
++            const fileName = p.split('/').pop();
+@@
+-            items.push({
+-              path: p,
+-              file: fileName,
+-              when: dt,
+-              url: pagesUrlFor(owner, repo, basePath, orgKey, slug, fileName)
+-            });
++            if (_recentMode === 'files') {
++              items.push({
++                path: p,
++                file: fileName,
++                when: dt,
++                url: pagesUrlFor(owner, repo, basePath, orgKey, slug, fileName)
++              });
++            } else {
++              // Bygg kort-URL: https://<owner>.github.io/<repo>/<basePath>/<orgKey>/<slug>/index.html
++              const parts = p.split('/');
++              const slug = parts[parts.length-2] || '';
++              const url = `https://${owner}.github.io/${repo}${basePath?`/${basePath}`:''}/${orgKey}/${slug}/index.html`;
++              items.push({ path: p, file: `${orgKey}/${slug}/index.html`, when: dt, url });
++            }
+           }
+         }
+@@
+-    $recentBtn?.addEventListener('click', ()=> fetchRecentFiles(RECENT_DEFAULT_SHOW, /*useCache=*/false));
++    $recentBtn?.addEventListener('click', ()=> fetchRecentFiles(RECENT_DEFAULT_SHOW, /*useCache=*/false));
++    $switchToCards?.addEventListener('click', (e)=>{
++      e.preventDefault();
++      _recentMode = _recentMode === 'cards' ? 'files' : 'cards';
++      fetchRecentFiles(RECENT_DEFAULT_SHOW, false);
++    });
+@@
+-      const el = document.getElementById(id);
++      const el = document.getElementById(id);
+       el?.addEventListener('input', () => {
+         clearTimeout(el.__rfTimer);
+-        el.__rfTimer = setTimeout(()=> fetchRecentFiles(RECENT_DEFAULT_SHOW, true), 400);
++        el.__rfTimer = setTimeout(()=> fetchRecentFiles(RECENT_DEFAULT_SHOW, true), 400);
+       });
+     });
+@@
+-      setTimeout(()=> fetchRecentFiles(RECENT_DEFAULT_SHOW, true), 800);
++      setTimeout(()=> fetchRecentFiles(RECENT_DEFAULT_SHOW, true), 800);
+     });
