@@ -1,18 +1,29 @@
 // netlify/functions/users-invite.js
 const admin = require("firebase-admin");
-const nodemailer = require("nodemailer");
 
-// Del init: gjenbruk Admin-app hvis finnes
+// ⚠️ Viktig: IKKE require('nodemailer') i toppen.
+// Vi importerer den dynamisk bare hvis SMTP-variabler finnes.
+// const nodemailer = require("nodemailer"); // <-- fjernet
+
+// Init Firebase Admin kun én gang
 if (!admin.apps.length) admin.initializeApp();
 
-// CORS headers
+// CORS
 const CORS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, content-type",
   "Access-Control-Allow-Methods": "OPTIONS, POST",
 };
 
-// Rolle-sjekk (enkel – basert på custom claims i ID-token)
+function json(body, statusCode = 200, extraHeaders = {}) {
+  return {
+    statusCode,
+    headers: { "Content-Type": "application/json", ...CORS, ...extraHeaders },
+    body: JSON.stringify(body),
+  };
+}
+
+// Enkel rolle-sjekk via ID-token custom claims
 async function requireAdmin(event) {
   const authz =
     (event.headers?.authorization || event.headers?.Authorization || "").trim();
@@ -24,20 +35,12 @@ async function requireAdmin(event) {
   const token = authz.replace(/^Bearer\s+/i, "");
   const decoded = await admin.auth().verifyIdToken(token);
   const role = (decoded.role || decoded.customClaims?.role || "").toLowerCase();
-  if (!role || !["admin", "owner"].includes(role)) {
+  if (!role || !["admin", "owner", "superadmin"].includes(role)) {
     const e = new Error("Forbidden: requires role >= admin");
     e.statusCode = 403;
     throw e;
   }
   return decoded;
-}
-
-function json(body, statusCode = 200, extraHeaders = {}) {
-  return {
-    statusCode,
-    headers: { "Content-Type": "application/json", ...CORS, ...extraHeaders },
-    body: JSON.stringify(body),
-  };
 }
 
 exports.handler = async (event) => {
@@ -75,36 +78,31 @@ exports.handler = async (event) => {
         disabled: false,
       });
     } else if (displayName && userRecord.displayName !== displayName) {
-      // Oppdater navn hvis oppgitt
       await admin.auth().updateUser(userRecord.uid, { displayName });
       userRecord = await admin.auth().getUser(userRecord.uid);
     }
 
-    // Sett/merg claims (rolle + orgKey)
+    // Claims (rolle + orgKey)
     const prevClaims = userRecord.customClaims || {};
     const newClaims = {
       ...prevClaims,
       ...(role ? { role } : {}),
       ...(orgKey ? { orgKey } : {}),
     };
-    const changed =
-      JSON.stringify(prevClaims) !== JSON.stringify(newClaims);
+    const changed = JSON.stringify(prevClaims) !== JSON.stringify(newClaims);
     if (changed) {
       await admin.auth().setCustomUserClaims(userRecord.uid, newClaims);
     }
 
-    // Generér sign-in link (krever at "Email link (passwordless)" er aktiv i Firebase)
+    // Lag passordløs sign-in link (krever “Email link (passwordless)” aktivert i Firebase)
     const continueUrl =
-      process.env.INVITE_CONTINUE_URL ||
-      "https://nfcking.netlify.app/index.html";
+      process.env.INVITE_CONTINUE_URL || "https://nfcking.netlify.app/index.html";
     const actionCodeSettings = {
       url: continueUrl,
       handleCodeInApp: true,
-      // optional:
       // dynamicLinkDomain: process.env.INVITE_DYNAMIC_LINK || undefined,
     };
 
-    // NB: Admin SDK har generateSignInWithEmailLink i nyere versjoner.
     let inviteLink;
     if (typeof admin.auth().generateSignInWithEmailLink === "function") {
       inviteLink = await admin.auth().generateSignInWithEmailLink(
@@ -112,7 +110,7 @@ exports.handler = async (event) => {
         actionCodeSettings
       );
     } else {
-      // Fallback: gi en tydelig feilmelding om Admin SDK er for gammel
+      // Eldre Admin SDK – gi tydelig beskjed, men ikke fail hardt
       return json({
         ok: true,
         uid: userRecord.uid,
@@ -123,11 +121,29 @@ exports.handler = async (event) => {
       });
     }
 
-    // Send e-post hvis SMTP-variabler finnes
+    // E-post: send kun hvis SMTP-variabler finnes. Dynamisk import av nodemailer.
     let emailSent = false;
-    const { SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM } =
-      process.env;
+    const { SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM } = process.env;
+
     if (SMTP_HOST && SMTP_PORT && SMTP_USER && SMTP_PASS && SMTP_FROM) {
+      let nodemailer;
+      try {
+        // Dynamisk import for å unngå hard bundling når pakken ikke er installert
+        nodemailer = await import("nodemailer").then((m) => m.default || m);
+      } catch (e) {
+        // Hvis ikke installert, returnér lenke men informer om at e-post ikke ble sendt
+        return json({
+          ok: true,
+          uid: userRecord.uid,
+          role: newClaims.role || null,
+          orgKey: newClaims.orgKey || null,
+          inviteLink,
+          emailSent: false,
+          note:
+            "SMTP konfigurert, men 'nodemailer' er ikke installert. Legg til 'nodemailer' i package.json for å sende e-post.",
+        });
+      }
+
       const transporter = nodemailer.createTransport({
         host: SMTP_HOST,
         port: Number(SMTP_PORT) || 587,
@@ -152,6 +168,7 @@ exports.handler = async (event) => {
       emailSent = true;
     }
 
+    // Alltid returnér inviteLink, så du kan sende den manuelt ved behov
     return json({
       ok: true,
       uid: userRecord.uid,
