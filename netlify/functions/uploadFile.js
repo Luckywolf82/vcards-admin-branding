@@ -78,7 +78,7 @@ async function githubPutContent(owner, repo, path, contentBase64, message, token
   return json;
 }
 
-export default async (req) => {
+module.exports = async function uploadFile(req) {
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 204, headers: corsHeaders() });
   }
