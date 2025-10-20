@@ -1823,6 +1823,10 @@ ord_456"></textarea>
       builderAdd: qs('#pageBuilder .builder-add'),
     };
 
+    const builderLangBtns = Array.from(
+      (el.builderWrap || document).querySelectorAll('.lang-btn')
+    );
+
     const API = {
       list:   '/.netlify/functions/pages-list',
       get:    '/.netlify/functions/pages-get',
