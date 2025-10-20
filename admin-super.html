@@ -43,10 +43,51 @@
     @media (min-width:1000px){ .grid.cols-2{grid-template-columns:1fr 1fr} .grid.cols-3{grid-template-columns:2fr 1fr 1fr} }
     .muted{color:var(--sub)}
     .hidden{display:none !important}
+    .gate{max-width:1200px;margin:40px auto;padding:24px}
+    .gate .card{margin:0 auto;max-width:640px;text-align:center}
   
     .status-pill{display:inline-flex;align-items:center;gap:8px;padding:6px 10px;border-radius:999px;background:#1a1c25;border:1px solid #222736}
     .status-dot{width:8px;height:8px;border-radius:999px;background:#ff6b6b;box-shadow:0 0 0 2px rgba(0,0,0,.2)}
     .status-dot.ok{background:#21c36a}
+    .badge-btn{
+      padding:6px 10px;
+      border-radius:10px;
+      border:1px solid #222736;
+      background:transparent;
+      color:var(--text);
+      cursor:pointer;
+      font-weight:600;
+    }
+    .badge-btn:hover{background:#222736}
+    .badge-btn.hidden{display:none}
+
+    .builder{margin-top:16px;padding:16px;border:1px solid #1b2030;border-radius:var(--radius);background:rgba(18,19,26,.6);}
+    .builder-toolbar{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:12px;align-items:center}
+    .builder-toolbar .builder-add{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+    .builder-toolbar .builder-lang{display:flex;gap:6px;align-items:center}
+    .lang-btn{border:1px solid #222736;background:var(--muted);color:var(--text);padding:6px 10px;border-radius:10px;cursor:pointer;font-weight:600}
+    .lang-btn[aria-pressed="true"]{outline:2px solid var(--brand);background:#1f2332}
+    .builder-add-btn{border:1px dashed #353a4c;background:transparent;color:var(--text);padding:6px 10px;border-radius:10px;cursor:pointer}
+    .builder-add-btn:hover{background:#1f2332}
+    .builder-list{display:flex;flex-direction:column;gap:12px}
+    .builder-empty{padding:20px;border:1px dashed #2d3243;border-radius:12px;text-align:center;color:var(--sub);}
+    .builder-block{border:1px solid #1f2332;border-radius:12px;padding:12px;background:rgba(11,13,20,.9);display:flex;flex-direction:column;gap:10px}
+    .builder-block.drag-over{outline:2px dashed var(--brand)}
+    .builder-block.dragging{opacity:.6}
+    .builder-block .block-head{display:flex;align-items:center;gap:10px;justify-content:space-between}
+    .builder-block .block-title{display:flex;gap:10px;align-items:center;font-weight:600}
+    .builder-drag{cursor:grab;padding:4px 6px;border-radius:8px;background:#1f2332;color:var(--sub);font-size:12px;letter-spacing:.08em;text-transform:uppercase}
+    .builder-block .block-actions{display:flex;gap:6px}
+    .builder-block .block-actions button{border:1px solid #2d3243;background:#161824;color:var(--text);padding:4px 8px;border-radius:8px;cursor:pointer}
+    .builder-block .block-actions button:hover{background:#23283a}
+    .builder-fields{display:grid;gap:8px}
+    .builder-fields .builder-field{display:flex;flex-direction:column;gap:4px}
+    .builder-fields .builder-field>input,
+    .builder-fields .builder-field>textarea,
+    .builder-fields .builder-field>select{background:#0f111a;color:var(--text);border:1px solid #2d3243;border-radius:8px;padding:8px;font:inherit}
+    .builder-fields textarea{min-height:90px;resize:vertical}
+    .builder-dropzone{padding:16px;border:1px dashed #2d3243;border-radius:12px;text-align:center;color:var(--sub);transition:background .2s ease}
+    .builder-dropzone.active{background:rgba(255,26,26,.1);color:#fff;border-color:var(--brand)}
 
 </style>
   <!-- 🔐 Firebase SDK (compat) -->
@@ -70,33 +111,39 @@
         <a href="/bestill-kort.html">Bestill kort</a>
         <a href="/admin-super.html" aria-current="page">Superadmin</a>
       </nav>
-  <!-- 🔐 Login status + knapper -->
-  <div id="authBox" class="flex items-center gap-2"
-       style="position:absolute;top:12px;right:12px;z-index:50;">
-    <span id="loginStatus">Ikke innlogget</span>
-    <button id="btnLogin" class="tab-btn">Logg inn</button>
-    <button id="btnLogout" class="tab-btn hidden">Logg ut</button>
-  </div>
       <div class="spacer"></div>
-      <div id="userBadge" class="status-pill"><span class="status-dot" id="ubDot"></span><span id="ubText">Ikke innlogget</span></div>
+      <div id="userBadge" class="status-pill">
+        <span class="status-dot" id="ubDot"></span>
+        <span id="ubText">Ikke innlogget</span>
+        <button id="btnLogin" class="badge-btn">Logg inn</button>
+        <button id="btnLogout" class="badge-btn hidden">Logg ut</button>
+      </div>
     </div>
   </header>
 
-  <main class="container">
+  <div id="accessGate" class="gate hidden" role="alert">
+    <div class="card">
+      <h2>Tilgang begrenset</h2>
+      <p class="muted">Denne siden er kun tilgjengelig for superadministratorer. Logg inn med en konto som har superadmin-rolle for å fortsette.</p>
+      <p class="muted">Gjeldende rolle: <strong id="accessRole">ingen</strong></p>
+    </div>
+  </div>
+
+  <main class="container hidden" id="superadminMain">
     <h1>Superadmin</h1>
     <p class="muted">Full kontroll over farger, språk, brukere, sider, Stripe, ordrer, NFC-batcher, SEO m.m.</p>
 
     <!-- Tab knapper -->
     <div class="tabs" role="tablist" aria-label="Superadmin seksjoner">
-      <button class="tab-btn" role="tab" aria-selected="true" data-tab="branding">ðŸŽ¨ Branding</button>
-      <button class="tab-btn" role="tab" aria-selected="false" data-tab="lang">ðŸŒ Språk</button>
-      <button class="tab-btn" role="tab" aria-selected="false" data-tab="users">ðŸ‘¤ Brukere</button>
-      <button class="tab-btn" role="tab" aria-selected="false" data-tab="pages">ðŸ§¾ Sider</button>
-      <button class="tab-btn" role="tab" aria-selected="false" data-tab="stripe">ðŸ’³ Stripe</button>
-      <button class="tab-btn" role="tab" aria-selected="false" data-tab="orders">ðŸ“¦ Ordrer</button>
-      <button class="tab-btn" role="tab" aria-selected="false" data-tab="nfc">ðŸ§± NFC-Batch</button>
-      <button class="tab-btn" role="tab" aria-selected="false" data-tab="seo">ðŸ” SEO</button>
-      <button class="tab-btn" role="tab" aria-selected="false" data-tab="settings">âš™ï¸ System</button>
+      <button class="tab-btn" role="tab" aria-selected="true" data-tab="branding">🎨 Branding</button>
+      <button class="tab-btn" role="tab" aria-selected="false" data-tab="lang">🌐 Språk</button>
+      <button class="tab-btn" role="tab" aria-selected="false" data-tab="users">👥 Brukere</button>
+      <button class="tab-btn" role="tab" aria-selected="false" data-tab="pages">📄 Sider</button>
+      <button class="tab-btn" role="tab" aria-selected="false" data-tab="stripe">💳 Stripe</button>
+      <button class="tab-btn" role="tab" aria-selected="false" data-tab="orders">📦 Ordrer</button>
+      <button class="tab-btn" role="tab" aria-selected="false" data-tab="nfc">📡 NFC-Batch</button>
+      <button class="tab-btn" role="tab" aria-selected="false" data-tab="seo">🔍 SEO</button>
+      <button class="tab-btn" role="tab" aria-selected="false" data-tab="settings">⚙️ System</button>
     </div>
 
     <!-- Branding -->
@@ -168,7 +215,7 @@
           <div style="display:grid;gap:10px;grid-template-columns:repeat(2,minmax(0,1fr))">
             <div style="background:var(--muted);padding:12px;border-radius:12px;border:1px solid #222736">
               <strong>Kort</strong>
-              <p class="muted">Sekundærtekst – slik ser â€œmutedâ€ ut.</p>
+              <p class="muted">Sekundærtekst – slik ser "muted" ut.</p>
               <button class="tab-btn">Knapp</button>
             </div>
             <div style="background:var(--card);padding:12px;border-radius:12px;border:1px solid #1b2030">
@@ -185,7 +232,7 @@
     <section id="tab-lang" class="hidden" role="tabpanel">
       <div class="card" style="margin-bottom:12px">
         <h2>Språk & oversettelser</h2>
-        <p class="muted">Rediger nøkkel/verdier for flere språk. â€œManglendeâ€ markeres rødt. Data lagres lokalt nå (kan kobles mot Firestore senere).</p>
+        <p class="muted">Rediger nøkkel/verdier for flere språk. "Manglende" markeres rødt. Data lagres lokalt nå (kan kobles mot Firestore senere).</p>
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
           <label>Standard språk
             <select id="i18nDefaultLang">
@@ -372,12 +419,39 @@
             <input id="pgTitleEn" type="text" placeholder="Title (English)" />
           </label>
 
-          <label style="grid-column:1/-1">Innhold (HTML – nb)
+          <label style="grid-column:1/-1" class="hidden builder-source">Innhold (HTML – nb)
             <textarea id="pgBodyNb" rows="10" placeholder="&lt;section&gt;…&lt;/section&gt;"></textarea>
           </label>
-          <label style="grid-column:1/-1">Innhold (HTML – en)
+          <label style="grid-column:1/-1" class="hidden builder-source">Innhold (HTML – en)
             <textarea id="pgBodyEn" rows="10" placeholder="&lt;section&gt;…&lt;/section&gt;"></textarea>
           </label>
+
+          <div style="grid-column:1/-1">
+            <div id="pageBuilder" class="builder">
+              <div class="builder-toolbar">
+                <div class="builder-lang">
+                  <span>Språk:</span>
+                  <button type="button" class="lang-btn" data-lang="nb" aria-pressed="true">Norsk</button>
+                  <button type="button" class="lang-btn" data-lang="en" aria-pressed="false">English</button>
+                </div>
+                <div class="builder-add">
+                  <span>Legg til blokk:</span>
+                  <button type="button" class="builder-add-btn" data-type="heading">Overskrift</button>
+                  <button type="button" class="builder-add-btn" data-type="text">Tekst</button>
+                  <button type="button" class="builder-add-btn" data-type="image">Bilde</button>
+                  <button type="button" class="builder-add-btn" data-type="button">Knapp/Lenke</button>
+                  <button type="button" class="builder-add-btn" data-type="list">Liste</button>
+                  <button type="button" class="builder-add-btn" data-type="columns">Kolonner</button>
+                  <button type="button" class="builder-add-btn" data-type="video">Video</button>
+                  <button type="button" class="builder-add-btn" data-type="contact">Kontaktskjema</button>
+                  <button type="button" class="builder-add-btn" data-type="html">Custom HTML</button>
+                </div>
+              </div>
+              <div id="pgBuilderList" class="builder-list"></div>
+              <div id="pgBuilderEmpty" class="builder-empty">Ingen blokker ennå. Bruk knappene over for å legge til innhold.</div>
+              <div id="pgBuilderDrop" class="builder-dropzone hidden">Slipp her for å plassere blokken nederst.</div>
+            </div>
+          </div>
 
           <details style="grid-column:1/-1">
             <summary>SEO</summary>
@@ -1072,9 +1146,48 @@ ord_456"></textarea>
         defaultLang:'nb',
         langs:['nb','en'],
         data:{
-          'app.title': { nb:'NFCKING', en:'NFCKING' },
+          'app.title': { nb:'NFCKING administrasjon', en:'NFCKING administration' },
           'nav.home':  { nb:'Hjem', en:'Home' },
-          'nav.order': { nb:'Bestill', en:'Order' }
+          'nav.order': { nb:'Bestill', en:'Order' },
+          'nav.demo':  { nb:'Demo', en:'Demo' },
+          'nav.superadmin': { nb:'Superadmin', en:'Superadmin' },
+          'nav.cards': { nb:'Kort', en:'Cards' },
+          'tab.branding': { nb:'Branding', en:'Branding' },
+          'tab.lang': { nb:'Språk', en:'Languages' },
+          'tab.users': { nb:'Brukere', en:'Users' },
+          'tab.pages': { nb:'Sider', en:'Pages' },
+          'tab.stripe': { nb:'Stripe', en:'Stripe' },
+          'tab.orders': { nb:'Ordrer', en:'Orders' },
+          'tab.nfc': { nb:'NFC-Batcher', en:'NFC batches' },
+          'tab.seo': { nb:'SEO', en:'SEO' },
+          'tab.settings': { nb:'System', en:'System' },
+          'cta.login': { nb:'Logg inn', en:'Log in' },
+          'cta.logout': { nb:'Logg ut', en:'Log out' },
+          'cta.invite': { nb:'Send invitasjon', en:'Send invite' },
+          'cta.save': { nb:'Lagre', en:'Save' },
+          'cta.cancel': { nb:'Avbryt', en:'Cancel' },
+          'cta.addLanguage': { nb:'Legg til språk', en:'Add language' },
+          'cta.addKey': { nb:'Legg til nøkkel', en:'Add key' },
+          'cta.export': { nb:'Eksporter', en:'Export' },
+          'cta.import': { nb:'Importer', en:'Import' },
+          'users.status.active': { nb:'Aktiv', en:'Active' },
+          'users.status.disabled': { nb:'Deaktivert', en:'Disabled' },
+          'users.role.viewer': { nb:'Leser', en:'Viewer' },
+          'users.role.support': { nb:'Support', en:'Support' },
+          'users.role.editor': { nb:'Redaktør', en:'Editor' },
+          'users.role.admin': { nb:'Administrator', en:'Administrator' },
+          'users.role.owner': { nb:'Eier', en:'Owner' },
+          'users.role.superadmin': { nb:'Superadministrator', en:'Super administrator' },
+          'lang.default': { nb:'Standardspråk', en:'Default language' },
+          'lang.available': { nb:'Tilgjengelige språk', en:'Available languages' },
+          'lang.key': { nb:'Nøkkel', en:'Key' },
+          'lang.value': { nb:'Verdi', en:'Value' },
+          'lang.search': { nb:'Søk i nøklene', en:'Search keys' },
+          'lang.reset': { nb:'Tilbakestill', en:'Reset' },
+          'lang.lastUpdated': { nb:'Sist oppdatert', en:'Last updated' },
+          'status.loading': { nb:'Laster …', en:'Loading…' },
+          'status.error': { nb:'Noe gikk galt', en:'Something went wrong' },
+          'status.success': { nb:'Fullført', en:'Completed' }
         }
       };
     }
@@ -1154,7 +1267,7 @@ ord_456"></textarea>
           state.data[newKey] = {...state.data[key]};
           delete state.data[key];
           tr.setAttribute('data-key', newKey);
-          setMsg(`Endret nøkkel: ${key} â†’ ${newKey}`);
+          setMsg(`Endret nøkkel: ${key} → ${newKey}`);
         });
         tdKey.appendChild(keyInput);
         tr.appendChild(tdKey);
@@ -1302,16 +1415,16 @@ ord_456"></textarea>
   </script>
 
   <!-- Del 6 – del 5/6: Brukere script -->
+  
   <script>
   (function(){
-    const qs=(s,r=document)=>r.querySelector(s);
-    const qsa=(s,r=document)=>[...r.querySelectorAll(s)];
+    const qs = (sel, root=document) => root.querySelector(sel);
     const el = {
       msg: qs('#usrMsg'),
       table: qs('#usrTable tbody'),
       search: qs('#usrSearch'),
-      roleF: qs('#usrRoleFilter'),
-      statF: qs('#usrStatusFilter'),
+      role: qs('#usrRoleFilter'),
+      status: qs('#usrStatusFilter'),
       refresh: qs('#usrRefresh'),
       inviteOpen: qs('#usrInviteOpen'),
       inviteBox: qs('#usrInvite'),
@@ -1325,168 +1438,346 @@ ord_456"></textarea>
       next: qs('#usrNext'),
     };
 
+    const builderLangBtns = Array.from(document.querySelectorAll('#pageBuilder .lang-btn'));
+
     const API = {
       list:   '/.netlify/functions/users-list',
       create: '/.netlify/functions/users-invite',
       role:   '/.netlify/functions/users-role',
       status: '/.netlify/functions/users-status',
-      imp:    '/.netlify/functions/users-impersonate'
+      imp:    '/.netlify/functions/users-impersonate',
     };
 
-    let pageToken = null;
-    let lastQuery = {};
+    const state = {
+      pageTokens: [null],
+      index: 0,
+      nextToken: null,
+      loading: false,
+      loadedOnce: false,
+    };
 
-    function setMsg(t){ el.msg.textContent = t || ''; }
+    const roleOptions = ['superadmin','owner','admin','editor','support','viewer'];
 
-    async function idToken(){
-      return localStorage.getItem('nfcking.idToken') || '';
+    function clearTable(){
+      if (el.table) {
+        el.table.textContent = '';
+      }
     }
 
-    async function apiGet(url, params={}){
-      const token = await idToken();
-      const qs = new URLSearchParams(params).toString();
-      const res = await fetch(url + (qs ? `?${qs}` : ''), { headers:{ Authorization: token ? `Bearer ${token}` : '' }});
-      if(!res.ok) throw new Error(`GET ${url} ${res.status}`);
-      return res.json();
+    function setMsg(text, opts={}){
+      if (!el.msg) return;
+      el.msg.textContent = '';
+      el.msg.classList.remove('ok','err');
+      el.msg.style.color = '';
+      if (!text) return;
+      if (opts.type === 'ok') {
+        el.msg.classList.add('ok');
+        el.msg.style.color = '#21c36a';
+      }
+      if (opts.type === 'err') {
+        el.msg.classList.add('err');
+        el.msg.style.color = '#ff6b6b';
+      }
+      el.msg.append(document.createTextNode(text));
+      if (opts.link) {
+        const a = document.createElement('a');
+        a.href = opts.link;
+        a.target = '_blank';
+        a.rel = 'noopener';
+        a.textContent = ' Åpne lenke';
+        el.msg.append(' ');
+        el.msg.append(a);
+      }
+      if (opts.extra) {
+        el.msg.append(' ');
+        el.msg.append(opts.extra);
+      }
     }
-    async function apiPost(url, body){
-      const token = await idToken();
-      const res = await fetch(url, {
-        method:'POST',
-        headers:{ 'Content-Type':'application/json', Authorization: token ? `Bearer ${token}` : '' },
-        body: JSON.stringify(body||{})
-      });
-      if(!res.ok) throw new Error(`POST ${url} ${res.status}`);
-      return res.json();
+
+    function ensureLoggedIn(){
+      const user = firebase.auth().currentUser;
+      if (!user) {
+        clearTable();
+        if (el.prev) el.prev.disabled = true;
+        if (el.next) el.next.disabled = true;
+        setMsg('Logg inn for å administrere brukere.');
+        return false;
+      }
+      const role = (localStorage.getItem('nfcking.role') || '').toLowerCase();
+      if (role !== 'superadmin') {
+        clearTable();
+        if (el.prev) el.prev.disabled = true;
+        if (el.next) el.next.disabled = true;
+        setMsg('Kun superadministratorer kan administrere brukere.');
+        return false;
+      }
+      return true;
     }
 
     function renderRows(users){
-      const rows = users.map(u=>{
+      if (!el.table) return;
+      if (!Array.isArray(users) || users.length === 0){
+        el.table.innerHTML = '<tr><td colspan="6" style="padding:12px;text-align:center;color:var(--sub)">Ingen brukere funnet.</td></tr>';
+        return;
+      }
+
+      const rows = users.map((user) => {
+        const data = { ...user };
         const tr = document.createElement('tr');
-        const td = (...nodes)=>{ const t=document.createElement('td'); t.style.cssText='padding:8px;border-bottom:1px solid #1b2030;vertical-align:top'; nodes.forEach(n=>t.append(n)); return t; };
+        const cell = () => {
+          const td = document.createElement('td');
+          td.style.cssText = 'padding:8px;border-bottom:1px solid #1b2030;vertical-align:top';
+          return td;
+        };
 
-        tr.appendChild(td(document.createTextNode(u.name || '—')));
+        const nameTd = cell();
+        nameTd.textContent = data.displayName || '—';
+        tr.appendChild(nameTd);
 
-        const aMail = document.createElement('a'); aMail.href = `mailto:${u.email}`; aMail.textContent = u.email||'—';
-        tr.appendChild(td(aMail));
+        const mailTd = cell();
+        if (data.email) {
+          const link = document.createElement('a');
+          link.href = `mailto:${data.email}`;
+          link.textContent = data.email;
+          mailTd.appendChild(link);
+        } else {
+          mailTd.textContent = '—';
+        }
+        tr.appendChild(mailTd);
 
+        const roleTd = cell();
         const roleSel = document.createElement('select');
-        ['superadmin','admin','editor','viewer'].forEach(r=>{
-          const opt=document.createElement('option'); opt.value=r; opt.textContent=r;
-          if((u.roles||[]).includes(r)) opt.selected = true;
+        roleOptions.forEach((role) => {
+          const opt = document.createElement('option');
+          opt.value = role;
+          opt.textContent = role;
+          if ((data.role || 'viewer') === role) opt.selected = true;
           roleSel.appendChild(opt);
         });
-        roleSel.addEventListener('change', async ()=>{
-          try{
-            await apiPost(API.role, { uid:u.uid, roles:[roleSel.value], orgKey:u.orgKey||null });
-            setMsg(`Oppdatert rolle for ${u.email} â†’ ${roleSel.value}`);
-          }catch{ setMsg('Kunne ikke oppdatere rolle.'); }
+        roleSel.addEventListener('change', async () => {
+          const nextRole = roleSel.value;
+          try {
+            await request(API.role, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ uid: data.uid, roles: [nextRole], orgKey: data.orgKey ?? undefined }),
+            });
+            data.role = nextRole;
+            setMsg(`Oppdatert rolle for ${data.email || data.uid} → ${nextRole}`, { type: 'ok' });
+          } catch (err) {
+            roleSel.value = data.role || 'viewer';
+            setMsg(`Kunne ikke endre rolle: ${err.message}`, { type: 'err' });
+          }
         });
-        tr.appendChild(td(roleSel));
+        roleTd.appendChild(roleSel);
+        tr.appendChild(roleTd);
 
-        tr.appendChild(td(document.createTextNode(u.orgKey || '—')));
+        const orgTd = cell();
+        orgTd.textContent = data.orgKey || '—';
+        tr.appendChild(orgTd);
 
-        const statusBadge = document.createElement('span');
-        statusBadge.textContent = u.status || 'active';
-        statusBadge.className = 'muted';
-        tr.appendChild(td(statusBadge));
+        const statusTd = cell();
+        statusTd.textContent = data.status || (data.disabled ? 'disabled' : 'active');
+        tr.appendChild(statusTd);
 
+        const actionsTd = cell();
         const actions = document.createElement('div');
-        actions.style.display='flex'; actions.style.gap='6px'; actions.style.flexWrap='wrap';
+        actions.style.display = 'flex';
+        actions.style.gap = '6px';
+        actions.style.flexWrap = 'wrap';
 
-        const btnToggle = document.createElement('button');
-        btnToggle.className='tab-btn';
-        btnToggle.textContent = (u.status==='disabled') ? 'Aktiver' : 'Deaktiver';
-        btnToggle.addEventListener('click', async ()=>{
-          try{
-            const to = (u.status==='disabled') ? 'active' : 'disabled';
-            await apiPost(API.status, { uid:u.uid, status:to });
-            u.status = to; statusBadge.textContent = to;
-            btnToggle.textContent = (to==='disabled') ? 'Aktiver' : 'Deaktiver';
-            setMsg(`Status oppdatert for ${u.email} â†’ ${to}`);
-          }catch{ setMsg('Kunne ikke endre status.'); }
+        const toggleBtn = document.createElement('button');
+        toggleBtn.className = 'tab-btn';
+        const setToggleLabel = () => {
+          toggleBtn.textContent = data.status === 'disabled' ? 'Aktiver' : 'Deaktiver';
+        };
+        setToggleLabel();
+        toggleBtn.addEventListener('click', async () => {
+          const targetStatus = data.status === 'disabled' ? 'active' : 'disabled';
+          try {
+            const res = await request(API.status, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ uid: data.uid, status: targetStatus }),
+            });
+            data.status = res.status;
+            data.disabled = res.disabled;
+            statusTd.textContent = res.status;
+            setToggleLabel();
+            setMsg(`Status oppdatert for ${data.email || data.uid} → ${res.status}`, { type: 'ok' });
+          } catch (err) {
+            setMsg(`Kunne ikke endre status: ${err.message}`, { type: 'err' });
+          }
         });
-        actions.appendChild(btnToggle);
+        actions.appendChild(toggleBtn);
 
-        const btnImpersonate = document.createElement('button');
-        btnImpersonate.className='tab-btn'; btnImpersonate.textContent='Impersonate (lese)';
-        btnImpersonate.addEventListener('click', async ()=>{
-          try{
-            await apiPost(API.imp, { uid:u.uid });
-            setMsg(`Impersonate-token generert for ${u.email} (lese-modus).`);
-          }catch{ setMsg('Kunne ikke impersonate.'); }
+        const impBtn = document.createElement('button');
+        impBtn.className = 'tab-btn';
+        impBtn.textContent = 'Impersonate';
+        impBtn.addEventListener('click', async () => {
+          try {
+            const res = await request(API.imp, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ uid: data.uid }),
+            });
+            if (navigator.clipboard?.writeText) {
+              await navigator.clipboard.writeText(res.customToken);
+              setMsg(`Impersonate-token kopiert til utklippstavlen for ${data.email || data.uid}.`, { type: 'ok' });
+            } else {
+              const code = document.createElement('code');
+              code.textContent = res.customToken;
+              setMsg('Impersonate-token generert.', { type: 'ok', extra: code });
+            }
+          } catch (err) {
+            setMsg(`Kunne ikke impersonere: ${err.message}`, { type: 'err' });
+          }
         });
-        actions.appendChild(btnImpersonate);
+        actions.appendChild(impBtn);
 
-        tr.appendChild(td(actions));
+        actionsTd.appendChild(actions);
+        tr.appendChild(actionsTd);
+
         return tr;
       });
 
       el.table.replaceChildren(...rows);
     }
 
-    async function loadUsers(opts={}){
-      const params = {
-        q: el.search.value || '',
-        role: el.roleF.value || '',
-        status: el.statF.value || '',
-        pageToken: opts.pageToken || null,
-        limit: 20
-      };
-      lastQuery = params;
-      setMsg('Laster brukere …');
-      try{
-        const data = await apiGet(API.list, params);
+    async function request(url, options) {
+      const res = await fetch(url, options);
+      const text = await res.text();
+      let data;
+      try { data = JSON.parse(text); }
+      catch { data = { ok: false, error: text || `HTTP ${res.status}` }; }
+      if (!res.ok || data.ok === false) {
+        const msg = data && (data.error || data.message) ? (data.error || data.message) : text || `HTTP ${res.status}`;
+        throw new Error(msg);
+      }
+      return data;
+    }
+
+    async function loadUsers({ token, reset } = {}) {
+      if (state.loading) return;
+      if (!ensureLoggedIn()) return;
+      state.loading = true;
+      try {
+        if (reset) {
+          state.pageTokens = [null];
+          state.index = 0;
+        }
+        const currentToken = token !== undefined ? token : state.pageTokens[state.index] || null;
+        const params = new URLSearchParams();
+        const q = (el.search?.value || '').trim();
+        const roleVal = el.role?.value || '';
+        const statusVal = el.status?.value || '';
+        if (q) params.set('q', q);
+        if (roleVal) params.set('role', roleVal);
+        if (statusVal) params.set('status', statusVal);
+        params.set('limit', '20');
+        if (currentToken) params.set('pageToken', currentToken);
+
+        setMsg('Laster brukere …');
+        const url = params.toString() ? `${API.list}?${params}` : API.list;
+        const data = await request(url);
         renderRows(data.users || []);
-        pageToken = { next: data.nextPageToken || null, prev: data.prevPageToken || null };
-        el.prev.disabled = !pageToken.prev;
-        el.next.disabled = !pageToken.next;
-        setMsg(`Fant ${data.count ?? (data.users||[]).length} brukere.`);
-      }catch{
-        setMsg('Kunne ikke hente brukere.');
+        state.nextToken = data.nextPageToken || null;
+        if (token !== undefined) {
+          state.pageTokens[state.index] = currentToken || null;
+        }
+        if (el.prev) el.prev.disabled = state.index === 0;
+        if (el.next) el.next.disabled = !state.nextToken;
+        setMsg(`Fant ${data.count ?? (data.users || []).length} brukere.`);
+        state.loadedOnce = true;
+      } catch (err) {
+        clearTable();
+        setMsg(`Kunne ikke hente brukere: ${err.message}`, { type: 'err' });
+      } finally {
+        state.loading = false;
       }
     }
 
-    function toggleInvite(show){
+    function toggleInvite(show) {
+      if (!el.inviteBox) return;
       el.inviteBox.classList.toggle('hidden', !show);
-      if(show){ el.invName.focus(); }
+      if (show) {
+        el.invName?.focus();
+      }
     }
 
-    el.inviteOpen.addEventListener('click', ()=> toggleInvite(true));
-    el.invCancel.addEventListener('click', ()=> toggleInvite(false));
-    el.invSend.addEventListener('click', async ()=>{
-      const name = el.invName.value.trim();
-      const email = el.invEmail.value.trim();
-      const role = el.invRole.value;
-      const org  = el.invOrg.value.trim() || null;
-      if(!email){ setMsg('E-post er påkrevd.'); return; }
-      setMsg('Sender invitasjon …');
-      try{
-        const res = await apiPost(API.create, { name, email, role, orgKey: org });
-        setMsg(`Invitasjon sendt til ${email}. UID: ${res.uid || '—'}`);
-        toggleInvite(false); el.invName.value=''; el.invEmail.value='';
-        await loadUsers();
-      }catch{
-        setMsg('Kunne ikke sende invitasjon.');
+    async function sendInvite() {
+      const email = (el.invEmail?.value || '').trim();
+      const displayName = (el.invName?.value || '').trim();
+      const role = el.invRole?.value || 'viewer';
+      const orgKey = (el.invOrg?.value || '').trim();
+      if (!email) {
+        setMsg('E-post er påkrevd.', { type: 'err' });
+        return;
       }
+      try {
+        setMsg('Sender invitasjon …');
+        const payload = { email, displayName, role, orgKey: orgKey || undefined };
+        const data = await request(API.create, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        el.invName.value = '';
+        el.invEmail.value = '';
+        el.invOrg.value = '';
+        toggleInvite(false);
+        if (data.emailSent) {
+          setMsg(`Invitasjon sendt til ${email}.`, { type: 'ok' });
+        } else if (data.inviteLink) {
+          const link = document.createElement('a');
+          link.href = data.inviteLink;
+          link.target = '_blank';
+          link.rel = 'noopener';
+          link.textContent = 'Åpne invitasjonslenke';
+          setMsg('Invitasjon generert (lenke er kopierbar).', { type: 'ok', extra: link });
+        } else if (data.note) {
+          setMsg(data.note, { type: 'ok' });
+        } else {
+          setMsg('Invitasjon opprettet.', { type: 'ok' });
+        }
+        await loadUsers({ token: state.pageTokens[state.index] || null });
+      } catch (err) {
+        setMsg(`Kunne ikke sende invitasjon: ${err.message}`, { type: 'err' });
+      }
+    }
+
+    if (el.inviteOpen) el.inviteOpen.addEventListener('click', () => toggleInvite(true));
+    if (el.invCancel) el.invCancel.addEventListener('click', () => toggleInvite(false));
+    if (el.invSend) el.invSend.addEventListener('click', sendInvite);
+    if (el.refresh) el.refresh.addEventListener('click', () => loadUsers({ token: state.pageTokens[state.index] || null }));
+    if (el.search) el.search.addEventListener('input', () => loadUsers({ token: null, reset: true }));
+    if (el.role) el.role.addEventListener('change', () => loadUsers({ token: null, reset: true }));
+    if (el.status) el.status.addEventListener('change', () => loadUsers({ token: null, reset: true }));
+    if (el.prev) el.prev.addEventListener('click', () => {
+      if (state.index === 0) return;
+      state.index -= 1;
+      loadUsers({ token: state.pageTokens[state.index] || null });
+    });
+    if (el.next) el.next.addEventListener('click', () => {
+      if (!state.nextToken) return;
+      state.index += 1;
+      state.pageTokens[state.index] = state.nextToken;
+      loadUsers({ token: state.pageTokens[state.index] });
     });
 
-    el.refresh.addEventListener('click', ()=> loadUsers());
-    el.search.addEventListener('input', ()=> loadUsers());
-    el.roleF.addEventListener('change', ()=> loadUsers());
-    el.statF.addEventListener('change', ()=> loadUsers());
-
-    el.prev.addEventListener('click', ()=> pageToken?.prev && loadUsers({ pageToken: pageToken.prev }));
-    el.next.addEventListener('click', ()=> pageToken?.next && loadUsers({ pageToken: pageToken.next }));
-
     function onTabChange(){
-      const active = (location.hash||'#branding').replace('#','');
-      if(active==='users'){ loadUsers(); }
+      const active = (location.hash || '#branding').replace('#','');
+      if (active === 'users' && !state.loading) {
+        const initialToken = state.pageTokens[state.index] || null;
+        loadUsers({ token: initialToken, reset: !state.loadedOnce });
+      }
     }
+
     window.addEventListener('hashchange', onTabChange);
     onTabChange();
   })();
   </script>
+
 
   <!-- Del 6 – del 6/6: Sider script -->
   <script>
@@ -1525,6 +1816,11 @@ ord_456"></textarea>
       menuAdd: qs('#menuAdd'),
       menuSave: qs('#menuSave'),
       menuMsg: qs('#menuMsg'),
+      builderWrap: qs('#pageBuilder'),
+      builderList: qs('#pgBuilderList'),
+      builderEmpty: qs('#pgBuilderEmpty'),
+      builderDrop: qs('#pgBuilderDrop'),
+      builderAdd: qs('#pageBuilder .builder-add'),
     };
 
     const API = {
@@ -1539,7 +1835,909 @@ ord_456"></textarea>
     };
 
     let editingId = null;
+    let editingSource = null;
     let lastPages = [];
+
+    const builder = { lang: 'nb', blocks: [] };
+    let draggingIndex = null;
+    let syncTimer = null;
+
+    const blockLabels = {
+      heading: 'Overskrift',
+      text: 'Tekst',
+      image: 'Bilde',
+      button: 'Knapp/Lenke',
+      list: 'Liste',
+      columns: 'Kolonner',
+      video: 'Video',
+      contact: 'Kontaktskjema',
+      html: 'Custom HTML'
+    };
+
+    function makeId(){
+      return 'b' + Math.random().toString(36).slice(2, 7) + Date.now().toString(36);
+    }
+
+    function makeBlock(type, defaults = true){
+      const base = { id: makeId(), type: type || 'text' };
+      switch (base.type) {
+        case 'heading':
+          base.level = 'h2';
+          base.align = 'left';
+          base.text = { nb: defaults ? 'Ny overskrift' : '', en: defaults ? 'New heading' : '' };
+          break;
+        case 'text':
+          base.text = { nb: defaults ? 'Nytt avsnitt' : '', en: defaults ? 'New paragraph' : '' };
+          break;
+        case 'image':
+          base.src = '';
+          base.alt = { nb: '', en: '' };
+          base.caption = { nb: '', en: '' };
+          base.fullWidth = false;
+          break;
+        case 'button':
+          base.url = '';
+          base.text = { nb: defaults ? 'Les mer' : '', en: defaults ? 'Read more' : '' };
+          base.style = 'primary';
+          base.newTab = false;
+          break;
+        case 'list':
+          base.listType = 'ul';
+          base.items = { nb: defaults ? ['Punkt'] : [], en: defaults ? ['Item'] : [] };
+          break;
+        case 'columns':
+          base.left = { nb: defaults ? 'Venstre kolonne' : '', en: defaults ? 'Left column' : '' };
+          base.right = { nb: defaults ? 'Høyre kolonne' : '', en: defaults ? 'Right column' : '' };
+          base.stack = true;
+          break;
+        case 'video':
+          base.url = '';
+          base.caption = { nb: '', en: '' };
+          base.aspect = '16x9';
+          break;
+        case 'contact':
+          base.heading = { nb: defaults ? 'Kontakt oss' : '', en: defaults ? 'Contact us' : '' };
+          base.intro = { nb: '', en: '' };
+          base.success = { nb: defaults ? 'Takk for meldingen!' : '', en: defaults ? 'Thanks for your message!' : '' };
+          base.recipient = '';
+          base.showPhone = true;
+          break;
+        case 'html':
+        default:
+          base.code = { nb: '', en: '' };
+          break;
+      }
+      return base;
+    }
+
+    function normalizeBlock(data){
+      const type = data?.type || 'text';
+      const base = makeBlock(type, false);
+      base.id = data?.id || base.id;
+      switch (type) {
+        case 'heading':
+          base.level = data?.level || base.level;
+          base.align = data?.align || base.align;
+          base.text.nb = data?.text?.nb ?? base.text.nb;
+          base.text.en = data?.text?.en ?? base.text.en;
+          break;
+        case 'text':
+          base.text.nb = data?.text?.nb ?? base.text.nb;
+          base.text.en = data?.text?.en ?? base.text.en;
+          break;
+        case 'image':
+          base.src = data?.src || base.src;
+          base.alt.nb = data?.alt?.nb ?? base.alt.nb;
+          base.alt.en = data?.alt?.en ?? base.alt.en;
+          base.caption.nb = data?.caption?.nb ?? base.caption.nb;
+          base.caption.en = data?.caption?.en ?? base.caption.en;
+          base.fullWidth = data?.fullWidth ?? base.fullWidth;
+          break;
+        case 'button':
+          base.url = data?.url || base.url;
+          base.text.nb = data?.text?.nb ?? base.text.nb;
+          base.text.en = data?.text?.en ?? base.text.en;
+          base.style = data?.style || base.style;
+          base.newTab = data?.newTab ?? base.newTab;
+          break;
+        case 'list':
+          base.listType = data?.listType || base.listType;
+          base.items.nb = Array.isArray(data?.items?.nb) ? data.items.nb.slice() : base.items.nb;
+          base.items.en = Array.isArray(data?.items?.en) ? data.items.en.slice() : base.items.en;
+          break;
+        case 'columns':
+          base.left.nb = data?.left?.nb ?? base.left.nb;
+          base.left.en = data?.left?.en ?? base.left.en;
+          base.right.nb = data?.right?.nb ?? base.right.nb;
+          base.right.en = data?.right?.en ?? base.right.en;
+          base.stack = data?.stack ?? base.stack;
+          break;
+        case 'video':
+          base.url = data?.url || base.url;
+          base.caption.nb = data?.caption?.nb ?? base.caption.nb;
+          base.caption.en = data?.caption?.en ?? base.caption.en;
+          base.aspect = data?.aspect || base.aspect;
+          break;
+        case 'contact':
+          base.heading.nb = data?.heading?.nb ?? base.heading.nb;
+          base.heading.en = data?.heading?.en ?? base.heading.en;
+          base.intro.nb = data?.intro?.nb ?? base.intro.nb;
+          base.intro.en = data?.intro?.en ?? base.intro.en;
+          base.success.nb = data?.success?.nb ?? base.success.nb;
+          base.success.en = data?.success?.en ?? base.success.en;
+          base.recipient = data?.recipient || base.recipient;
+          base.showPhone = data?.showPhone ?? base.showPhone;
+          break;
+        case 'html':
+        default:
+          base.code.nb = data?.code?.nb ?? base.code.nb;
+          base.code.en = data?.code?.en ?? base.code.en;
+          break;
+      }
+      return base;
+    }
+
+    function cloneBlock(block){
+      return JSON.parse(JSON.stringify(block));
+    }
+
+    function updateLangButtons(){
+      builderLangBtns.forEach(btn => {
+        const active = btn.dataset.lang === builder.lang;
+        btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+      });
+    }
+
+    function setBuilderLang(lang){
+      builder.lang = lang === 'en' ? 'en' : 'nb';
+      updateLangButtons();
+      renderBlocks();
+    }
+
+    function scheduleSync(){
+      clearTimeout(syncTimer);
+      syncTimer = setTimeout(updateBodiesFromBuilder, 120);
+    }
+
+    function escapeHtml(str = ''){
+      const map = { "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" };
+      return str.replace(/[&<>"']/g, ch => map[ch]);
+    }
+
+    function textToHtml(value = ''){
+      const trimmed = (value || '').trim();
+      if (!trimmed) return '';
+      const parts = trimmed.split(/\n{2,}/).map(segment => segment.trim());
+      return parts.map(segment => `<p>${escapeHtml(segment).replace(/\n/g, '<br />')}</p>`).join('\n');
+    }
+
+    function videoEmbedUrl(url = ''){
+      const u = (url || '').trim();
+      if (!u) return '';
+      if (/youtu\.be|youtube\.com/.test(u)){
+        const match = u.match(/(?:v=|be\/|embed\/)([A-Za-z0-9_-]{11})/);
+        if (match) return `https://www.youtube.com/embed/${match[1]}`;
+      }
+      if (/vimeo\.com/.test(u)){
+        const match = u.match(/vimeo\.com\/(?:video\/)?([0-9]+)/);
+        if (match) return `https://player.vimeo.com/video/${match[1]}`;
+      }
+      return u;
+    }
+
+    function blockToHtml(block, lang){
+      const l = lang === 'en' ? 'en' : 'nb';
+      switch (block.type) {
+        case 'heading': {
+          const txt = (block.text?.[l] || '').trim();
+          if (!txt) return '';
+          const level = block.level || 'h2';
+          const align = block.align && block.align !== 'left' ? ` style="text-align:${escapeHtml(block.align)}"` : '';
+          return `<${level}${align}>${escapeHtml(txt)}</${level}>`;
+        }
+        case 'text':
+          return textToHtml(block.text?.[l] || '');
+        case 'image': {
+          if (!block.src) return '';
+          const alt = block.alt?.[l] || block.alt?.nb || '';
+          const caption = block.caption?.[l] || block.caption?.nb || '';
+          const img = `<img src="${escapeHtml(block.src)}" alt="${escapeHtml(alt)}"${block.fullWidth ? ' style="width:100%;height:auto;"' : ''} />`;
+          return caption ? `<figure>${img}<figcaption>${escapeHtml(caption)}</figcaption></figure>` : (block.fullWidth ? `<figure>${img}</figure>` : img);
+        }
+        case 'button': {
+          const label = (block.text?.[l] || block.text?.nb || '').trim();
+          if (!label) return '';
+          const href = block.url ? escapeHtml(block.url) : '#';
+          const cls = block.style === 'link' ? 'link' : (block.style === 'secondary' ? 'button secondary' : 'button');
+          const target = block.newTab ? ' target="_blank" rel="noopener"' : '';
+          return `<p><a class="${cls}" href="${href}"${target}>${escapeHtml(label)}</a></p>`;
+        }
+        case 'list': {
+          const items = Array.isArray(block.items?.[l]) ? block.items[l].filter(Boolean) : [];
+          if (!items.length) return '';
+          const tag = block.listType === 'ol' ? 'ol' : 'ul';
+          return `<${tag}>${items.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</${tag}>`;
+        }
+        case 'columns': {
+          const leftHtml = textToHtml(block.left?.[l] || '');
+          const rightHtml = textToHtml(block.right?.[l] || '');
+          if (!leftHtml && !rightHtml) return '';
+          const cls = block.stack ? 'two-columns stack' : 'two-columns';
+          return `<section class="${cls}"><div class="col">${leftHtml || ''}</div><div class="col">${rightHtml || ''}</div></section>`;
+        }
+        case 'video': {
+          if (!block.url) return '';
+          const src = videoEmbedUrl(block.url);
+          const cap = block.caption?.[l] || '';
+          const aspect = block.aspect || '16x9';
+          const ratio = aspect === '1x1' ? 'padding-top:100%' : (aspect === '4x3' ? 'padding-top:75%' : 'padding-top:56.25%');
+          const iframe = `<div class="video-frame" style="position:relative;${ratio};height:0;overflow:hidden;"><iframe src="${escapeHtml(src)}" title="Video" allowfullscreen style="position:absolute;top:0;left:0;width:100%;height:100%;border:0;"></iframe></div>`;
+          return cap ? `<figure class="video">${iframe}<figcaption>${escapeHtml(cap)}</figcaption></figure>` : iframe;
+        }
+        case 'contact': {
+          const heading = block.heading?.[l] || block.heading?.nb || '';
+          const intro = textToHtml(block.intro?.[l] || block.intro?.nb || '');
+          const success = block.success?.[l] || block.success?.nb || '';
+          const recipientAttr = block.recipient ? ` data-recipient="${escapeHtml(block.recipient)}"` : '';
+          const phoneField = block.showPhone ? '<label>Telefon<input name="phone" type="tel" /></label>' : '';
+          return `<section class="contact-form">${heading ? `<h2>${escapeHtml(heading)}</h2>` : ''}${intro || ''}<form data-form="contact"${recipientAttr}><label>Navn<input name="name" required /></label><label>E-post<input name="email" type="email" required /></label>${phoneField}<label>Melding<textarea name="message" required></textarea></label><button type="submit">Send</button><p class="contact-success" hidden>${escapeHtml(success)}</p></form></section>`;
+        }
+        case 'html':
+        default:
+          return (block.code?.[l] || '').trim();
+      }
+    }
+
+    function blocksToHtml(lang){
+      return builder.blocks.map(block => blockToHtml(block, lang)).filter(Boolean).join('\n\n');
+    }
+
+    function updateBodiesFromBuilder(){
+      if (el.bodyNb) el.bodyNb.value = blocksToHtml('nb');
+      if (el.bodyEn) el.bodyEn.value = blocksToHtml('en');
+    }
+
+    function hasLangContent(block, lang){
+      switch (block.type) {
+        case 'heading':
+        case 'text':
+        case 'button':
+          return Boolean((block.text?.[lang] || '').trim());
+        case 'image':
+          return Boolean((block.alt?.[lang] || '').trim() || (block.caption?.[lang] || '').trim());
+        case 'list':
+          return Array.isArray(block.items?.[lang]) && block.items[lang].some(Boolean);
+        case 'columns':
+          return Boolean((block.left?.[lang] || '').trim() || (block.right?.[lang] || '').trim());
+        case 'video':
+          return Boolean((block.caption?.[lang] || '').trim());
+        case 'contact':
+          return Boolean((block.heading?.[lang] || '').trim() || (block.intro?.[lang] || '').trim() || (block.success?.[lang] || '').trim());
+        case 'html':
+          return Boolean((block.code?.[lang] || '').trim());
+        default:
+          return false;
+      }
+    }
+
+    function copyBlockLang(target, source, lang){
+      switch (target.type) {
+        case 'heading':
+          target.level = source.level || target.level;
+          target.align = source.align || target.align;
+          if (!target.text) target.text = { nb: '', en: '' };
+          target.text[lang] = source.text?.[lang] || '';
+          break;
+        case 'text':
+          if (!target.text) target.text = { nb: '', en: '' };
+          target.text[lang] = source.text?.[lang] || '';
+          break;
+        case 'image':
+          target.src = source.src || target.src;
+          if (!target.alt) target.alt = { nb: '', en: '' };
+          if (!target.caption) target.caption = { nb: '', en: '' };
+          target.alt[lang] = source.alt?.[lang] || '';
+          target.caption[lang] = source.caption?.[lang] || '';
+          target.fullWidth = source.fullWidth ?? target.fullWidth;
+          break;
+        case 'button':
+          if (!target.text) target.text = { nb: '', en: '' };
+          target.text[lang] = source.text?.[lang] || '';
+          target.url = source.url || target.url;
+          target.style = source.style || target.style;
+          target.newTab = source.newTab ?? target.newTab;
+          break;
+        case 'list':
+          target.listType = source.listType || target.listType;
+          if (!target.items) target.items = { nb: [], en: [] };
+          target.items[lang] = Array.isArray(source.items?.[lang]) ? source.items[lang].slice() : [];
+          break;
+        case 'columns':
+          if (!target.left) target.left = { nb: '', en: '' };
+          if (!target.right) target.right = { nb: '', en: '' };
+          target.left[lang] = source.left?.[lang] || '';
+          target.right[lang] = source.right?.[lang] || '';
+          target.stack = source.stack ?? target.stack;
+          break;
+        case 'video':
+          target.url = source.url || target.url;
+          if (!target.caption) target.caption = { nb: '', en: '' };
+          target.caption[lang] = source.caption?.[lang] || '';
+          target.aspect = source.aspect || target.aspect;
+          break;
+        case 'contact':
+          if (!target.heading) target.heading = { nb: '', en: '' };
+          if (!target.intro) target.intro = { nb: '', en: '' };
+          if (!target.success) target.success = { nb: '', en: '' };
+          target.heading[lang] = source.heading?.[lang] || '';
+          target.intro[lang] = source.intro?.[lang] || '';
+          target.success[lang] = source.success?.[lang] || '';
+          target.recipient = source.recipient || target.recipient;
+          target.showPhone = source.showPhone ?? target.showPhone;
+          break;
+        case 'html':
+        default:
+          if (!target.code) target.code = { nb: '', en: '' };
+          target.code[lang] = source.code?.[lang] || '';
+          break;
+      }
+    }
+
+    function mergeLanguageBlocks(base, altBlocks, lang){
+      altBlocks.forEach((altBlock, idx) => {
+        const direct = base[idx];
+        if (direct && direct.type === altBlock.type) {
+          copyBlockLang(direct, altBlock, lang);
+          return;
+        }
+        const fallbackIndex = base.findIndex(block => block.type === altBlock.type && !hasLangContent(block, lang));
+        if (fallbackIndex >= 0) {
+          copyBlockLang(base[fallbackIndex], altBlock, lang);
+          return;
+        }
+        const insertIndex = Math.min(idx, base.length);
+        base.splice(insertIndex, 0, normalizeBlock(altBlock));
+      });
+    }
+
+    function parseHtmlToBlocks(html, lang){
+      const tpl = document.createElement('template');
+      tpl.innerHTML = html || '';
+      const nodes = [];
+      tpl.content.childNodes.forEach(node => {
+        if (node.nodeType === Node.TEXT_NODE) {
+          if (node.textContent.trim()) nodes.push(node);
+        } else if (node.nodeType === Node.ELEMENT_NODE) {
+          nodes.push(node);
+        }
+      });
+      const blocks = [];
+      nodes.forEach(node => {
+        if (node.nodeType === Node.TEXT_NODE) {
+          const text = node.textContent.trim();
+          if (!text) return;
+          const block = makeBlock('text', false);
+          block.text[lang] = text;
+          blocks.push(block);
+          return;
+        }
+        const elNode = node;
+        const tag = elNode.tagName.toLowerCase();
+        let block = null;
+        if (/^h[1-6]$/.test(tag)) {
+          block = makeBlock('heading', false);
+          block.level = tag;
+          block.text[lang] = elNode.textContent.trim();
+        } else if (tag === 'p') {
+          const inner = elNode.innerHTML.trim();
+          if (/<(?!br\b)/i.test(inner)) {
+            block = makeBlock('html', false);
+            block.code[lang] = elNode.outerHTML.trim();
+          } else {
+            block = makeBlock('text', false);
+            block.text[lang] = elNode.textContent.trim();
+          }
+        } else if (tag === 'ul' || tag === 'ol') {
+          block = makeBlock('list', false);
+          block.listType = tag;
+          block.items[lang] = Array.from(elNode.querySelectorAll('li')).map(li => li.textContent.trim()).filter(Boolean);
+        } else if (tag === 'figure' && elNode.querySelector('img')) {
+          block = makeBlock('image', false);
+          const img = elNode.querySelector('img');
+          block.src = img?.getAttribute('src') || '';
+          block.alt[lang] = img?.getAttribute('alt') || '';
+          const cap = elNode.querySelector('figcaption');
+          if (cap) block.caption[lang] = cap.textContent.trim();
+        } else if (tag === 'img') {
+          block = makeBlock('image', false);
+          block.src = elNode.getAttribute('src') || '';
+          block.alt[lang] = elNode.getAttribute('alt') || '';
+        } else if (tag === 'a') {
+          block = makeBlock('button', false);
+          block.url = elNode.getAttribute('href') || '';
+          block.text[lang] = elNode.textContent.trim();
+          block.newTab = elNode.getAttribute('target') === '_blank';
+        } else if (tag === 'iframe') {
+          block = makeBlock('video', false);
+          block.url = elNode.getAttribute('src') || '';
+        } else {
+          block = makeBlock('html', false);
+          block.code[lang] = elNode.outerHTML.trim();
+        }
+        if (block) blocks.push(block);
+      });
+      return blocks;
+    }
+
+    function deriveBlocksFromHtml(nbHtml, enHtml){
+      const nbBlocks = parseHtmlToBlocks(nbHtml, 'nb').map(normalizeBlock);
+      const base = nbBlocks.slice();
+      const enBlocks = parseHtmlToBlocks(enHtml, 'en').map(normalizeBlock);
+      if (!base.length && enBlocks.length) {
+        return enBlocks.map(normalizeBlock);
+      }
+      mergeLanguageBlocks(base, enBlocks, 'en');
+      if (!base.length && (nbHtml || enHtml)) {
+        const fallback = makeBlock('html', false);
+        fallback.code.nb = nbHtml || '';
+        fallback.code.en = enHtml || '';
+        base.push(fallback);
+      }
+      return base.map(normalizeBlock);
+    }
+
+    function resetBuilder(){
+      builder.blocks = [];
+      builder.lang = 'nb';
+      updateLangButtons();
+      renderBlocks();
+    }
+
+    function loadBuilderFromDoc(doc){
+      const sourceBlocks = Array.isArray(doc?.builder?.blocks) ? doc.builder.blocks : null;
+      builder.lang = 'nb';
+      updateLangButtons();
+      if (sourceBlocks && sourceBlocks.length) {
+        builder.blocks = sourceBlocks.map(normalizeBlock);
+      } else {
+        const nb = el.bodyNb?.value || '';
+        const en = el.bodyEn?.value || '';
+        try {
+          builder.blocks = deriveBlocksFromHtml(nb, en);
+        } catch (err) {
+          const fallback = makeBlock('html', false);
+          fallback.code.nb = nb;
+          fallback.code.en = en;
+          builder.blocks = [fallback];
+        }
+      }
+      renderBlocks();
+    }
+
+    function addBlock(type, initial){
+      const block = normalizeBlock(initial || makeBlock(type, true));
+      builder.blocks.push(block);
+      renderBlocks();
+    }
+
+    function removeBlock(index){
+      if (index < 0 || index >= builder.blocks.length) return;
+      builder.blocks.splice(index, 1);
+      renderBlocks();
+    }
+
+    function duplicateBlock(index){
+      const block = builder.blocks[index];
+      if (!block) return;
+      const copy = normalizeBlock({ ...cloneBlock(block), id: makeId() });
+      builder.blocks.splice(index + 1, 0, copy);
+      renderBlocks();
+    }
+
+    function moveBlock(from, to){
+      if (from === to) return;
+      if (from < 0 || from >= builder.blocks.length) return;
+      if (to < 0) to = 0;
+      if (to >= builder.blocks.length) to = builder.blocks.length - 1;
+      const [blk] = builder.blocks.splice(from, 1);
+      builder.blocks.splice(to, 0, blk);
+      renderBlocks();
+    }
+
+    function buildFields(block, container){
+      const lang = builder.lang === 'en' ? 'en' : 'nb';
+      const langLabel = lang === 'en' ? 'English' : 'Norsk';
+      const field = (labelText) => {
+        const wrap = ce('label');
+        wrap.className = 'builder-field';
+        if (labelText) {
+          const span = ce('span');
+          span.textContent = labelText;
+          wrap.append(span);
+        }
+        return wrap;
+      };
+
+      if (block.type === 'heading') {
+        const levelField = field('Nivå');
+        const select = ce('select');
+        ['h1','h2','h3','h4','h5','h6'].forEach(tag => {
+          const opt = ce('option');
+          opt.value = tag;
+          opt.textContent = tag.toUpperCase();
+          if ((block.level || 'h2') === tag) opt.selected = true;
+          select.append(opt);
+        });
+        select.addEventListener('change', () => { block.level = select.value; scheduleSync(); });
+        levelField.append(select);
+        container.append(levelField);
+
+        const alignField = field('Justering');
+        const alignSelect = ce('select');
+        [['left','Venstre'],['center','Midt'],['right','Høyre']].forEach(([value, label]) => {
+          const opt = ce('option');
+          opt.value = value;
+          opt.textContent = label;
+          if ((block.align || 'left') === value) opt.selected = true;
+          alignSelect.append(opt);
+        });
+        alignSelect.addEventListener('change', () => { block.align = alignSelect.value; scheduleSync(); });
+        alignField.append(alignSelect);
+        container.append(alignField);
+
+        const textField = field(`Tekst (${langLabel})`);
+        const input = ce('input');
+        input.type = 'text';
+        input.value = block.text?.[lang] || '';
+        input.addEventListener('input', () => { if (!block.text) block.text = { nb: '', en: '' }; block.text[lang] = input.value; scheduleSync(); });
+        textField.append(input);
+        container.append(textField);
+        return;
+      }
+
+      if (block.type === 'text') {
+        const textField = field(`Tekst (${langLabel})`);
+        const textarea = ce('textarea');
+        textarea.rows = 4;
+        textarea.value = block.text?.[lang] || '';
+        textarea.addEventListener('input', () => { if (!block.text) block.text = { nb: '', en: '' }; block.text[lang] = textarea.value; scheduleSync(); });
+        textField.append(textarea);
+        container.append(textField);
+        const hint = ce('div'); hint.className = 'muted'; hint.textContent = 'Bruk blank linje for å lage nye avsnitt.';
+        container.append(hint);
+        return;
+      }
+
+      if (block.type === 'image') {
+        const srcField = field('Bilde-URL');
+        const srcInput = ce('input');
+        srcInput.type = 'text';
+        srcInput.value = block.src || '';
+        srcInput.addEventListener('input', () => { block.src = srcInput.value.trim(); scheduleSync(); });
+        srcField.append(srcInput);
+        container.append(srcField);
+
+        const altField = field(`Alt-tekst (${langLabel})`);
+        const altInput = ce('input');
+        altInput.type = 'text';
+        altInput.value = block.alt?.[lang] || '';
+        altInput.addEventListener('input', () => { if (!block.alt) block.alt = { nb: '', en: '' }; block.alt[lang] = altInput.value; scheduleSync(); });
+        altField.append(altInput);
+        container.append(altField);
+
+        const capField = field(`Bildetekst (${langLabel})`);
+        const capInput = ce('input');
+        capInput.type = 'text';
+        capInput.value = block.caption?.[lang] || '';
+        capInput.addEventListener('input', () => { if (!block.caption) block.caption = { nb: '', en: '' }; block.caption[lang] = capInput.value; scheduleSync(); });
+        capField.append(capInput);
+        container.append(capField);
+
+        const fullField = field('Full bredde');
+        const chk = ce('input');
+        chk.type = 'checkbox';
+        chk.checked = Boolean(block.fullWidth);
+        chk.addEventListener('change', () => { block.fullWidth = chk.checked; scheduleSync(); });
+        fullField.append(chk);
+        container.append(fullField);
+        return;
+      }
+
+      if (block.type === 'button') {
+        const textField = field(`Tekst (${langLabel})`);
+        const textInput = ce('input');
+        textInput.type = 'text';
+        textInput.value = block.text?.[lang] || '';
+        textInput.addEventListener('input', () => { if (!block.text) block.text = { nb: '', en: '' }; block.text[lang] = textInput.value; scheduleSync(); });
+        textField.append(textInput);
+        container.append(textField);
+
+        const urlField = field('Lenkeadresse (URL)');
+        const urlInput = ce('input');
+        urlInput.type = 'text';
+        urlInput.value = block.url || '';
+        urlInput.addEventListener('input', () => { block.url = urlInput.value.trim(); scheduleSync(); });
+        urlField.append(urlInput);
+        container.append(urlField);
+
+        const styleField = field('Stil');
+        const styleSelect = ce('select');
+        [['primary','Primær'],['secondary','Sekundær'],['link','Lenke']].forEach(([value, label]) => {
+          const opt = ce('option');
+          opt.value = value;
+          opt.textContent = label;
+          if ((block.style || 'primary') === value) opt.selected = true;
+          styleSelect.append(opt);
+        });
+        styleSelect.addEventListener('change', () => { block.style = styleSelect.value; scheduleSync(); });
+        styleField.append(styleSelect);
+        container.append(styleField);
+
+        const newTabField = field('Åpne i ny fane');
+        const chk = ce('input');
+        chk.type = 'checkbox';
+        chk.checked = Boolean(block.newTab);
+        chk.addEventListener('change', () => { block.newTab = chk.checked; scheduleSync(); });
+        newTabField.append(chk);
+        container.append(newTabField);
+        return;
+      }
+
+      if (block.type === 'list') {
+        const typeField = field('Liste-type');
+        const typeSelect = ce('select');
+        [['ul','Punktliste'],['ol','Nummerert liste']].forEach(([value, label]) => {
+          const opt = ce('option');
+          opt.value = value;
+          opt.textContent = label;
+          if ((block.listType || 'ul') === value) opt.selected = true;
+          typeSelect.append(opt);
+        });
+        typeSelect.addEventListener('change', () => { block.listType = typeSelect.value; scheduleSync(); });
+        typeField.append(typeSelect);
+        container.append(typeField);
+
+        const itemsField = field(`Elementer (${langLabel}) – én per linje`);
+        const itemsArea = ce('textarea');
+        itemsArea.rows = 4;
+        itemsArea.value = Array.isArray(block.items?.[lang]) ? block.items[lang].join('\n') : '';
+        itemsArea.addEventListener('input', () => { if (!block.items) block.items = { nb: [], en: [] }; block.items[lang] = itemsArea.value.split(/\n+/).map(v => v.trim()).filter(Boolean); scheduleSync(); });
+        itemsField.append(itemsArea);
+        container.append(itemsField);
+        return;
+      }
+
+      if (block.type === 'columns') {
+        const leftField = field(`Venstre kolonne (${langLabel})`);
+        const leftArea = ce('textarea');
+        leftArea.rows = 4;
+        leftArea.value = block.left?.[lang] || '';
+        leftArea.addEventListener('input', () => { if (!block.left) block.left = { nb: '', en: '' }; block.left[lang] = leftArea.value; scheduleSync(); });
+        leftField.append(leftArea);
+        container.append(leftField);
+
+        const rightField = field(`Høyre kolonne (${langLabel})`);
+        const rightArea = ce('textarea');
+        rightArea.rows = 4;
+        rightArea.value = block.right?.[lang] || '';
+        rightArea.addEventListener('input', () => { if (!block.right) block.right = { nb: '', en: '' }; block.right[lang] = rightArea.value; scheduleSync(); });
+        rightField.append(rightArea);
+        container.append(rightField);
+
+        const stackField = field('Stable på mobil');
+        const stackChk = ce('input');
+        stackChk.type = 'checkbox';
+        stackChk.checked = block.stack !== false;
+        stackChk.addEventListener('change', () => { block.stack = stackChk.checked; scheduleSync(); });
+        stackField.append(stackChk);
+        container.append(stackField);
+        return;
+      }
+
+      if (block.type === 'video') {
+        const urlField = field('Video-URL (YouTube/Vimeo)');
+        const urlInput = ce('input');
+        urlInput.type = 'text';
+        urlInput.value = block.url || '';
+        urlInput.addEventListener('input', () => { block.url = urlInput.value.trim(); scheduleSync(); });
+        urlField.append(urlInput);
+        container.append(urlField);
+
+        const capField = field(`Bildetekst (${langLabel})`);
+        const capInput = ce('input');
+        capInput.type = 'text';
+        capInput.value = block.caption?.[lang] || '';
+        capInput.addEventListener('input', () => { if (!block.caption) block.caption = { nb: '', en: '' }; block.caption[lang] = capInput.value; scheduleSync(); });
+        capField.append(capInput);
+        container.append(capField);
+
+        const aspectField = field('Format');
+        const aspectSelect = ce('select');
+        [['16x9','16:9'],['4x3','4:3'],['1x1','1:1']].forEach(([value, label]) => {
+          const opt = ce('option');
+          opt.value = value;
+          opt.textContent = label;
+          if ((block.aspect || '16x9') === value) opt.selected = true;
+          aspectSelect.append(opt);
+        });
+        aspectSelect.addEventListener('change', () => { block.aspect = aspectSelect.value; scheduleSync(); });
+        aspectField.append(aspectSelect);
+        container.append(aspectField);
+        return;
+      }
+
+      if (block.type === 'contact') {
+        const headField = field(`Overskrift (${langLabel})`);
+        const headInput = ce('input');
+        headInput.type = 'text';
+        headInput.value = block.heading?.[lang] || '';
+        headInput.addEventListener('input', () => { if (!block.heading) block.heading = { nb: '', en: '' }; block.heading[lang] = headInput.value; scheduleSync(); });
+        headField.append(headInput);
+        container.append(headField);
+
+        const introField = field(`Intro (${langLabel})`);
+        const introArea = ce('textarea');
+        introArea.rows = 4;
+        introArea.value = block.intro?.[lang] || '';
+        introArea.addEventListener('input', () => { if (!block.intro) block.intro = { nb: '', en: '' }; block.intro[lang] = introArea.value; scheduleSync(); });
+        introField.append(introArea);
+        container.append(introField);
+
+        const successField = field(`Suksessmelding (${langLabel})`);
+        const successInput = ce('input');
+        successInput.type = 'text';
+        successInput.value = block.success?.[lang] || '';
+        successInput.addEventListener('input', () => { if (!block.success) block.success = { nb: '', en: '' }; block.success[lang] = successInput.value; scheduleSync(); });
+        successField.append(successInput);
+        container.append(successField);
+
+        const recField = field('Mottaker e-post');
+        const recInput = ce('input');
+        recInput.type = 'email';
+        recInput.placeholder = 'kontakt@firma.no';
+        recInput.value = block.recipient || '';
+        recInput.addEventListener('input', () => { block.recipient = recInput.value.trim(); scheduleSync(); });
+        recField.append(recInput);
+        container.append(recField);
+
+        const phoneField = field('Inkluder telefonfelt');
+        const phoneChk = ce('input');
+        phoneChk.type = 'checkbox';
+        phoneChk.checked = block.showPhone !== false;
+        phoneChk.addEventListener('change', () => { block.showPhone = phoneChk.checked; scheduleSync(); });
+        phoneField.append(phoneChk);
+        container.append(phoneField);
+        return;
+      }
+
+      const codeField = field(`HTML (${langLabel})`);
+      const codeArea = ce('textarea');
+      codeArea.rows = 6;
+      codeArea.value = block.code?.[lang] || '';
+      codeArea.addEventListener('input', () => { if (!block.code) block.code = { nb: '', en: '' }; block.code[lang] = codeArea.value; scheduleSync(); });
+      codeField.append(codeArea);
+      container.append(codeField);
+      const note = ce('div'); note.className = 'muted'; note.textContent = 'HTML-blokken rendres som skrevet. Bruk med forsiktighet.';
+      container.append(note);
+    }
+
+    function createBlockElement(block, index){
+      const wrap = ce('div');
+      wrap.className = 'builder-block';
+      wrap.draggable = true;
+      wrap.dataset.index = String(index);
+
+      const head = ce('div');
+      head.className = 'block-head';
+      const titleWrap = ce('div');
+      titleWrap.className = 'block-title';
+      const drag = ce('span');
+      drag.className = 'builder-drag';
+      drag.textContent = '☰';
+      const label = ce('span');
+      label.textContent = blockLabels[block.type] || block.type;
+      titleWrap.append(drag, label);
+      head.append(titleWrap);
+
+      const actions = ce('div');
+      actions.className = 'block-actions';
+      const up = ce('button'); up.type = 'button'; up.textContent = '↑'; up.addEventListener('click', () => moveBlock(index, index - 1));
+      const down = ce('button'); down.type = 'button'; down.textContent = '↓'; down.addEventListener('click', () => moveBlock(index, index + 1));
+      const dup = ce('button'); dup.type = 'button'; dup.textContent = 'Dupliser'; dup.addEventListener('click', () => duplicateBlock(index));
+      const del = ce('button'); del.type = 'button'; del.textContent = 'Slett'; del.addEventListener('click', () => removeBlock(index));
+      actions.append(up, down, dup, del);
+      head.append(actions);
+      wrap.append(head);
+
+      const fields = ce('div');
+      fields.className = 'builder-fields';
+      buildFields(block, fields);
+      wrap.append(fields);
+
+      wrap.addEventListener('dragstart', (e) => {
+        draggingIndex = index;
+        wrap.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', String(index));
+      });
+      wrap.addEventListener('dragend', () => {
+        draggingIndex = null;
+        wrap.classList.remove('dragging');
+        if (el.builderDrop) el.builderDrop.classList.remove('active');
+      });
+      wrap.addEventListener('dragover', (e) => {
+        if (draggingIndex === null) return;
+        e.preventDefault();
+        wrap.classList.add('drag-over');
+      });
+      wrap.addEventListener('dragleave', () => {
+        wrap.classList.remove('drag-over');
+      });
+      wrap.addEventListener('drop', (e) => {
+        if (draggingIndex === null) return;
+        e.preventDefault();
+        wrap.classList.remove('drag-over');
+        const rect = wrap.getBoundingClientRect();
+        const dropAfter = (e.clientY - rect.top) > rect.height / 2;
+        let insertIndex = index + (dropAfter ? 1 : 0);
+        if (draggingIndex < insertIndex) insertIndex -= 1;
+        if (insertIndex < 0) insertIndex = 0;
+        const [blk] = builder.blocks.splice(draggingIndex, 1);
+        builder.blocks.splice(insertIndex, 0, blk);
+        draggingIndex = null;
+        renderBlocks();
+      });
+
+      return wrap;
+    }
+
+    function renderBlocks(){
+      if (!el.builderList) return;
+      const items = builder.blocks.map((block, index) => createBlockElement(block, index));
+      el.builderList.replaceChildren(...items);
+      if (el.builderEmpty) el.builderEmpty.classList.toggle('hidden', builder.blocks.length > 0);
+      if (el.builderDrop) el.builderDrop.classList.toggle('hidden', builder.blocks.length === 0);
+      updateBodiesFromBuilder();
+    }
+
+    if (el.builderAdd){
+      el.builderAdd.addEventListener('click', (e) => {
+        const btn = e.target.closest('.builder-add-btn');
+        if (!btn) return;
+        e.preventDefault();
+        addBlock(btn.dataset.type);
+      });
+    }
+
+    builderLangBtns.forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        setBuilderLang(btn.dataset.lang);
+      });
+    });
+
+    if (el.builderDrop){
+      el.builderDrop.addEventListener('dragover', (e) => {
+        if (draggingIndex === null) return;
+        e.preventDefault();
+        el.builderDrop.classList.add('active');
+      });
+      el.builderDrop.addEventListener('dragleave', () => {
+        el.builderDrop.classList.remove('active');
+      });
+      el.builderDrop.addEventListener('drop', (e) => {
+        if (draggingIndex === null) return;
+        e.preventDefault();
+        el.builderDrop.classList.remove('active');
+        const [blk] = builder.blocks.splice(draggingIndex, 1);
+        builder.blocks.push(blk);
+        draggingIndex = null;
+        renderBlocks();
+      });
+    }
+
+    updateLangButtons();
+    renderBlocks();
 
     function setMsg(t){ el.msg.textContent = t || ''; }
     function setEditMsg(t){ el.editMsg.textContent = t || ''; }
@@ -1592,7 +2790,8 @@ ord_456"></textarea>
             await loadPages();
           }catch{ setMsg('Publisering feilet.'); }
         };
-        bPrev.onclick = ()=> window.open(`/${p.slug}`, '_blank');
+        const previewUrl = p.previewUrl || (p.slug === 'index' ? '/' : `/${p.slug.replace(/^\/+/, '')}`);
+        bPrev.onclick = ()=> window.open(previewUrl, '_blank');
         bDel.onclick = async ()=>{
           if(!confirm(`Slette side /${p.slug}?`)) return;
           setMsg('Sletter …');
@@ -1625,12 +2824,14 @@ ord_456"></textarea>
     function openEditor(slug){
       if(!slug){
         editingId = null;
+        editingSource = null;
         el.editorTitle.textContent = 'Ny side';
         el.slug.value=''; el.statusEdit.value='draft'; el.scheduleAt.value=''; el.org.value='';
         el.titleNb.value=''; el.titleEn.value='';
         el.bodyNb.value=''; el.bodyEn.value='';
         el.seoTitle.value=''; el.seoDesc.value=''; el.seoOg.value=''; el.seoCanonical.value='';
         el.menuShow.value='true'; el.menuOrder.value='10';
+        resetBuilder();
         setEditMsg('');
         el.editor.classList.remove('hidden');
         return;
@@ -1638,6 +2839,7 @@ ord_456"></textarea>
       setMsg('Åpner side …');
       apiGet(API.get, { slug }).then(p=>{
         editingId = slug;
+        editingSource = p.source || null;
         el.editorTitle.textContent = `Rediger: /${slug}`;
         el.slug.value = p.slug || slug;
         el.statusEdit.value = p.status || 'draft';
@@ -1653,6 +2855,7 @@ ord_456"></textarea>
         el.seoCanonical.value = p.seo?.canonical || '';
         el.menuShow.value = String(p.menu?.show ?? true);
         el.menuOrder.value = Number(p.menu?.order ?? 10);
+        loadBuilderFromDoc(p);
         setEditMsg('');
         el.editor.classList.remove('hidden');
         setMsg('');
@@ -1660,6 +2863,7 @@ ord_456"></textarea>
     }
 
     function collectPage(statusOverride){
+      updateBodiesFromBuilder();
       const scheduleValue = el.scheduleAt.value ? new Date(el.scheduleAt.value).toISOString() : null;
       return {
         slug: (el.slug.value || '').trim(),
@@ -1669,7 +2873,9 @@ ord_456"></textarea>
         title: { nb: el.titleNb.value || '', en: el.titleEn.value || '' },
         body:  { nb: el.bodyNb.value  || '', en: el.bodyEn.value  || '' },
         seo:   { title: el.seoTitle.value || '', description: el.seoDesc.value || '', ogImage: el.seoOg.value || '', canonical: el.seoCanonical.value || '' },
-        menu:  { show: el.menuShow.value === 'true', order: Number(el.menuOrder.value || 10) }
+        menu:  { show: el.menuShow.value === 'true', order: Number(el.menuOrder.value || 10) },
+        builder: { version: 1, blocks: builder.blocks.map(cloneBlock) },
+        source: editingSource || null
       };
     }
 
@@ -1705,7 +2911,8 @@ ord_456"></textarea>
     el.preview.addEventListener('click', ()=>{
       const slug = (el.slug.value||'').trim();
       if(!slug) { setEditMsg('Sett slug først.'); return; }
-      window.open(`/${slug}`, '_blank');
+      const url = slug === 'index' ? '/' : `/${slug.replace(/^\/+/, '')}`;
+      window.open(url, '_blank');
     });
     el.close.addEventListener('click', ()=> el.editor.classList.add('hidden'));
 
@@ -1721,8 +2928,8 @@ ord_456"></textarea>
       const lbl = ce('input'); lbl.type='text'; lbl.value=item.label||''; lbl.placeholder='Label';
       const href= ce('input'); href.type='text'; href.value=item.href||''; href.placeholder='/bestill-kort';
       const controls = ce('div'); controls.style.display='flex'; controls.style.gap='6px';
-      const up = ce('button'); up.className='tab-btn'; up.textContent='â†‘';
-      const down = ce('button'); down.className='tab-btn'; down.textContent='â†“';
+      const up = ce('button'); up.className='tab-btn'; up.textContent='↑';
+      const down = ce('button'); down.className='tab-btn'; down.textContent='↓';
       const del = ce('button'); del.className='tab-btn'; del.textContent='Slett';
 
       up.onclick = ()=> move(idx, -1);
@@ -2202,7 +3409,7 @@ ord_456"></textarea>
 
       // Stripe-info
       const s = d.stripe||{};
-      el.stripe.textContent = `PI: ${s.paymentIntent||'—'}  â€¢  Charge: ${s.charge||'—'}  â€¢  Customer: ${s.customerId||'—'}`;
+      el.stripe.textContent = `PI: ${s.paymentIntent||'—'}  •  Charge: ${s.charge||'—'}  •  Customer: ${s.customerId||'—'}`;
 
       el.drawer.classList.remove('hidden');
       el.editMsg.textContent='';
@@ -2254,7 +3461,7 @@ ord_456"></textarea>
     try{
       await post(API.refund, { id: currentId });
       el.editMsg.textContent='Refundert.';
-      await loadOrders(); // status â†’ refunded
+      await loadOrders(); // status → refunded
     }catch(e){ el.editMsg.textContent='Refund feilet.'; }
   }
 
@@ -2421,7 +3628,7 @@ ord_456"></textarea>
       const d = await get(API.get, { id });
       currentBatch = id;
       el.title.textContent = `Batch #${id}`;
-      el.meta.textContent = `${d.status} â€¢ ${d.count||d.orderIds?.length||0} kort â€¢ Opprettet ${fmt(d.createdAt)}`;
+      el.meta.textContent = `${d.status} • ${d.count||d.orderIds?.length||0} kort • Opprettet ${fmt(d.createdAt)}`;
       el.stEng.textContent = d.stats?.engrave ?? 0;
       el.stEnc.textContent = d.stats?.encode ?? 0;
       el.stVer.textContent = d.stats?.verify ?? 0;
@@ -2507,299 +3714,147 @@ ord_456"></textarea>
 })();
 </script>
 
+
   <script>
+  (function(){
     const auth = firebase.auth();
+    const SUPERADMIN_EMAILS = new Set(['trygve.waagen@gmail.com']);
+    const main = document.getElementById('superadminMain');
+    const gate = document.getElementById('accessGate');
+    const gateRole = document.getElementById('accessRole');
+
+    function enforceAccess(role){
+      const allowed = role === 'superadmin';
+      if (main) main.classList.toggle('hidden', !allowed);
+      if (gate) gate.classList.toggle('hidden', allowed);
+      if (gateRole) gateRole.textContent = role || 'ingen';
+    }
+
+    (function patchFetch(){
+      if (window.__nfckingFetchPatched) return;
+      window.__nfckingFetchPatched = true;
+      const originalFetch = window.fetch.bind(window);
+      window.fetch = async (input, init = {}) => {
+        const url = typeof input === 'string' ? input : (input && input.url) || '';
+        const isFunctionCall = /^\/\.netlify\/functions\//.test(url);
+        if (isFunctionCall) {
+          try {
+            const user = auth.currentUser;
+            if (user) {
+              const token = await user.getIdToken(true);
+              const headers = new Headers(init.headers || (typeof Request !== 'undefined' && input instanceof Request ? input.headers : undefined) || {});
+              if (!headers.has('Authorization')) {
+                headers.set('Authorization', `Bearer ${token}`);
+              }
+              const body = init.body;
+              const isFormData = typeof FormData !== 'undefined' && body instanceof FormData;
+              if (body && !isFormData && !headers.has('Content-Type')) {
+                headers.set('Content-Type', 'application/json');
+              }
+              init.headers = headers;
+            }
+          } catch (err) {
+            console.warn('Kunne ikke hente ID-token for fetch', err);
+          }
+        }
+        return originalFetch(input, init);
+      };
+    })();
 
     async function refreshIdToken(user) {
-      if (!user) { localStorage.removeItem("nfcking.idToken"); return null; }
+      if (!user) {
+        localStorage.removeItem('nfcking.idToken');
+        return null;
+      }
       const token = await user.getIdToken(true);
-      localStorage.setItem("nfcking.idToken", token);
+      localStorage.setItem('nfcking.idToken', token);
       return token;
     }
 
-    
-    auth.onIdTokenChanged(async (user) => {
-      const status = document.getElementById("loginStatus");
-      const btnIn  = document.getElementById("btnLogin");
-      const btnOut = document.getElementById("btnLogout");
-      const ubText = document.getElementById("ubText");
-      const ubDot  = document.getElementById("ubDot");
-
-      if (user) {
-        const tok = await refreshIdToken(user);
-        let role = localStorage.getItem('nfcking.role') || 'owner';
-        if (status) status.textContent = `Innlogget: ${user.email || "ukjent"}`;
-        if (ubText) ubText.textContent = `${user.email || "ukjent"} (${role})`;
-        if (ubDot) ubDot.classList.add('ok');
-        if (btnIn) btnIn.classList.add("hidden");
-        if (btnOut) btnOut.classList.remove("hidden");
-      } else {
-        if (status) status.textContent = "Ikke innlogget";
-        if (ubText) ubText.textContent = "Ikke innlogget";
-        if (ubDot) ubDot.classList.remove('ok');
-        if (btnIn) btnIn.classList.remove("hidden");
-        if (btnOut) btnOut.classList.add("hidden");
+    function updateBadge(user, role = 'viewer') {
+      const badgeText = document.getElementById('ubText');
+      const badgeDot = document.getElementById('ubDot');
+      if (badgeText) {
+        badgeText.textContent = user ? `${user.email || 'ukjent'} (${role})` : 'Ikke innlogget';
       }
-    });
-    const btnIn  = document.getElementById("btnLogin");
-      const btnOut = document.getElementById("btnLogout");
-      if (user) {
-        await refreshIdToken(user);
-        status.textContent = `Innlogget: ${user.email || "ukjent"}`;
-        btnIn.classList.add("hidden");
-        btnOut.classList.remove("hidden");
-      } else {
-        status.textContent = "Ikke innlogget";
-        btnIn.classList.remove("hidden");
-        btnOut.classList.add("hidden");
+      if (badgeDot) {
+        if (user) badgeDot.classList.add('ok');
+        else badgeDot.classList.remove('ok');
       }
-    });
+    }
 
-    async async async function doLogin(){
-      const email = prompt("E-post:"); if (!email) return;
-      const password = prompt("Passord:"); if (!password) return;
+    auth.onAuthStateChanged(async (user) => {
+      const btnLogin = document.getElementById('btnLogin');
+      const btnLogout = document.getElementById('btnLogout');
+
+      if (!user) {
+        updateBadge(null);
+        btnLogin?.classList.remove('hidden');
+        btnLogout?.classList.add('hidden');
+        localStorage.removeItem('nfcking.role');
+        localStorage.removeItem('nfcking.userName');
+        localStorage.removeItem('nfcking.idToken');
+        enforceAccess(null);
+        return;
+      }
+
+      await refreshIdToken(user);
+      let role = 'viewer';
       try {
+        const result = await user.getIdTokenResult(true);
+        role = result.claims?.role || 'viewer';
+        localStorage.setItem('nfcking.role', role);
+      } catch (err) {
+        console.warn('Kunne ikke lese rolle-claim', err);
+      }
+      const emailLower = (user.email || '').toLowerCase();
+      if (emailLower && SUPERADMIN_EMAILS.has(emailLower)) {
+        role = 'superadmin';
+        localStorage.setItem('nfcking.role', role);
+      }
+      localStorage.setItem('nfcking.userName', user.email || user.displayName || '');
+
+      updateBadge(user, role);
+      btnLogin?.classList.add('hidden');
+      btnLogout?.classList.remove('hidden');
+      enforceAccess(role);
+    });
+
+    async function doLogin(){
+      try {
+        const email = prompt('E-post:');
+        if (!email) return;
+        const password = prompt('Passord:');
+        if (!password) return;
         await auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
         await auth.signInWithEmailAndPassword(email.trim(), password);
-        alert("Innlogget ✅");
-      } catch (err) { alert("Innlogging feilet: " + err.message); }
+        alert('Innlogget ✅');
+      } catch (err) {
+        alert('Innlogging feilet: ' + (err?.message || err));
+      }
     }
 
-    async async async function doLogout(){
-      try { await auth.signOut(); alert("Logget ut"); }
-      catch (err) { alert("Utlogging feilet: " + err.message); }
+    async function doLogout(){
+      try {
+        await auth.signOut();
+        alert('Logget ut');
+      } catch (err) {
+        alert('Utlogging feilet: ' + (err?.message || err));
+      }
     }
 
-    document.addEventListener("DOMContentLoaded", () => {
-      const li = document.getElementById("btnLogin");
-      const lo = document.getElementById("btnLogout");
-      if (li) li.addEventListener("click", doLogin);
-      if (lo) lo.addEventListener("click", doLogout);
+    document.addEventListener('DOMContentLoaded', () => {
+      const btnLogin = document.getElementById('btnLogin');
+      const btnLogout = document.getElementById('btnLogout');
+      btnLogin?.addEventListener('click', (ev) => { ev.preventDefault(); doLogin(); });
+      btnLogout?.addEventListener('click', (ev) => { ev.preventDefault(); doLogout(); });
     });
 
-    // Eksponer globalt hvis noe i HTML bruker onclick
-    window.doLogin  = doLogin;
+    window.doLogin = doLogin;
     window.doLogout = doLogout;
+  })();
   </script>
-  <!-- auto auth header for Netlify Functions -->
-  <script>
-    (function(){
-      if (window.__nfckingFetchPatched) return; // idempotent
-      window.__nfckingFetchPatched = true;
 
-      const origFetch = window.fetch.bind(window);
-
-      window.fetch = async function(input, init){
-        try{
-          const url = (typeof input === "string") ? input : (input && input.url) || "";
-          const isFn = url.startsWith("/.netlify/functions/");
-
-          if (isFn) {
-            const t = localStorage.getItem("nfcking.idToken") || "";
-            init = init || {};
-            // Normaliser headers
-            const hdrs = new Headers(init.headers || (input && input.headers) || {});
-            if (t && !hdrs.has("Authorization")) hdrs.set("Authorization", "Bearer " + t);
-
-            // Sett Content-Type automatisk for ikke-GET (hvis ikke FormData)
-            const method = (init.method || (input && input.method) || "GET").toUpperCase();
-            const isForm = (init && init.body && typeof FormData !== "undefined" && init.body instanceof FormData);
-            if (method !== "GET" && !isForm && !hdrs.has("Content-Type")) {
-              hdrs.set("Content-Type", "application/json");
-            }
-            init.headers = hdrs;
-          }
-        }catch(e){ /* stille */ }
-        return origFetch(input, init);
-      };
-    })();
-  </script>
-  <style>
-  .invite-status{margin-top:8px;font-size:.9rem;opacity:.95}
-  .invite-status.ok{color:#21c36a}
-  .invite-status.err{color:#ff6b6b}
-</style>
-
-<!-- Wire "Send invitasjon" til serverless users-invite + visuell feedback -->
-<script>
-(function(){
-  const $ = (s,r=document)=>r.querySelector(s);
-
-  // Finn knappen enten via id/klasse eller ved tekst
-  function findInviteBtn(){
-    const byId = $('#umInvite');
-    if (byId) return byId;
-    const all = Array.from(document.querySelectorAll('button, [role="button"], a'));
-    return all.find(b => (b.textContent||'').trim().toLowerCase() === 'send invitasjon');
-  }
-
-  // Finn feltene i samme seksjon som knappen
-  function getFields(scope){
-    const email = scope.querySelector('#umNewEmail, input[type="email"], input[placeholder*="E-post" i]');
-    const name  = scope.querySelector('#umNewName, input[name*="name" i], input[id*="name" i]');
-    const role  = scope.querySelector('#umNewRole, select');
-    return { email, name, role };
-  }
-
-  // Lag/returnér en status-linje rett under knapperaden
-  function ensureStatus(container){
-    let s = container.querySelector('.invite-status');
-    if (!s) {
-      s = document.createElement('div');
-      s.className = 'invite-status';
-      container.appendChild(s);
-    }
-    s.classList.remove('ok','err');
-    return s;
-  }
-
-  async function sendInvite(payload){
-    const res = await fetch('/.netlify/functions/users-invite', {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify(payload)
-    });
-    const text = await res.text().catch(()=> '');
-    let data;
-    try { data = JSON.parse(text); } catch { data = { ok:false, error:text||res.statusText }; }
-    if (!res.ok || data.ok === false) {
-      const msg = (data && (data.error||data.message)) || text || ('HTTP '+res.status);
-      throw new Error(msg);
-    }
-    return data;
-  }
-
-  function wire(){
-    const btn = findInviteBtn();
-    if (!btn || btn.__wiredInvite) return;
-    btn.__wiredInvite = true;
-
-    btn.addEventListener('click', async (e)=>{
-      e.preventDefault();
-      const scope = btn.closest('section,form,div') || document;
-      const { email, name, role } = getFields(scope);
-      const s = ensureStatus(btn.parentElement || scope);
-
-      const vEmail = (email && email.value || '').trim();
-      const vName  = (name  && name.value  || '').trim();
-      const vRole  = (role  && role.value  || 'viewer').trim();
-
-      if (!vEmail){ s.textContent = 'Skriv inn e-post først.'; s.classList.add('err'); return; }
-
-      btn.disabled = true;
-      const prev = btn.textContent;
-      btn.textContent = 'Sender…';
-      s.textContent = 'Sender invitasjon…';
-
-      try{
-        const r = await sendInvite({ email: vEmail, displayName: vName, role: vRole });
-        s.textContent = r.emailSent ? '✅ Invitasjon sendt!' : '✅ Lenke generert (men e-post ikke bekreftet sendt).';
-        s.classList.add('ok');
-      }catch(err){
-        s.textContent = 'Feil: ' + (err.message || 'ukjent feil');
-        s.classList.add('err');
-      }finally{
-        btn.disabled = false;
-        btn.textContent = prev;
-      }
-    });
-  }
-
-  document.addEventListener('DOMContentLoaded', wire);
-})();
-</script>
-
-<style>
-  .invite-status{margin-top:8px;font-size:.9rem;opacity:.95}
-  .invite-status.ok{color:#21c36a}
-  .invite-status.err{color:#ff6b6b}
-</style>
-
-<!-- users-invite wiring (robust, anker på knappetekst) -->
-<script>
-(function(){
-  const $ = (s,r=document)=>r.querySelector(s);
-
-  function findInviteBtn(){
-    const byId = $('#umInvite');
-    if (byId) return byId;
-    const all = Array.from(document.querySelectorAll('button, [role="button"], a'));
-    return all.find(b => (b.textContent||'').trim().toLowerCase() === 'send invitasjon');
-  }
-
-  function getFields(scope){
-    const email = scope.querySelector('#umNewEmail, input[type="email"], input[placeholder*="E-post" i]');
-    const name  = scope.querySelector('#umNewName, input[name*="name" i], input[id*="name" i]');
-    const role  = scope.querySelector('#umNewRole, select');
-    return { email, name, role };
-  }
-
-  function ensureStatus(container){
-    let s = container.querySelector('.invite-status');
-    if (!s) {
-      s = document.createElement('div');
-      s.className = 'invite-status';
-      container.appendChild(s);
-    }
-    s.classList.remove('ok','err');
-    return s;
-  }
-
-  async function sendInvite(payload){
-    const res = await fetch('/.netlify/functions/users-invite', {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify(payload)
-    });
-    const text = await res.text().catch(()=> '');
-    let data;
-    try { data = JSON.parse(text); } catch { data = { ok:false, error:text||res.statusText }; }
-    if (!res.ok || data.ok === false) {
-      const msg = (data && (data.error||data.message)) || text || ('HTTP '+res.status);
-      throw new Error(msg);
-    }
-    return data;
-  }
-
-  function wire(){
-    const btn = findInviteBtn();
-    if (!btn || btn.__wiredInvite) return;
-    btn.__wiredInvite = true;
-
-    btn.addEventListener('click', async (e)=>{
-      e.preventDefault();
-      const scope = btn.closest('section,form,div') || document;
-      const { email, name, role } = getFields(scope);
-      const s = ensureStatus(btn.parentElement || scope);
-
-      const vEmail = (email && email.value || '').trim();
-      const vName  = (name  && name.value  || '').trim();
-      const vRole  = (role  && role.value  || 'viewer').trim();
-
-      if (!vEmail){ s.textContent = 'Skriv inn e-post først.'; s.classList.add('err'); return; }
-
-      btn.disabled = true;
-      const prev = btn.textContent;
-      btn.textContent = 'Sender…';
-      s.textContent = 'Sender invitasjon…';
-
-      try{
-        const r = await sendInvite({ email: vEmail, displayName: vName, role: vRole });
-        s.textContent = r.emailSent ? '✅ Invitasjon sendt!' : '✅ Lenke generert (men e-post ikke bekreftet sendt).';
-        s.classList.add('ok');
-      }catch(err){
-        s.textContent = 'Feil: ' + (err.message || 'ukjent feil');
-        s.classList.add('err');
-      }finally{
-        btn.disabled = false;
-        btn.textContent = prev;
-      }
-    });
-  }
-
-  document.addEventListener('DOMContentLoaded', wire);
-})();
-</script>
 </body>
 </html>
 
