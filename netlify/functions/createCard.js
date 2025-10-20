@@ -1,6 +1,8 @@
 // netlify/functions/createCard.js
 // Skyver vCard/HTML/data til GitHub Pages repo. Ingen Firebase kreves.
 
+const { encodePath } = require('./_lib/github');
+
 exports.handler = async (event) => {
   try {
     if (event.httpMethod !== "POST") {
@@ -40,7 +42,7 @@ exports.handler = async (event) => {
     // Hjelper: finn SHA hvis fil finnes
     async function getSha(path) {
       const res = await fetch(
-        `https://api.github.com/repos/${owner}/${repo}/contents/${encodeURIComponent(path)}?ref=${branch}`,
+        `https://api.github.com/repos/${owner}/${repo}/contents/${encodePath(path)}?ref=${branch}`,
         { headers: { Authorization: `token ${token}`, Accept: "application/vnd.github+json" } }
       );
       if (res.status === 404) return null;
@@ -62,7 +64,7 @@ exports.handler = async (event) => {
       };
 
       const put = await fetch(
-        `https://api.github.com/repos/${owner}/${repo}/contents/${encodeURIComponent(fullPath)}`,
+        `https://api.github.com/repos/${owner}/${repo}/contents/${encodePath(fullPath)}`,
         {
           method: "PUT",
           headers: { Authorization: `token ${token}`, Accept: "application/vnd.github+json" },
