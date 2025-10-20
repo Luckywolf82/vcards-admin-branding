@@ -3,6 +3,7 @@ const { db } = require('./_lib/firebaseAdmin');
 const { json, badRequest, serverError } = require('./_lib/http');
 const { requireRole } = require('./_lib/authz');
 const { deleteFile } = require('./_lib/github');
+const { slugToPath } = require('./_lib/pages');
 
 exports.handler = async (event) => {
   try {
@@ -17,10 +18,13 @@ exports.handler = async (event) => {
     await db.collection('pages').doc(slug).delete().catch(()=> null);
 
     // (Valgfritt) forsøk å slette publisert fil
-    try {
-      await deleteFile({ path: `${slug}/index.html`, message: `delete page: ${slug}` });
-    } catch (e) {
-      console.warn('GitHub delete failed (ok to ignore):', e.message);
+    const path = slugToPath(slug);
+    if (path) {
+      try {
+        await deleteFile({ path, message: `delete page: ${slug}` });
+      } catch (e) {
+        console.warn('GitHub delete failed (ok to ignore):', e.message);
+      }
     }
 
     return json({ ok: true, slug });
