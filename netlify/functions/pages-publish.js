@@ -3,6 +3,7 @@ const { db } = require('./_lib/firebaseAdmin');
 const { json, badRequest, serverError } = require('./_lib/http');
 const { requireRole } = require('./_lib/authz');
 const { commitFile, BRANCH } = require('./_lib/github');
+const { slugToPath, slugPreviewUrl } = require('./_lib/pages');
 
 function htmlTemplate({ title, desc, bodyHtml, og, canonical }) {
   const pageTitle = title || 'NFCKING';
@@ -45,12 +46,13 @@ exports.handler = async (event) => {
     const title = d.seo?.title || d.title?.nb || d.title?.en || slug;
     const desc  = d.seo?.description || '';
     const og    = d.seo?.ogImage || '';
-    const canonical = d.seo?.canonical || `/${slug}`;
+    const canonical = d.seo?.canonical || slugPreviewUrl(slug);
     const bodyHtml = d.body?.nb || d.body?.en || '<main><h1>Mangler innhold</h1></main>';
 
     const html = htmlTemplate({ title, desc, bodyHtml, og, canonical });
 
-    const path = `${slug}/index.html`;
+    const path = slugToPath(slug);
+    if (!path) return badRequest('invalid slug');
     await commitFile({
       path,
       content: html,
