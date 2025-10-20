@@ -1783,6 +1783,12 @@
         return 'Du har ikke tildelte organisasjoner. Kontakt administrator.';
       }
 
+      Object.assign(window, {
+        hasOrgAccess,
+        describeAccess,
+        setOrgAccessMessage,
+      });
+
       function enforceOrgSelection(){
         const orgInput = $('orgKey');
         const orgSelect = $('orgSelect');
@@ -1848,18 +1854,6 @@
           } else {
             visible = fetched;
             fallbackAll = true;
-          }
-
-          window.ORG_PROFILES = visible;
-          if (fallbackAll) {
-            orgAccessState.set(Object.keys(visible), false);
-            setOrgAccessMessage(
-              Object.keys(visible).length
-                ? 'Ingen tildelte organisasjoner funnet – viser alle tilgjengelige for nå.'
-                : 'Ingen organisasjoner funnet.'
-            );
-          } else {
-            setOrgAccessMessage(describeAccess(visible));
           }
 
           window.ORG_PROFILES = visible;
