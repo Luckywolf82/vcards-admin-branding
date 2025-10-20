@@ -251,8 +251,11 @@
       </label>
     </div>
 
-    <button id="generate">Generer & Publiser</button>
-    <span id="status"></span>
+    <div class="inline" style="gap:10px;align-items:center;margin:12px 0;flex-wrap:wrap">
+      <button type="button" id="btnGenerate" class="pill">Generer</button>
+      <button type="button" id="btnPublish" class="pill">Publiser</button>
+      <span id="status" class="note"></span>
+    </div>
 
     <h3>Resultat</h3>
     <p>NFC-URL: <input id="nfcUrl" style="width:100%" readonly></p>
@@ -842,56 +845,147 @@
       });
     </script>
 
-    <!-- vCard/HTML + helpers -->
+    <!-- Generer & Publiser + Live preview + NFC -->
     <script>
-      function normalizePhone(p){ p=(p||'').trim(); if(!p) return p; if(p.startsWith('0')&&!p.startsWith('+')){ if(p.length<=8) return '+47'+p.replace(/^0+/, ''); } return p; }
-      function makeVcard(d){
-        const parts = d.name.trim().split(' ');
-        const first = parts[0]||''; const last = parts.length>1?parts[parts.length-1]:'';
-        const phone = normalizePhone(d.phone||'');
-        return ['BEGIN:VCARD','VERSION:3.0',`FN:${d.name}`,`N:${last};${first};;;`,`ORG:${d.orgName||d.orgKey}`,`TITLE:${d.title||''}`,`TEL;TYPE=CELL:${phone}`,`EMAIL;TYPE=INTERNET:${d.email||''}`,`URL:${d.site||''}`,`ADR;TYPE=WORK:;;${d.address||''}`,'END:VCARD'].join('\n');
-      }
-      const esc = s => (s||'').replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
-      function makeLinksHTML(links){
-        if(!links.length) return '';
-        return links.map(l=>{
-          const pre  = l.pre  ? `<div class="pre"  style="margin:8px 0 4px;color:#bfc8d6">${esc(l.pre)}</div>` : '';
-          const post = l.post ? `<div class="post" style="margin:4px 0 10px;color:#97a3b6;font-size:.95rem">${esc(l.post)}</div>` : '';
-          return `<div class="link-block" style="margin-top:10px">${pre}<a class="btn" href="${esc(l.url)}" target="_blank" rel="noopener">${esc(l.label)}</a>${post}</div>`;
-        }).join('');
-      }
-      function makeDownloadsHTML(attachments){
-        attachments = attachments || [];
-        if (!attachments.length) return '';
-        const rows = attachments.map(a=>{
-          if (typeof a === 'string') {
-            const name = a.split('/').pop();
-            const href = `./files/${encodeURIComponent(name)}`;
-            return `<li><a class="btn" href="${href}" download rel="noopener">${esc(name)}</a></li>`;
+      (function(){
+        const DEFAULT_OWNER = 'Luckywolf82';
+        const DEFAULT_REPO = 'Vcards';
+        const DEFAULT_BASE_PATH = 'Vcards';
+
+        const state = { html: '', vcf: '', data: null };
+
+        const $status = document.getElementById('status');
+        const $htmlPreview = document.getElementById('htmlPreview');
+        const $vcfPreview = document.getElementById('vcfPreview');
+        const $htmlUrl = document.getElementById('htmlUrl');
+        const $nfcUrl = document.getElementById('nfcUrl');
+        const $inlineNfc = document.getElementById('nfcInline');
+        const $generate = document.getElementById('btnGenerate');
+        const $publish = document.getElementById('btnPublish');
+
+        const HTML_ESCAPE = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+        const escapeHtml = (str = '') => String(str).replace(/[&<>"']/g, c => HTML_ESCAPE[c] || c);
+
+        const trimSlashes = (s = '') => s.replace(/^\/+|\/+$/g, '');
+        const getVal = (id) => (document.getElementById(id)?.value || '').trim();
+        const setVal = (id, value) => { const el = document.getElementById(id); if (el) el.value = value; };
+
+        function ensureUrlControls(id, label){
+          const input = document.getElementById(id);
+          if (!input) return;
+          if (input.nextSibling?.classList?.contains('url-actions')) return;
+          const wrap = document.createElement('span');
+          wrap.className = 'url-actions';
+          wrap.innerHTML = `<button type="button" class="pill" data-act="copy">Kopier ${label}</button>`+
+            `<button type="button" class="pill" data-act="open">Åpne</button>`;
+          input.after(wrap);
+          wrap.addEventListener('click', (e)=>{
+            const btn = e.target.closest('button[data-act]');
+            if (!btn) return;
+            const val = input.value.trim();
+            if (!val) return;
+            if (btn.dataset.act === 'copy') navigator.clipboard?.writeText(val);
+            if (btn.dataset.act === 'open') window.open(val, '_blank', 'noopener');
+          });
+        }
+        window.ensureUrlControls = window.ensureUrlControls || ensureUrlControls;
+
+        function normalizePhone(p){
+          p = (p || '').trim();
+          if (!p) return p;
+          if (p.startsWith('0') && !p.startsWith('+')){
+            if (p.length <= 8) return '+47' + p.replace(/^0+/, '');
           }
-          const raw  = (a.name || a.url || '').split('/').pop();
-          const isAbs = a.url && /^https?:\/\//i.test(a.url);
-          const href = isAbs ? a.url : (`./files/${encodeURIComponent(a.url || raw)}`);
-          const label = esc(a.name || raw);
-          return `<li><a class="btn" href="${href}" download rel="noopener">${label}</a></li>`;
-        }).join('');
-        return `<section id="downloads" style="margin-top:16px">
+          return p;
+        }
+
+        function makeVcard(d){
+          const parts = (d.name || '').trim().split(' ');
+          const first = parts[0] || '';
+          const last = parts.length > 1 ? parts[parts.length - 1] : '';
+          const phone = normalizePhone(d.phone || '');
+          return [
+            'BEGIN:VCARD',
+            'VERSION:3.0',
+            `FN:${d.name || ''}`,
+            `N:${last};${first};;;`,
+            `ORG:${d.orgName || d.orgKey || ''}`,
+            `TITLE:${d.title || ''}`,
+            `TEL;TYPE=CELL:${phone}`,
+            `EMAIL;TYPE=INTERNET:${d.email || ''}`,
+            `URL:${d.site || ''}`,
+            `ADR;TYPE=WORK:;;${d.address || ''}`,
+            'END:VCARD'
+          ].join('\n');
+        }
+
+        function makeLinksHTML(links){
+          if (!Array.isArray(links) || !links.length) return '';
+          return links.map(l => {
+            const pre  = l.pre  ? `<div class="pre" style="margin:8px 0 4px;color:#bfc8d6">${escapeHtml(l.pre)}</div>` : '';
+            const post = l.post ? `<div class="post" style="margin:4px 0 10px;color:#97a3b6;font-size:.95rem">${escapeHtml(l.post)}</div>` : '';
+            const label = escapeHtml(l.label || 'Lenke');
+            const href = escapeHtml(l.url || '#');
+            return `<div class="link-block" style="margin-top:10px">${pre}<a class="btn" href="${href}" target="_blank" rel="noopener">${label}</a>${post}</div>`;
+          }).join('');
+        }
+
+        function describeAttachment(item){
+          if (!item) return null;
+          if (typeof item === 'string'){
+            const name = item.split('/').pop();
+            if (!name) return null;
+            return { label: name, href: `./files/${encodeURIComponent(name)}` };
+          }
+          if (item.kind === 'file'){
+            const file = item.file || item.url || '';
+            if (!file) return null;
+            const name = item.label || file.split('/').pop() || file;
+            const local = file.split('/').pop() || file;
+            return { label: name, href: `./files/${encodeURIComponent(local)}` };
+          }
+          if (item.kind === 'url'){
+            const url = item.url || '';
+            if (!url) return null;
+            return { label: item.label || url, href: url };
+          }
+          const url = item.url || '';
+          const name = item.name || item.label || '';
+          if (url){
+            const href = /^https?:\/\//i.test(url) ? url : `./files/${encodeURIComponent(url.split('/').pop() || url)}`;
+            return { label: name || url, href };
+          }
+          if (name){
+            return { label: name, href: `./files/${encodeURIComponent(name.split('/').pop() || name)}` };
+          }
+          return null;
+        }
+
+        function makeDownloadsHTML(attachments){
+          const list = Array.isArray(attachments) ? attachments : [];
+          if (!list.length) return '';
+          const rows = list.map(describeAttachment).filter(Boolean).map(item =>
+            `<li><a class="btn" href="${escapeHtml(item.href)}" download rel="noopener">${escapeHtml(item.label)}</a></li>`
+          ).join('');
+          if (!rows) return '';
+          return `<section id="downloads" style="margin-top:16px">
           <h2 style="margin:0 0 8px">Last ned</h2>
           <ul style="margin:0;padding-left:18px">${rows}</ul>
         </section>`;
-      }
-      function makeHTML(d, vcfFile, links){
-        const accent  = d.accent || '#8fd3ff';
-        const bgStyle = `background:${d.logoBg || '#ffffff'};border-radius:8px;padding:6px;`;
-        const logoTag = d.logoUrl ? `<img class="brand-logo" src="${d.logoUrl}" style="${bgStyle}" alt="${esc(d.orgName||d.orgKey)} logo">` : '';
-        const extras  = makeLinksHTML(links);
-        const downloads = makeDownloadsHTML(d.attachments||[]);
-        return `<!doctype html>
+        }
+
+        function makeHTML(d, vcfFile, links, attachments){
+          const accent  = d.accent || '#8fd3ff';
+          const bgStyle = `background:${d.logoBg || '#ffffff'};border-radius:8px;padding:6px;`;
+          const logoTag = d.logoUrl ? `<img class="brand-logo" src="${d.logoUrl}" style="${bgStyle}" alt="${escapeHtml(d.orgName || d.orgKey || '')} logo">` : '';
+          const extras  = makeLinksHTML(links);
+          const downloads = makeDownloadsHTML(attachments);
+          return `<!doctype html>
 <html lang="no">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Kontaktkort – ${esc(d.name)}</title>
+  <title>Kontaktkort – ${escapeHtml(d.name || '')}</title>
   <style>
     :root{--accent:${accent};}
     body{font-family:system-ui,-apple-system,Roboto,Arial;background:#0b0b10;color:#eee;padding:20px;margin:0}
@@ -909,18 +1003,18 @@
 <body>
   <main class="container card">
     ${logoTag}
-    <h1>Kontaktkort – ${esc(d.name)}</h1>
-    <p class="note">${esc(d.title||'')} · ${esc(d.orgName||d.orgKey)}</p>
-    <p><a class="btn" href="./${vcfFile}" download>Last ned vCard (.vcf)</a></p>
+    <h1>Kontaktkort – ${escapeHtml(d.name || '')}</h1>
+    <p class="note">${escapeHtml(d.title || '')} · ${escapeHtml(d.orgName || d.orgKey || '')}</p>
+    <p><a class="btn" href="./${encodeURIComponent(vcfFile)}" download>Last ned vCard (.vcf)</a></p>
     <div class="links">
-      <a href="tel:${esc(d.phone||'')}" class="btn">Ring</a>
-      <a href="mailto:${esc(d.email||'')}" class="btn">E-post</a>
-      <a href="${esc(d.site||'#')}" class="btn" target="_blank" rel="noopener">Besøk nettside</a>
+      <a href="tel:${escapeHtml(d.phone || '')}" class="btn">Ring</a>
+      <a href="mailto:${escapeHtml(d.email || '')}" class="btn">E-post</a>
+      <a href="${escapeHtml(d.site || '#')}" class="btn" target="_blank" rel="noopener">Besøk nettside</a>
       <a href="../index.html" class="btn">← Tilbake</a>
     </div>
     ${extras}
     ${downloads}
-    <p>Adresse: ${esc(d.address||'')}</p>
+    <p>Adresse: ${escapeHtml(d.address || '')}</p>
     <p class="note">NFC-URL: <code id="nfcInline"></code></p>
   </main>
   <script>
@@ -930,7 +1024,7 @@
       const file = ${JSON.stringify(vcfFile)};
       try {
         const href = window.location.href;
-        const base = href.replace(/index\.html?$/i, '');
+        const base = href.replace(/index\\.html?$/i, '');
         code.textContent = base + file;
       } catch {
         code.textContent = './' + file;
@@ -939,208 +1033,303 @@
   </script>
 </body>
 </html>`;
-      }
+        }
 
-      async function postJSON(url, data){
-        const r = await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
-        const t = await r.text(); try{return{ok:r.ok,status:r.status,json:JSON.parse(t)}}catch{return{ok:r.ok,status:r.status,text:t}};
-      }
+        function showStatus(kind, html){
+          if (!$status) return;
+          $status.className = kind ? `note ${kind}` : 'note';
+          $status.innerHTML = html || '';
+        }
 
-      // Expose ensureUrlControls via window (kan settes av Firebase-modulskriptet også)
-      function ensureUrlControls(id,label){
-        const input = document.getElementById(id); if(!input) return;
-        if (input.nextSibling?.classList?.contains('url-actions')) return;
-        const wrap = document.createElement('span'); wrap.className = 'url-actions';
-        wrap.innerHTML = `<button type="button" class="pill" data-act="copy">Kopier ${label}</button><button type="button" class="pill" data-act="open">Åpne</button>`;
-        input.after(wrap);
-        wrap.addEventListener('click',(e)=>{
-          const btn=e.target.closest('button[data-act]'); if(!btn) return;
-          const val=input.value.trim(); if(!val) return;
-          if(btn.dataset.act==='copy') navigator.clipboard.writeText(val);
-          if(btn.dataset.act==='open') window.open(val,'_blank','noopener');
-        });
-      }
-      window.ensureUrlControls = window.ensureUrlControls || ensureUrlControls;
-    </script>
+        function collectLinks(){
+          return Array.from(document.querySelectorAll('#linksTable tbody tr')).map(tr => ({
+            label: tr.querySelector('.lbl')?.value.trim() || '',
+            url: tr.querySelector('.lnk')?.value.trim() || '',
+            pre: tr.querySelector('.pre')?.value.trim() || '',
+            post: tr.querySelector('.post')?.value.trim() || ''
+          })).filter(link => link.label && link.url);
+        }
 
-    <!-- Generer & Publiser + Live preview + NFC -->
-    <script>
-      document.getElementById('generate').addEventListener('click', async ()=>{
-        const get = id => document.getElementById(id).value.trim();
-        const d = {
-          orgKey:get('orgKey'),
-          orgName:get('orgName')||get('orgKey'),
-          accent:get('accent')||'#8fd3ff',
-          logoUrl:get('logoUrl'),
-          logoBg:get('logoBg')||'',
-          slug:get('slug'),
-          name:get('name'),
-          title:get('title'),
-          phone:get('phone'),
-          email:get('email'),
-          site:get('site'),
-          address:get('address'),
-          vcfFilename:get('vcfFilename')||(get('slug')+'_'+get('orgKey')+'.vcf'),
-          ghUser:(document.getElementById("ghUser")?.value || "Luckywolf82"),
-          ghRepo:(document.getElementById("ghRepo")?.value || "Vcards"),
-          basePath:get('basePath')||'Vcards',
-          strategy:document.getElementById('strategy').value
-        };
-        if(!d.orgKey||!d.slug||!d.name){ alert('Mangler: orgKey, slug, name'); return; }
+        function collectAttachments(){
+          return window._collectAttachments ? window._collectAttachments() : [];
+        }
 
-        const links = Array.from(document.querySelectorAll('#linksTable tbody tr')).map(tr=>({
-          label: tr.querySelector('.lbl').value.trim(),
-          url:   tr.querySelector('.lnk').value.trim(),
-          pre:   tr.querySelector('.pre').value.trim(),
-          post:  tr.querySelector('.post').value.trim()
-        })).filter(x=>x.label && x.url);
+        function resolveVcfFilename(raw, slug, orgKey){
+          const clean = (raw || '').trim();
+          if (clean) return clean.endsWith('.vcf') ? clean : `${clean}.vcf`;
+          const base = slug || `${orgKey || 'kort'}`;
+          return `${base.replace(/[^A-Za-z0-9_-]+/g,'-')}.vcf`;
+        }
 
-        // Vedlegg som er lastet inn i UI eller eksterne URLer
-        const attachments = (window._collectAttachments ? window._collectAttachments() : []);
-        d.attachments = attachments;
-
-        const vcf  = makeVcard(d);
-        const html = makeHTML(d, d.vcfFilename, links);
-        document.getElementById('vcfPreview').value  = vcf;
-        document.getElementById('htmlPreview').value = html;
-        updateLivePreview(html);
-
-        const ownerPart = d.ghUser || '<owner>';
-        const repoPart  = d.ghRepo || '<repo>';
-        const basePath  = (d.basePath||'Vcards').replace(/^\/+|\/+$/g,'');
-        const baseUrl   = `https://${ownerPart}.github.io/${repoPart}${basePath?`/${basePath}`:''}/${d.orgKey}/${d.slug}`;
-        const htmlUrl   = `${baseUrl}/index.html`;
-        const vcfUrl    = `${baseUrl}/${d.vcfFilename}`;
-
-        document.getElementById('nfcUrl').value  = vcfUrl;
-        document.getElementById('htmlUrl').value = htmlUrl;
-        window.ensureUrlControls?.('nfcUrl','NFC-URL');
-        window.ensureUrlControls?.('htmlUrl','HTML-URL');
-        const inline = document.getElementById('nfcInline'); if(inline) inline.textContent = vcfUrl;
-
-        document.getElementById('status').textContent = 'Publiserer…';
-        const prefix = d.basePath ? (d.basePath.replace(/^\/+|\/+$/g,'') + '/') : '';
-        const payload = {
-          repoOwner:d.ghUser||undefined, repoName:d.ghRepo||undefined,
-          basePath:d.basePath, orgKey:d.orgKey, slug:d.slug,
-          files:[
-            { path:`${prefix}${d.orgKey}/${d.slug}/${d.vcfFilename}`, content: vcf },
-            { path:`${prefix}${d.orgKey}/${d.slug}/index.html`,       content: html },
-            { path:`${prefix}${d.orgKey}/${d.slug}/data.json`,        content: JSON.stringify({ ...d, links, attachments }, null, 2) },
-            { path:`${prefix}.nojekyll`,                              content: "" }
-          ],
-          strategy:d.strategy,
-          commitMessage:`Add/Update card: ${d.orgKey}/${d.slug}`
-        };
-
-        try{
-          const res = await postJSON('/api/createCard', payload);
-          if(res.ok){ document.getElementById('status').innerHTML = '<span class="ok">✅ Ferdig! Åpne HTML-URL-en (gi Pages litt tid).</span>'; }
-          else {
-            const msg = res.json && res.json.error ? res.json.error : (res.text || 'Ukjent feil');
-            document.getElementById('status').innerHTML = '<span class="err">❌ Feil: '+msg+'</span>';
-          }
-        }catch(e){ document.getElementById('status').innerHTML = '<span class="err">❌ Nettverksfeil: '+e.message+'</span>'; }
-      });
-
-      // Live preview
-      function updateLivePreview(html){
-        const frame = document.getElementById('livePreviewFrame'); if(!frame) return;
-        const doc = frame.contentDocument || frame.contentWindow.document;
-        doc.open(); doc.write(html); doc.close();
-      }
-      document.getElementById('openPreviewBtn')?.addEventListener('click', ()=>{
-        const blob = new Blob([document.getElementById('htmlPreview').value], {type:'text/html'});
-        const url  = URL.createObjectURL(blob); window.open(url,'_blank'); setTimeout(()=>URL.revokeObjectURL(url), 60_000);
-      });
-
-      // NFC helpers
-      function logNFC(msg){
-        const el = document.getElementById('nfcLog');
-        el.textContent += msg + '\n';
-        el.scrollTop = el.scrollHeight;
-      }
-      function supportsNFC(){
-        return ('NDEFReader' in window);
-      }
-
-      // LES NFC
-      document.getElementById('nfcRead').addEventListener('click', async ()=>{
-        if(!supportsNFC()){ alert('Web NFC støttes kun i Chrome/Android'); return; }
-        try{
-          const reader = new NDEFReader();
-          await reader.scan();
-          logNFC('Hold telefonen nær kortet – lytter...');
-          reader.onreadingerror = () => logNFC('Lesefeil');
-          reader.onreading = (event) => {
-            const { message, serialNumber } = event;
-            logNFC(`Serial: ${serialNumber || '(ukjent)'}`);
-            for (const record of message.records) {
-              try{
-                if (record.recordType === 'url') {
-                  const text = new TextDecoder().decode(record.data);
-                  logNFC('URL: ' + text);
-                } else if (record.recordType === 'text') {
-                  const text = new TextDecoder().decode(record.data);
-                  logNFC('Tekst: ' + text);
-                } else if (record.mediaType === 'text/vcard' || record.mediaType === 'text/x-vcard') {
-                  const vcf = new TextDecoder().decode(record.data);
-                  logNFC('vCard:\n' + vcf);
-                } else {
-                  logNFC(`Record: type=${record.recordType} mediaType=${record.mediaType||''}`);
-                }
-              }catch(e){ logNFC('Kunne ikke dekode record: '+e.message); }
-            }
+        function buildPathInfo(owner, repo, basePath, orgKey, slug){
+          const safeOwner = owner || DEFAULT_OWNER;
+          const safeRepo = repo || DEFAULT_REPO;
+          const baseSegments = trimSlashes(basePath || DEFAULT_BASE_PATH).split('/').filter(Boolean);
+          const segments = [...baseSegments];
+          if (orgKey) segments.push(orgKey);
+          if (slug) segments.push(slug);
+          const encodedSegments = segments.map(seg => encodeURIComponent(seg));
+          const pathPart = encodedSegments.length ? '/' + encodedSegments.join('/') : '';
+          return {
+            owner: safeOwner,
+            repo: safeRepo,
+            baseUrl: `https://${safeOwner}.github.io/${safeRepo}${pathPart}`,
+            displayPath: segments.join('/'),
+            encodedPath: encodedSegments.join('/')
           };
-        }catch(e){
-          logNFC('Start scanning feilet: '+e.message);
         }
-      });
 
-      // SKRIV NFC
-      document.getElementById('nfcWrite').addEventListener('click', async ()=>{
-        if(!supportsNFC()){ alert('Web NFC støttes kun i Chrome/Android'); return; }
-        const mode = document.getElementById('nfcWriteMode').value;
-        const payload = document.getElementById('nfcPayload').value.trim();
-        try{
-          const writer = new NDEFReader();
-          await writer.write(await buildNdefMessage(mode, payload));
-          logNFC('✅ Skrevet!');
-        }catch(e){
-          logNFC('Skrivefeil: '+e.message);
+        function updatePreview(html){
+          const frame = document.getElementById('livePreviewFrame');
+          if (!frame) return;
+          const doc = frame.contentDocument || frame.contentWindow?.document;
+          if (!doc) return;
+          doc.open();
+          doc.write(html);
+          doc.close();
         }
-      });
 
-      async function buildNdefMessage(mode, payload){
-        if (mode === 'url') {
-          const url = payload || document.getElementById('htmlUrl').value.trim() || document.getElementById('nfcUrl').value.trim();
-          if (!url) throw new Error('Mangler URL å skrive');
-          return { records:[ { recordType:'url', data: url } ] };
+        function gatherBaseData(){
+          const orgKey = getVal('orgKey');
+          const slug = getVal('slug');
+          const vcfFilename = resolveVcfFilename(getVal('vcfFilename'), slug, orgKey);
+          return {
+            orgKey,
+            orgName: getVal('orgName') || orgKey,
+            orgSite: getVal('orgSite'),
+            accent: getVal('accent') || '#8fd3ff',
+            logoUrl: getVal('logoUrl'),
+            logoBg: getVal('logoBg'),
+            slug,
+            name: getVal('name'),
+            title: getVal('title'),
+            phone: getVal('phone'),
+            email: getVal('email'),
+            site: getVal('site'),
+            address: getVal('address'),
+            vcfFilename
+          };
         }
-        if (mode === 'text') {
-          const text = payload || 'Hei fra NFCKING';
-          return { records:[ { recordType:'text', data: text } ] };
-        }
-        if (mode === 'vcard') {
-          const vcf = document.getElementById('vcfPreview').value.trim();
-          if (!vcf) throw new Error('Ingen vCard i forhåndsvisning. Generer først.');
-          return { records:[ { recordType:'mime', mediaType:'text/vcard', data: new TextEncoder().encode(vcf) } ] };
-        }
-        throw new Error('Ukjent skrive-modus');
-      }
 
-      // Init etter DOM ready (merk: auth viser/skjuler app)
-      document.addEventListener('DOMContentLoaded', ()=>{
-        const sel = document.getElementById('orgSelect');
-        if (sel) sel.addEventListener('change', syncOrgKeyFromSelect);
-        // NFC info
+        function runGenerate(options = {}){
+          const { silent = false } = options;
+          const baseData = gatherBaseData();
+          if (!baseData.orgKey || !baseData.slug){
+            showStatus('err', '❌ Fyll ut både Org key og Slug før generering.');
+            return null;
+          }
+
+          const links = collectLinks();
+          const attachments = collectAttachments();
+          const cardData = { ...baseData, links, attachments };
+          const vcf = makeVcard(cardData);
+          const html = makeHTML(cardData, baseData.vcfFilename, links, attachments);
+
+          state.html = html;
+          state.vcf = vcf;
+          state.data = cardData;
+          window._latestGenerated = { ...state };
+
+          if ($vcfPreview) $vcfPreview.value = vcf;
+          if ($htmlPreview) $htmlPreview.value = html;
+          updatePreview(html);
+
+          const owner = getVal('ghUser') || DEFAULT_OWNER;
+          const repo = getVal('ghRepo') || DEFAULT_REPO;
+          const basePath = getVal('basePath') || DEFAULT_BASE_PATH;
+          const pathInfo = buildPathInfo(owner, repo, basePath, cardData.orgKey, cardData.slug);
+          const htmlUrl = `${pathInfo.baseUrl}/index.html`;
+          const vcfUrl = `${pathInfo.baseUrl}/${encodeURIComponent(cardData.vcfFilename)}`;
+
+          setVal('htmlUrl', htmlUrl);
+          setVal('nfcUrl', vcfUrl);
+          ensureUrlControls('htmlUrl', 'HTML-URL');
+          ensureUrlControls('nfcUrl', 'NFC-URL');
+          if ($inlineNfc) $inlineNfc.textContent = vcfUrl;
+
+          if (!silent){
+            showStatus('ok', '✅ Generering fullført. Publiser for å sende til GitHub.');
+          }
+
+          return { html, vcf, data: cardData };
+        }
+
+        async function publishCard(){
+          const generated = runGenerate({ silent: true });
+          if (!generated) return;
+
+          const owner = getVal('ghUser') || DEFAULT_OWNER;
+          const repo = getVal('ghRepo') || DEFAULT_REPO;
+          const basePathInput = getVal('basePath') || DEFAULT_BASE_PATH;
+          const basePath = trimSlashes(basePathInput) || DEFAULT_BASE_PATH;
+          const strategy = document.getElementById('strategy')?.value || 'pr';
+
+          const data = state.data;
+          const html = state.html;
+          const vcf = state.vcf;
+          if (!data || !html || !vcf){
+            showStatus('err', '❌ Kunne ikke finne generert innhold. Prøv å generere på nytt.');
+            return;
+          }
+
+          const files = [
+            { path: `${data.orgKey}/${data.slug}/${data.vcfFilename}`, content: vcf },
+            { path: `${data.orgKey}/${data.slug}/index.html`, content: html },
+            { path: `${data.orgKey}/${data.slug}/data.json`, content: JSON.stringify(data, null, 2) }
+          ];
+
+          const payload = {
+            repoOwner: owner,
+            repoName: repo,
+            basePath,
+            orgKey: data.orgKey,
+            slug: data.slug,
+            files,
+            strategy,
+            commitMessage: `Add/Update card: ${data.orgKey}/${data.slug}`
+          };
+
+          showStatus('info', '⏳ Publiserer…');
+
+          try {
+            const res = await fetch('/api/createCard', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload)
+            });
+            const text = await res.text();
+            let json = null;
+            try { json = text ? JSON.parse(text) : null; } catch { json = null; }
+
+            if (!res.ok || !json?.ok){
+              const raw = json?.error || text || `Status ${res.status}`;
+              let friendly = raw;
+              if (res.status === 401 || res.status === 403 || /401|403/.test(raw)) {
+                friendly = 'Mangler tilgang til GitHub-repoet. Sjekk token og rettigheter.';
+              } else if (res.status === 404 || /404/.test(raw)) {
+                friendly = 'Fant ikke målstien i repoet. Sjekk base path og org/slug.';
+              } else if (res.status === 409 || /409/.test(raw)) {
+                friendly = 'Det finnes allerede et kort med samme slug. Endre slug eller slett eksisterende mappe.';
+              }
+              showStatus('err', `❌ Publisering feilet: ${escapeHtml(friendly)}`);
+              return;
+            }
+
+            const pathInfo = buildPathInfo(owner, repo, basePath, data.orgKey, data.slug);
+            const htmlLink = `<a href="${pathInfo.baseUrl}/index.html" target="_blank" rel="noopener">index.html</a>`;
+            const vcfLink = `<a href="${pathInfo.baseUrl}/${encodeURIComponent(data.vcfFilename)}" target="_blank" rel="noopener">${escapeHtml(data.vcfFilename)}</a>`;
+            const encodedDataPath = pathInfo.encodedPath ? `${pathInfo.encodedPath}/data.json` : 'data.json';
+            const ownerEnc = encodeURIComponent(owner);
+            const repoEnc = encodeURIComponent(repo);
+            const dataLink = `https://raw.githubusercontent.com/${ownerEnc}/${repoEnc}/HEAD/${encodedDataPath}`;
+            const dataAnchor = `<a href="${dataLink}" target="_blank" rel="noopener">data.json</a>`;
+            const repoDisplay = pathInfo.displayPath || `${data.orgKey}/${data.slug}`;
+            showStatus('ok', `✅ Publisert! Lagret til <code>${escapeHtml(repoDisplay)}</code>. ${htmlLink} · ${vcfLink} · ${dataAnchor}`);
+          } catch (err) {
+            showStatus('err', `❌ Nettverksfeil: ${escapeHtml(err.message || err)}`);
+          }
+        }
+
+        function logNFC(msg){
+          const el = document.getElementById('nfcLog');
+          if (!el) return;
+          el.textContent += msg + '\n';
+          el.scrollTop = el.scrollHeight;
+        }
+
+        function supportsNFC(){
+          return ('NDEFReader' in window);
+        }
+
+        async function buildNdefMessage(mode, payload){
+          if (mode === 'url'){
+            const url = payload || getVal('htmlUrl') || getVal('nfcUrl');
+            if (!url) throw new Error('Mangler URL å skrive');
+            return { records:[ { recordType:'url', data: url } ] };
+          }
+          if (mode === 'text'){
+            const text = payload || 'Hei fra NFCKING';
+            return { records:[ { recordType:'text', data: text } ] };
+          }
+          if (mode === 'vcard'){
+            const vcf = ($vcfPreview?.value || '').trim();
+            if (!vcf) throw new Error('Ingen vCard i forhåndsvisning. Generer først.');
+            return { records:[ { recordType:'mime', mediaType:'text/vcard', data: new TextEncoder().encode(vcf) } ] };
+          }
+          throw new Error('Ukjent skrive-modus');
+        }
+
+        $generate?.addEventListener('click', () => runGenerate());
+        $publish?.addEventListener('click', () => publishCard());
+
+        document.getElementById('openPreviewBtn')?.addEventListener('click', ()=>{
+          const html = $htmlPreview?.value || '';
+          const blob = new Blob([html], { type:'text/html' });
+          const url = URL.createObjectURL(blob);
+          window.open(url, '_blank');
+          setTimeout(()=>URL.revokeObjectURL(url), 60_000);
+        });
+
+        document.getElementById('nfcRead')?.addEventListener('click', async ()=>{
+          if (!supportsNFC()){ alert('Web NFC støttes kun i Chrome/Android'); return; }
+          try {
+            const reader = new NDEFReader();
+            await reader.scan();
+            logNFC('Hold telefonen nær kortet – lytter...');
+            reader.onreadingerror = () => logNFC('Lesefeil');
+            reader.onreading = (event) => {
+              const { message, serialNumber } = event;
+              logNFC(`Serial: ${serialNumber || '(ukjent)'}`);
+              for (const record of message.records) {
+                try {
+                  if (record.recordType === 'url') {
+                    const text = new TextDecoder().decode(record.data);
+                    logNFC('URL: ' + text);
+                  } else if (record.recordType === 'text') {
+                    const text = new TextDecoder().decode(record.data);
+                    logNFC('Tekst: ' + text);
+                  } else if (record.mediaType === 'text/vcard' || record.mediaType === 'text/x-vcard') {
+                    const vcf = new TextDecoder().decode(record.data);
+                    logNFC('vCard:\n' + vcf);
+                  } else {
+                    logNFC(`Record: type=${record.recordType} mediaType=${record.mediaType||''}`);
+                  }
+                } catch (e) {
+                  logNFC('Kunne ikke dekode record: ' + e.message);
+                }
+              }
+            };
+          } catch (e) {
+            logNFC('Start scanning feilet: ' + e.message);
+          }
+        });
+
+        document.getElementById('nfcWrite')?.addEventListener('click', async ()=>{
+          if (!supportsNFC()){ alert('Web NFC støttes kun i Chrome/Android'); return; }
+          const mode = document.getElementById('nfcWriteMode')?.value || 'url';
+          const payload = getVal('nfcPayload');
+          try {
+            const writer = new NDEFReader();
+            await writer.write(await buildNdefMessage(mode, payload));
+            logNFC('✅ Skrevet!');
+          } catch (e) {
+            logNFC('Skrivefeil: ' + e.message);
+          }
+        });
+
+        const orgSelect = document.getElementById('orgSelect');
+        orgSelect?.addEventListener('change', syncOrgKeyFromSelect);
+
         if (!supportsNFC()){
           logNFC('ℹ️ Web NFC krever Chrome på Android. iOS støttes ikke per i dag.');
         } else {
           logNFC('ℹ️ Web NFC er tilgjengelig. Husk å holde kortet nær antenna ved les/skriv.');
         }
         logNFC('ℹ️ Tips: Bruk «URL»-modus for å åpne HTML-URL; «vCard»-modus for å skrive selve kontaktkortet.');
-      });
+
+        ensureUrlControls('htmlUrl', 'HTML-URL');
+        ensureUrlControls('nfcUrl', 'NFC-URL');
+      })();
     </script>
 
     <!-- Recent files banner (GitHub) – med modus-bytte (Vedlegg/Kort) -->
