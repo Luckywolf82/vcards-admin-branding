@@ -319,29 +319,207 @@
         if (idx >= 0) orgSelect.selectedIndex = idx;
       }
 
-      function loadEmployees(){
-        const key = document.getElementById('orgKey').value.trim();
-        const list = (window.EMPLOYEES || {})[key] || [];
-        const sel = document.getElementById('employeeSelect');
-        sel.innerHTML = '<option value="">(Velg ansatt…)</option>';
+      const EMPLOYEE_CACHE_TTL = 60 * 1000;
+      const employeeFetches = {};
+      const employeeCacheMeta = {};
+      let employeeLoadTimer = null;
+      let employeeRequestId = 0;
+
+      const trimSlashes = (s) => (s || '').replace(/^\/+|\/+$/g, '');
+      const pathToSegments = (s) => trimSlashes(s).split('/').filter(Boolean);
+
+      function renderEmployeeOptions(sel, orgKey, preferredSlug){
+        const store = window.EMPLOYEES || (window.EMPLOYEES = {});
+        const list = Array.isArray(store[orgKey]) ? store[orgKey] : [];
+        sel.innerHTML = '';
+        const baseOpt = document.createElement('option');
+        baseOpt.value = '';
+        baseOpt.dataset.slug = '';
+        baseOpt.textContent = list.length ? '(Velg ansatt…)' : '(Ingen ansatte funnet)';
+        sel.appendChild(baseOpt);
         list.forEach((emp, i)=>{
+          const slug = (emp && (emp.slug || emp._slug || '')) || '';
           const opt = document.createElement('option');
           opt.value = String(i);
-          opt.textContent = emp.name + (emp.title ? ' – ' + emp.title : '');
+          opt.dataset.slug = slug;
+          const name = emp?.name || slug || `Kort ${i + 1}`;
+          opt.textContent = emp?.title ? `${name} – ${emp.title}` : name;
+          if (preferredSlug && slug && slug === preferredSlug) opt.selected = true;
           sel.appendChild(opt);
         });
+        return list.length;
+      }
+
+      async function fetchEmployeesForOrg(orgKey, opts = {}){
+        const key = (orgKey || '').trim();
+        if (!key) return [];
+        const now = Date.now();
+        const cachedMeta = employeeCacheMeta[key];
+        if (!opts.force && cachedMeta && (now - cachedMeta.loadedAt) < EMPLOYEE_CACHE_TTL) {
+          const store = window.EMPLOYEES || {};
+          return Array.isArray(store[key]) ? store[key] : [];
+        }
+        if (employeeFetches[key]) return employeeFetches[key];
+
+        const owner = (document.getElementById('ghUser')?.value || 'Luckywolf82').trim();
+        const repo  = (document.getElementById('ghRepo')?.value || 'Vcards').trim();
+        const basePath = (document.getElementById('basePath')?.value || 'Vcards');
+        const dirSegments = [...pathToSegments(basePath), key];
+        if (!owner || !repo || dirSegments.length === 0) {
+          const store = window.EMPLOYEES || {};
+          return Array.isArray(store[key]) ? store[key] : [];
+        }
+        const encodedDir = dirSegments.map(seg => encodeURIComponent(seg)).join('/');
+        const dirUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${encodedDir}?ref=HEAD`;
+
+        const promise = (async ()=>{
+          try {
+            const dirResp = await fetch(dirUrl, { headers: { Accept: 'application/vnd.github+json' } });
+            if (dirResp.status === 404) {
+              (window.EMPLOYEES || (window.EMPLOYEES = {}))[key] = [];
+              employeeCacheMeta[key] = { loadedAt: Date.now() };
+              return [];
+            }
+            if (!dirResp.ok) throw new Error(`${dirResp.status} ${dirResp.statusText}`);
+            let listing;
+            try { listing = await dirResp.json(); }
+            catch { listing = []; }
+            const directories = Array.isArray(listing) ? listing.filter(entry => entry && entry.type === 'dir').slice(0, 40) : [];
+            const employees = [];
+            for (const entry of directories) {
+              const slug = entry?.name || '';
+              if (!slug) continue;
+              const dataSegments = [...dirSegments, slug, 'data.json'];
+              const rawUrl = `https://raw.githubusercontent.com/${owner}/${repo}/HEAD/${dataSegments.map(seg => encodeURIComponent(seg)).join('/')}`;
+              try {
+                const resp = await fetch(rawUrl, { cache: 'no-store' });
+                if (!resp.ok) continue;
+                let data;
+                try { data = await resp.json(); }
+                catch { continue; }
+                const normalized = Object.assign({}, data || {});
+                normalized.slug = normalized.slug || slug;
+                normalized.orgKey = normalized.orgKey || key;
+                employees.push(normalized);
+              } catch (err) {
+                console.warn('Kunne ikke hente data for', `${key}/${slug}`, err);
+              }
+            }
+            (window.EMPLOYEES || (window.EMPLOYEES = {}))[key] = employees;
+            employeeCacheMeta[key] = { loadedAt: Date.now() };
+            return employees;
+          } catch (err) {
+            console.warn('Kunne ikke hente ansatte for', key, err);
+            const store = window.EMPLOYEES || {};
+            return Array.isArray(store[key]) ? store[key] : [];
+          } finally {
+            delete employeeFetches[key];
+          }
+        })();
+
+        employeeFetches[key] = promise;
+        return promise;
+      }
+
+      function loadEmployees(){
+        const sel = document.getElementById('employeeSelect');
+        if (!sel) return;
+        const key = document.getElementById('orgKey').value.trim();
+        clearTimeout(employeeLoadTimer);
+
+        if (!key) {
+          sel.innerHTML = '<option value="">(Velg ansatt…)</option>';
+          sel.disabled = true;
+          return;
+        }
+
+        const prevSlug = sel.selectedOptions?.[0]?.dataset?.slug || '';
+        const cached = Array.isArray((window.EMPLOYEES || {})[key]) ? window.EMPLOYEES[key] : null;
+
+        if (cached && cached.length) {
+          renderEmployeeOptions(sel, key, prevSlug);
+          sel.disabled = false;
+        } else {
+          sel.innerHTML = '<option value="">Laster ansatte…</option>';
+          sel.disabled = true;
+        }
+
+        const requestId = ++employeeRequestId;
+        const targetKey = key;
+
+        employeeLoadTimer = setTimeout(async ()=>{
+          try {
+            await fetchEmployeesForOrg(targetKey);
+            if (requestId !== employeeRequestId) return;
+            const count = renderEmployeeOptions(sel, targetKey, prevSlug);
+            sel.disabled = count === 0;
+          } catch (err) {
+            if (requestId !== employeeRequestId) return;
+            sel.innerHTML = '<option value="">Kunne ikke hente ansatte</option>';
+            sel.disabled = true;
+          }
+        }, 200);
       }
 
       function fillEmployee(iStr){
         const key = document.getElementById('orgKey').value.trim();
         const list = (window.EMPLOYEES || {})[key] || [];
-        const emp  = list[parseInt(iStr,10)];
-        if (!emp) return;
+        const idx = parseInt(iStr, 10);
+        if (Number.isNaN(idx)) return;
+        const emp = list[idx];
+        if (!emp || typeof emp !== 'object') return;
+
+        const normalized = Object.assign({}, emp);
+        normalized.slug = normalized.slug || normalized._slug || '';
+        normalized.orgKey = normalized.orgKey || key;
+
+        if (typeof window._fillFromCardData === 'function') {
+          window._fillFromCardData(normalized);
+          return;
+        }
+
         const set = (id, val) => { const el=document.getElementById(id); if (el) el.value = val || ''; };
-        set('slug', emp.slug); set('name', emp.name); set('title', emp.title);
-        set('phone', emp.phone); set('email', emp.email);
-        set('site', emp.site); set('address', emp.address); set('vcfFilename', emp.vcfFilename);
+        set('slug', normalized.slug);
+        set('name', normalized.name);
+        set('title', normalized.title);
+        set('phone', normalized.phone);
+        set('email', normalized.email);
+        set('site', normalized.site);
+        set('address', normalized.address);
+        set('vcfFilename', normalized.vcfFilename);
+
+        const links = Array.isArray(normalized.links) ? normalized.links : [];
+        if (typeof window._clearLinkRows === 'function') {
+          window._clearLinkRows();
+          if (typeof window._addLinkRow === 'function') {
+            links.forEach(l => window._addLinkRow(l?.label || '', l?.url || '', l?.pre || '', l?.post || ''));
+          }
+        }
+
+        const attachments = Array.isArray(normalized.attachments) ? normalized.attachments : [];
+        window._latestAttachments = attachments;
+        if (typeof window._setAttachmentsFromData === 'function') {
+          window._setAttachmentsFromData(attachments);
+        }
+        if (typeof window.previewLogo === 'function') {
+          window.previewLogo();
+        }
       }
+
+      window._refreshEmployeeSelect = function(orgKey, preferredSlug){
+        const sel = document.getElementById('employeeSelect');
+        if (!sel) return;
+        const currentOrg = document.getElementById('orgKey').value.trim();
+        if (orgKey && currentOrg && orgKey !== currentOrg) return;
+        const slug = preferredSlug || sel.selectedOptions?.[0]?.dataset?.slug || '';
+        const count = renderEmployeeOptions(sel, currentOrg || orgKey || '', slug);
+        sel.disabled = count === 0;
+      };
+
+      window._markEmployeesLoaded = function(orgKey){
+        if (!orgKey) return;
+        employeeCacheMeta[orgKey] = { loadedAt: Date.now() };
+      };
 
       document.getElementById('employeeSelect').addEventListener('change', (e)=> fillEmployee(e.target.value));
     </script>
@@ -1529,6 +1707,21 @@ document.addEventListener("DOMContentLoaded", ()=>{
     window._latestAttachments = Array.isArray(d.attachments) ? d.attachments : [];
     if (typeof window._setAttachmentsFromData === "function") {
       window._setAttachmentsFromData(window._latestAttachments);
+    }
+    const orgForEmployee = d.orgKey || gv("orgKey");
+    const slugForEmployee = d.slug || "";
+    if (orgForEmployee && slugForEmployee) {
+      const store = window.EMPLOYEES || (window.EMPLOYEES = {});
+      const list = Array.isArray(store[orgForEmployee]) ? store[orgForEmployee] : (store[orgForEmployee] = []);
+      const normalizedEmployee = Object.assign({}, d, { orgKey: orgForEmployee, slug: slugForEmployee });
+      const matchIndex = list.findIndex(emp => (emp?.slug || emp?._slug || "") === slugForEmployee);
+      if (matchIndex >= 0) {
+        list[matchIndex] = normalizedEmployee;
+      } else {
+        list.push(normalizedEmployee);
+      }
+      window._markEmployeesLoaded?.(orgForEmployee);
+      window._refreshEmployeeSelect?.(orgForEmployee, slugForEmployee);
     }
     if (typeof window.previewLogo === "function") { window.previewLogo(); }
   }
