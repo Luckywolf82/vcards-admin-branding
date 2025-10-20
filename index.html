@@ -977,7 +977,8 @@
         function makeHTML(d, vcfFile, links, attachments){
           const accent  = d.accent || '#8fd3ff';
           const bgStyle = `background:${d.logoBg || '#ffffff'};border-radius:8px;padding:6px;`;
-          const logoTag = d.logoUrl ? `<img class="brand-logo" src="${d.logoUrl}" style="${bgStyle}" alt="${escapeHtml(d.orgName || d.orgKey || '')} logo">` : '';
+          const safeLogoUrl = d.logoUrl ? escapeHtml(d.logoUrl) : '';
+          const logoTag = safeLogoUrl ? `<img class="brand-logo" src="${safeLogoUrl}" style="${bgStyle}" alt="${escapeHtml(d.orgName || d.orgKey || '')} logo">` : '';
           const extras  = makeLinksHTML(links);
           const downloads = makeDownloadsHTML(attachments);
           return `<!doctype html>
@@ -1042,12 +1043,18 @@
         }
 
         function collectLinks(){
-          return Array.from(document.querySelectorAll('#linksTable tbody tr')).map(tr => ({
-            label: tr.querySelector('.lbl')?.value.trim() || '',
-            url: tr.querySelector('.lnk')?.value.trim() || '',
-            pre: tr.querySelector('.pre')?.value.trim() || '',
-            post: tr.querySelector('.post')?.value.trim() || ''
-          })).filter(link => link.label && link.url);
+          return Array.from(document.querySelectorAll('#linksTable tbody tr')).map(tr => {
+            const lbl = tr.querySelector('.lbl');
+            const lnk = tr.querySelector('.lnk');
+            const pre = tr.querySelector('.pre');
+            const post = tr.querySelector('.post');
+            return {
+              label: lbl ? lbl.value.trim() : '',
+              url: lnk ? lnk.value.trim() : '',
+              pre: pre ? pre.value.trim() : '',
+              post: post ? post.value.trim() : ''
+            };
+          }).filter(link => link.label && link.url);
         }
 
         function collectAttachments(){
@@ -1113,45 +1120,50 @@
 
         function runGenerate(options = {}){
           const { silent = false } = options;
-          const baseData = gatherBaseData();
-          if (!baseData.orgKey || !baseData.slug){
-            showStatus('err', '❌ Fyll ut både Org key og Slug før generering.');
+          try {
+            const baseData = gatherBaseData();
+            if (!baseData.orgKey || !baseData.slug){
+              showStatus('err', '❌ Fyll ut både Org key og Slug før generering.');
+              return null;
+            }
+
+            const links = collectLinks();
+            const attachments = collectAttachments();
+            const cardData = { ...baseData, links, attachments };
+            const vcf = makeVcard(cardData);
+            const html = makeHTML(cardData, baseData.vcfFilename, links, attachments);
+
+            state.html = html;
+            state.vcf = vcf;
+            state.data = cardData;
+            window._latestGenerated = { ...state };
+
+            if ($vcfPreview) $vcfPreview.value = vcf;
+            if ($htmlPreview) $htmlPreview.value = html;
+            updatePreview(html);
+
+            const owner = getVal('ghUser') || DEFAULT_OWNER;
+            const repo = getVal('ghRepo') || DEFAULT_REPO;
+            const basePath = getVal('basePath') || DEFAULT_BASE_PATH;
+            const pathInfo = buildPathInfo(owner, repo, basePath, cardData.orgKey, cardData.slug);
+            const htmlUrl = `${pathInfo.baseUrl}/index.html`;
+            const vcfUrl = `${pathInfo.baseUrl}/${encodeURIComponent(cardData.vcfFilename)}`;
+
+            setVal('htmlUrl', htmlUrl);
+            setVal('nfcUrl', vcfUrl);
+            ensureUrlControls('htmlUrl', 'HTML-URL');
+            ensureUrlControls('nfcUrl', 'NFC-URL');
+            if ($inlineNfc) $inlineNfc.textContent = vcfUrl;
+
+            if (!silent){
+              showStatus('ok', '✅ Generering fullført. Publiser for å sende til GitHub.');
+            }
+
+            return { html, vcf, data: cardData };
+          } catch (err) {
+            showStatus('err', `❌ Generering feilet: ${escapeHtml(err.message || err)}`);
             return null;
           }
-
-          const links = collectLinks();
-          const attachments = collectAttachments();
-          const cardData = { ...baseData, links, attachments };
-          const vcf = makeVcard(cardData);
-          const html = makeHTML(cardData, baseData.vcfFilename, links, attachments);
-
-          state.html = html;
-          state.vcf = vcf;
-          state.data = cardData;
-          window._latestGenerated = { ...state };
-
-          if ($vcfPreview) $vcfPreview.value = vcf;
-          if ($htmlPreview) $htmlPreview.value = html;
-          updatePreview(html);
-
-          const owner = getVal('ghUser') || DEFAULT_OWNER;
-          const repo = getVal('ghRepo') || DEFAULT_REPO;
-          const basePath = getVal('basePath') || DEFAULT_BASE_PATH;
-          const pathInfo = buildPathInfo(owner, repo, basePath, cardData.orgKey, cardData.slug);
-          const htmlUrl = `${pathInfo.baseUrl}/index.html`;
-          const vcfUrl = `${pathInfo.baseUrl}/${encodeURIComponent(cardData.vcfFilename)}`;
-
-          setVal('htmlUrl', htmlUrl);
-          setVal('nfcUrl', vcfUrl);
-          ensureUrlControls('htmlUrl', 'HTML-URL');
-          ensureUrlControls('nfcUrl', 'NFC-URL');
-          if ($inlineNfc) $inlineNfc.textContent = vcfUrl;
-
-          if (!silent){
-            showStatus('ok', '✅ Generering fullført. Publiser for å sende til GitHub.');
-          }
-
-          return { html, vcf, data: cardData };
         }
 
         async function publishCard(){
@@ -1177,6 +1189,7 @@
             { path: `${data.orgKey}/${data.slug}/index.html`, content: html },
             { path: `${data.orgKey}/${data.slug}/data.json`, content: JSON.stringify(data, null, 2) }
           ];
+          files.push({ path: '.nojekyll', content: '' });
 
           const payload = {
             repoOwner: owner,
