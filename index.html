@@ -65,7 +65,7 @@
     </div>
     <hr class="brand-rule">
     <button id="btnGoogle" class="btn">Logg inn med Google</button>
-    <p class="note" style="margin-top:8px">Krever at brukeren finnes i Firestore policy (kan åpnes for alle – nå tillater vi alle innloggede).</p>
+    <p class="note" id="authStatusMessage" style="margin-top:8px">Krever at brukeren finnes i Firestore policy (kan åpnes for alle – nå tillater vi alle innloggede).</p>
   </section>
 
   <!-- APP: skjules til bruker er innlogget -->
@@ -1669,7 +1669,16 @@
     ========================== -->
     <script type="module">
       import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-      import { getAuth, onAuthStateChanged, signInWithPopup, GoogleAuthProvider } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+      import {
+        getAuth,
+        onAuthStateChanged,
+        signInWithPopup,
+        signInWithRedirect,
+        getRedirectResult,
+        GoogleAuthProvider,
+        browserLocalPersistence,
+        setPersistence
+      } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
       import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
       const firebaseConfig = {
@@ -1690,9 +1699,30 @@
       const authSec = $('auth');
       const appSec  = $('app');
       const btnGoogle = $('btnGoogle');
+      const loginStatusMessage = $('authStatusMessage');
       const orgAccessStatus = $('orgAccessStatus');
 
       const SUPERADMIN_EMAILS = new Set(['trygve.waagen@gmail.com']);
+      const googleProvider = new GoogleAuthProvider();
+      googleProvider.setCustomParameters({ prompt: 'select_account' });
+
+      async function ensurePersistence(){
+        if (ensurePersistence._done) return;
+        try {
+          await setPersistence(auth, browserLocalPersistence);
+        } catch (err) {
+          console.warn('Kunne ikke sette auth-persistens', err);
+        }
+        ensurePersistence._done = true;
+      }
+
+      function setLoginStatus(message, tone = ''){
+        if (!loginStatusMessage) return;
+        loginStatusMessage.textContent = message || '';
+        loginStatusMessage.classList.remove('ok', 'err');
+        if (tone === 'ok') loginStatusMessage.classList.add('ok');
+        else if (tone === 'err') loginStatusMessage.classList.add('err');
+      }
       const ORG_KEY_PATTERN = /^[A-Za-z0-9_-]+$/;
       const orgAccessState = {
         all: false,
@@ -1833,6 +1863,18 @@
           }
 
           window.ORG_PROFILES = visible;
+          if (fallbackAll) {
+            orgAccessState.set(Object.keys(visible), false);
+            setOrgAccessMessage(
+              Object.keys(visible).length
+                ? 'Ingen tildelte organisasjoner funnet – viser alle tilgjengelige for nå.'
+                : 'Ingen organisasjoner funnet.'
+            );
+          } else {
+            setOrgAccessMessage(describeAccess(visible));
+          }
+
+          window.ORG_PROFILES = visible;
           setOrgAccessMessage(describeAccess(visible));
         } catch (e) {
           console.warn('Klarte ikke hente orgs fra Firestore:', e);
@@ -1854,6 +1896,7 @@
           orgAccessState.set([], false);
           setOrgAccessMessage('');
           window.ALLOWED_ORGS = { all: false, values: [] };
+          setLoginStatus('Logg inn for å bruke adminpanelet.');
           return;
         }
         let role = 'viewer';
@@ -1884,11 +1927,49 @@
         }
         authSec?.classList?.add('hide');
         appSec?.classList?.remove('hide');
+        setLoginStatus(`Innlogget som ${user.email || 'ukjent bruker'}`, 'ok');
       });
 
+      async function finalizeRedirectLogin(){
+        try {
+          const result = await getRedirectResult(auth);
+          if (result?.user) {
+            setLoginStatus(`Innlogging fullført for ${result.user.email || 'bruker'}`, 'ok');
+          }
+        } catch (err) {
+          console.warn('Feil fra redirect-innlogging', err);
+          setLoginStatus('Innlogging via redirect feilet. Prøv igjen.', 'err');
+        }
+      }
+
+      ensurePersistence();
+      finalizeRedirectLogin();
+
       btnGoogle?.addEventListener('click', async ()=>{
-        try { await signInWithPopup(auth, new GoogleAuthProvider()); }
-        catch (e) { alert('Innlogging feilet: '+e.message); }
+        try {
+          await ensurePersistence();
+          setLoginStatus('Logger inn…');
+          btnGoogle.disabled = true;
+          try {
+            await signInWithPopup(auth, googleProvider);
+            setLoginStatus('Innlogging fullført.', 'ok');
+          } catch (err) {
+            const code = err?.code || err?.message || '';
+            console.warn('Google-pålogging feilet', err);
+            if (code.includes('popup-blocked')) {
+              setLoginStatus('Popup ble blokkert – forsøker redirect…');
+              await signInWithRedirect(auth, googleProvider);
+            } else if (code.includes('popup-closed')) {
+              setLoginStatus('Innlogging ble avbrutt før den fullførte.', 'err');
+            } else if (code.includes('cancelled-popup-request')) {
+              setLoginStatus('Avventer eksisterende popup…');
+            } else {
+              setLoginStatus('Innlogging feilet: ' + (err?.message || err), 'err');
+            }
+          }
+        } finally {
+          btnGoogle.disabled = false;
+        }
       });
       window._firebase = { auth, db };
     </script>
