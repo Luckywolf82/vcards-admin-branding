@@ -1183,6 +1183,9 @@ document.addEventListener("DOMContentLoaded", ()=>{
       function getField(id){ const el = document.getElementById(id); return (el?.value || '').trim(); }
       function pathJoin(){ return Array.from(arguments).filter(Boolean).join('/').replace(/\/+/g,'/'); }
       function trimSlashes(s){ return (s||'').replace(/^\/+|\/+$/g,''); }
+      function escHtml(s){ return String(s||'').replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]||c)); }
+      function escAttr(s){ return String(s||'').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]||c)); }
+      function splitSegments(str){ return trimSlashes(str).split('/').filter(Boolean); }
 
       function currentFilesPath(){
         const basePath = trimSlashes(getField('basePath') || 'Vcards');
@@ -1240,9 +1243,13 @@ document.addEventListener("DOMContentLoaded", ()=>{
         _recentAllItems = items.slice();
         const slice = items.slice(0, limit);
         function fmt(iso){ try { const d = new Date(iso); return d.toLocaleString('no-NO'); } catch { return iso||''; } }
-        $recentList.innerHTML = slice.map(it =>
-          '<li><a href="'+it.url+'" target="_blank" rel="noopener">'+it.file+'</a> <span class="note" style="margin-left:6px">'+fmt(it.when)+'</span></li>'
-        ).join('');
+        $recentList.innerHTML = slice.map(it => {
+          if (it.kind === 'card') {
+            const openLink = it.url ? ' <a class="note" href="'+escAttr(it.url)+'" target="_blank" rel="noopener">Åpne</a>' : '';
+            return '<li><a href="#" data-recent-card="1" data-slug="'+escAttr(it.slug)+'" data-path="'+escAttr(it.path)+'">'+escHtml(it.file)+'</a>'+openLink+' <span class="note" style="margin-left:6px">'+fmt(it.when)+'</span></li>';
+          }
+          return '<li><a href="'+escAttr(it.url)+'" target="_blank" rel="noopener">'+escHtml(it.file)+'</a> <span class="note" style="margin-left:6px">'+fmt(it.when)+'</span></li>';
+        }).join('');
 
         if (items.length > slice.length) {
           $recentMoreBtn.style.display = '';
@@ -1321,6 +1328,7 @@ document.addEventListener("DOMContentLoaded", ()=>{
                 if (seen.has(key)) continue;
                 seen.add(key);
                 items.push({
+                  kind: 'file',
                   path: p,
                   file: fileName,
                   when: dt,
@@ -1335,6 +1343,8 @@ document.addEventListener("DOMContentLoaded", ()=>{
                 if (seen.has(key)) continue;
                 seen.add(key);
                 items.push({
+                  kind: 'card',
+                  slug: slugFromPath,
                   path: p,
                   file: orgKey + '/' + slugFromPath + '/index.html',
                   when: dt,
@@ -1372,6 +1382,52 @@ document.addEventListener("DOMContentLoaded", ()=>{
           $recentMoreBtn.style.display = 'none';
         }
       }
+
+      async function loadCardIntoForm(slug){
+        if (!slug) return;
+        const repoInfo = currentRepoInfo();
+        const owner = (repoInfo.owner || 'Luckywolf82').trim();
+        const repo  = (repoInfo.repo  || 'Vcards').trim();
+        const basePath = trimSlashes(getField('basePath') || 'Vcards');
+        const orgKey  = getField('orgKey');
+
+        if (!owner || !repo) {
+          setRecentStatus('err','Fyll ut GitHub owner og repo først.');
+          return;
+        }
+        if (!orgKey) {
+          setRecentStatus('err','Angi Org key for å hente kortdata.');
+          return;
+        }
+
+        const segments = [...splitSegments(basePath), orgKey, slug, 'data.json'];
+        const rawUrl = `https://raw.githubusercontent.com/${owner}/${repo}/HEAD/${segments.map(s => encodeURIComponent(s)).join('/')}`;
+
+        try {
+          setRecentStatus('', `Henter kortdata for ${orgKey}/${slug}…`);
+          const resp = await fetch(rawUrl, { cache: 'no-store' });
+          if (!resp.ok) {
+            throw new Error('Fant ikke data.json for '+orgKey+'/'+slug);
+          }
+          const data = await resp.json();
+          data.slug = slug;
+          if (typeof window._fillFromCardData === 'function') {
+            window._fillFromCardData(data);
+          }
+          setRecentStatus('ok', `Fylte feltene fra ${orgKey}/${slug}.`);
+        } catch (e) {
+          setRecentStatus('err', 'Kunne ikke hente kort: ' + (e.message || e));
+        }
+      }
+
+      $recentList?.addEventListener('click', (evt)=>{
+        const link = evt.target.closest('[data-recent-card]');
+        if (!link) return;
+        evt.preventDefault();
+        const slug = link.getAttribute('data-slug') || '';
+        if (!slug) return;
+        loadCardIntoForm(slug);
+      });
 
       $recentBtn?.addEventListener('click', ()=> fetchRecentFiles(RECENT_DEFAULT_SHOW, false));
       $recentMoreBtn?.addEventListener('click', ()=>{
@@ -1858,6 +1914,29 @@ document.addEventListener("DOMContentLoaded", ()=>{
     sv("accent", d.accent);
     sv("logoUrl", d.logoUrl);
     sv("logoBg", d.logoBg);
+    sv("orgSite", d.orgSite || d.site || "");
+
+    const links = Array.isArray(d.links) ? d.links : [];
+    if (typeof window._clearLinkRows === "function") {
+      window._clearLinkRows();
+      if (typeof window._addLinkRow === "function") {
+        links.forEach(l => window._addLinkRow(l?.label || "", l?.url || "", l?.pre || "", l?.post || ""));
+      }
+    } else {
+      const tb=document.querySelector("#linksTable tbody");
+      if(tb){
+        tb.innerHTML="";
+        links.forEach(l=>{
+          const tr=document.createElement("tr");
+          tr.innerHTML=
+            `<td><input value="${esc(l?.label||"")}" class="lbl" /></td>`+
+            `<td><input value="${esc(l?.url||"")}"   class="lnk" style="width:100%"/></td>`+
+            `<td><textarea class="pre" rows="2">${esc(l?.pre||"")}</textarea></td>`+
+            `<td><textarea class="post" rows="2">${esc(l?.post||"")}</textarea></td>`+
+            `<td><button type="button" class="remove">Fjern</button></td>`;
+          tb.appendChild(tr);
+        });
+      }
 
     const tb=document.querySelector("#linksTable tbody");
     if(tb){
@@ -1880,6 +1959,8 @@ document.addEventListener("DOMContentLoaded", ()=>{
     }
     if (typeof window.previewLogo === "function") { window.previewLogo(); }
   }
+
+  window._fillFromCardData = fill;
 
   btn.addEventListener("click", async ()=>{
     const owner  = (document.getElementById("ghUser")?.value || "Luckywolf82");
