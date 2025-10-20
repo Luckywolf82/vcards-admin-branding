@@ -749,6 +749,134 @@ document.addEventListener("DOMContentLoaded", ()=>{
 </script>
 <script>
 (function(){
+  const $btn  = document.getElementById("btnFetchLatestCard");
+  const $stat = document.getElementById("latestCardStatus");
+  if (!$btn) return;
+
+  const getVal = (id)=> (document.getElementById(id)?.value || "").trim();
+  const setVal = (id, v)=>{ const el = document.getElementById(id); if (el) el.value = (v||""); };
+  const trimSlashes = (s)=> (s||"").replace(/^\/+|\/+$/g, "");
+
+  async function j(url){
+    const r = await fetch(url, { headers: { "Accept":"application/vnd.github+json" } });
+    if(!r.ok) throw new Error(r.status + " " + r.statusText);
+    return r.json();
+  }
+
+  async function fetchLatestSlug(owner, repo, basePath, orgKey){
+    const path = encodeURIComponent(trimSlashes(basePath) + "/" + orgKey);
+    const commits = await j(`https://api.github.com/repos/${owner}/${repo}/commits?path=${path}&per_page=20`);
+    const details = await Promise.all((commits||[]).slice(0,8).map(c => j(c.url).catch(()=>null)));
+    let latest = null;
+    for (const dc of details){
+      if(!dc || !Array.isArray(dc.files)) continue;
+      const when = dc.commit?.author?.date || dc.commit?.committer?.date || "";
+      for (const f of dc.files){
+        const p = f.filename || "";
+        if(!/\/index\.html$/.test(p)) continue;
+        if(!p.includes("/"+orgKey+"/")) continue;
+        const parts = p.split("/");
+        const slug = parts[parts.length-2] || "";
+        if(!slug) continue;
+        if(!latest || new Date(when) > new Date(latest.when)){
+          latest = { slug, when };
+        }
+      }
+    }
+    return latest?.slug || "";
+  }
+
+  function applyData(d){
+    setVal("slug", d.slug);
+    setVal("name", d.name);
+    setVal("title", d.title);
+    setVal("phone", d.phone);
+    setVal("email", d.email);
+    setVal("site", d.site);
+    setVal("address", d.address);
+    setVal("vcfFilename", d.vcfFilename);
+    setVal("orgName", d.orgName || d.orgKey);
+    setVal("accent", d.accent);
+    setVal("logoUrl", d.logoUrl);
+    setVal("logoBg", d.logoBg);
+
+    // Links-tabell
+    const tbody = document.querySelector("#linksTable tbody");
+    if (tbody) {
+      tbody.innerHTML = "";
+      (d.links||[]).forEach(l=>{
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td><input value="${l.label||''}" class="lbl" /></td>
+          <td><input value="${l.url||''}"   class="lnk" style="width:100%"/></td>
+          <td><textarea class="pre" rows="2">${l.pre||''}</textarea></td>
+          <td><textarea class="post" rows="2">${l.post||''}</textarea></td>
+          <td><button type="button" class="remove">Fjern</button></td>`;
+        tr.querySelector(".remove").addEventListener("click", ()=> tr.remove());
+        tbody.appendChild(tr);
+      });
+    }
+
+    // Vedlegg (hvis du bruker _collectAttachments i genereringen)
+    window._latestAttachments = Array.isArray(d.attachments) ? d.attachments : [];
+    if (typeof window._setAttachmentsFromData === "function") {
+      window._setAttachmentsFromData(window._latestAttachments);
+    }
+    if (typeof window.previewLogo === "function") { window.previewLogo(); }
+  }
+
+  $btn.addEventListener("click", async ()=>{
+    const owner = (document.getElementById("ghUser")?.value || "Luckywolf82");
+    const repo  = (document.getElementById("ghRepo")?.value || "Vcards");
+    const basePath = trimSlashes(getVal("basePath") || "Vcards");
+    const orgKey   = getVal("orgKey");
+    if(!orgKey){ if($stat) $stat.textContent = "Angi Org key først."; return; }
+    try{
+      if($stat) $stat.textContent = "Leter etter siste kort…";
+      const slug = await fetchLatestSlug(owner, repo, basePath, orgKey);
+      if(!slug){ if($stat) $stat.textContent = "Fant ingen index.html for denne organisasjonen enda."; return; }
+      const raw = `https://raw.githubusercontent.com/${owner}/${repo}/HEAD/${basePath}/${orgKey}/${slug}/data.json`;
+      const r = await fetch(raw, { cache:"no-store" });
+      if(!r.ok){ if($stat) $stat.textContent = "Fant slug, men ikke data.json."; return; }
+      const d = await r.json();
+      d.slug = slug; // safety
+      applyData(d);
+      if($stat) $stat.textContent = "Fylte feltene fra: " + orgKey + "/" + slug;
+    }catch(e){
+      if($stat) $stat.textContent = "Feil: " + (e.message||e);
+    }
+  });
+})();
+</script>
+<script>
+document.addEventListener("DOMContentLoaded", ()=>{
+  const tbody = document.querySelector("#linksTable tbody");
+  const addBtn = document.getElementById("btnAddLink");
+  if (addBtn && tbody) {
+    addBtn.addEventListener("click", ()=>{
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td><input class="lbl" placeholder="Etikett" /></td>
+        <td><input class="lnk" placeholder="https://..." style="width:100%" /></td>
+        <td><textarea class="pre" rows="2" placeholder="Tekst over"></textarea></td>
+        <td><textarea class="post" rows="2" placeholder="Tekst under"></textarea></td>
+        <td><button type="button" class="remove">Fjern</button></td>`;
+      tbody.appendChild(tr);
+    });
+  }
+  if (tbody) {
+    tbody.addEventListener("click", (e)=>{
+      const btn = e.target.closest(".remove");
+      if (!btn) return;
+      e.preventDefault();
+      const tr = btn.closest("tr");
+      if (tr) tr.remove();
+    });
+  }
+});
+</script>
+<script>
+(function(){
   // En liten "state" for sist opplastede sti'er i denne økta:
   const filesState = []; // {path, name}
   const $list = document.getElementById("uploadedList");
@@ -1444,6 +1572,145 @@ document.addEventListener("DOMContentLoaded", ()=>{
 
   </main>
 
+<script>
+document.addEventListener("DOMContentLoaded", ()=>{
+  ["ghUser","ghRepo"].forEach(id=>{
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.style.display = "none";
+    const lab = el.closest("label");
+    if (lab) lab.style.display = "none";
+  });
+});
+</script>
+<script>
+(function(){
+  const $btn  = document.getElementById("btnFetchLatestCard");
+  const $stat = document.getElementById("latestCardStatus");
+  if (!$btn) return;
+
+  const getVal = (id)=> (document.getElementById(id)?.value || "").trim();
+  const setVal = (id, v)=>{ const el = document.getElementById(id); if (el) el.value = (v||""); };
+  const trimSlashes = (s)=> (s||"").replace(/^\/+|\/+$/g, "");
+
+  async function j(url){
+    const r = await fetch(url, { headers: { "Accept":"application/vnd.github+json" } });
+    if(!r.ok) throw new Error(r.status + " " + r.statusText);
+    return r.json();
+  }
+
+  async function fetchLatestSlug(owner, repo, basePath, orgKey){
+    const path = encodeURIComponent(trimSlashes(basePath) + "/" + orgKey);
+    const commits = await j(`https://api.github.com/repos/${owner}/${repo}/commits?path=${path}&per_page=20`);
+    const details = await Promise.all((commits||[]).slice(0,8).map(c => j(c.url).catch(()=>null)));
+    let latest = null;
+    for (const dc of details){
+      if(!dc || !Array.isArray(dc.files)) continue;
+      const when = dc.commit?.author?.date || dc.commit?.committer?.date || "";
+      for (const f of dc.files){
+        const p = f.filename || "";
+        if(!/\/index\.html$/.test(p)) continue;
+        if(!p.includes("/"+orgKey+"/")) continue;
+        const parts = p.split("/");
+        const slug = parts[parts.length-2] || "";
+        if(!slug) continue;
+        if(!latest || new Date(when) > new Date(latest.when)){
+          latest = { slug, when };
+        }
+      }
+    }
+    return latest?.slug || "";
+  }
+
+  function applyData(d){
+    setVal("slug", d.slug);
+    setVal("name", d.name);
+    setVal("title", d.title);
+    setVal("phone", d.phone);
+    setVal("email", d.email);
+    setVal("site", d.site);
+    setVal("address", d.address);
+    setVal("vcfFilename", d.vcfFilename);
+    setVal("orgName", d.orgName || d.orgKey);
+    setVal("accent", d.accent);
+    setVal("logoUrl", d.logoUrl);
+    setVal("logoBg", d.logoBg);
+
+    // Links-tabell
+    const tbody = document.querySelector("#linksTable tbody");
+    if (tbody) {
+      tbody.innerHTML = "";
+      (d.links||[]).forEach(l=>{
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td><input value="${l.label||''}" class="lbl" /></td>
+          <td><input value="${l.url||''}"   class="lnk" style="width:100%"/></td>
+          <td><textarea class="pre" rows="2">${l.pre||''}</textarea></td>
+          <td><textarea class="post" rows="2">${l.post||''}</textarea></td>
+          <td><button type="button" class="remove">Fjern</button></td>`;
+        tr.querySelector(".remove").addEventListener("click", ()=> tr.remove());
+        tbody.appendChild(tr);
+      });
+    }
+
+    // Vedlegg (hvis du bruker _collectAttachments i genereringen)
+    window._latestAttachments = Array.isArray(d.attachments) ? d.attachments : [];
+    if (typeof window._setAttachmentsFromData === "function") {
+      window._setAttachmentsFromData(window._latestAttachments);
+    }
+    if (typeof window.previewLogo === "function") { window.previewLogo(); }
+  }
+
+  $btn.addEventListener("click", async ()=>{
+    const owner = (document.getElementById("ghUser")?.value || "Luckywolf82");
+    const repo  = (document.getElementById("ghRepo")?.value || "Vcards");
+    const basePath = trimSlashes(getVal("basePath") || "Vcards");
+    const orgKey   = getVal("orgKey");
+    if(!orgKey){ if($stat) $stat.textContent = "Angi Org key først."; return; }
+    try{
+      if($stat) $stat.textContent = "Leter etter siste kort…";
+      const slug = await fetchLatestSlug(owner, repo, basePath, orgKey);
+      if(!slug){ if($stat) $stat.textContent = "Fant ingen index.html for denne organisasjonen enda."; return; }
+      const raw = `https://raw.githubusercontent.com/${owner}/${repo}/HEAD/${basePath}/${orgKey}/${slug}/data.json`;
+      const r = await fetch(raw, { cache:"no-store" });
+      if(!r.ok){ if($stat) $stat.textContent = "Fant slug, men ikke data.json."; return; }
+      const d = await r.json();
+      d.slug = slug; // safety
+      applyData(d);
+      if($stat) $stat.textContent = "Fylte feltene fra: " + orgKey + "/" + slug;
+    }catch(e){
+      if($stat) $stat.textContent = "Feil: " + (e.message||e);
+    }
+  });
+})();
+</script>
+<script>
+document.addEventListener("DOMContentLoaded", ()=>{
+  const tbody = document.querySelector("#linksTable tbody");
+  const addBtn = document.getElementById("btnAddLink");
+  if (addBtn && tbody) {
+    addBtn.addEventListener("click", ()=>{
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td><input class="lbl" placeholder="Etikett" /></td>
+        <td><input class="lnk" placeholder="https://..." style="width:100%" /></td>
+        <td><textarea class="pre" rows="2" placeholder="Tekst over"></textarea></td>
+        <td><textarea class="post" rows="2" placeholder="Tekst under"></textarea></td>
+        <td><button type="button" class="remove">Fjern</button></td>`;
+      tbody.appendChild(tr);
+    });
+  }
+  if (tbody) {
+    tbody.addEventListener("click", (e)=>{
+      const btn = e.target.closest(".remove");
+      if (!btn) return;
+      e.preventDefault();
+      const tr = btn.closest("tr");
+      if (tr) tr.remove();
+    });
+  }
+});
+</script>
 <script>
 (function(){
   // En liten "state" for sist opplastede sti'er i denne økta:
