@@ -553,9 +553,10 @@
         ['newLabel','newUrl','newPre','newPost'].forEach(id => document.getElementById(id).value = '');
       });
 
-      document.querySelectorAll('.pill').forEach(btn => {
-        if (btn.closest('.row')) return; // bare de i forvalgseksjonen
-        btn.addEventListener?.('click', () => addRow(btn.dataset.label, btn.dataset.url));
+      document.querySelectorAll('button.pill[data-label]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          addRow(btn.dataset.label || '', btn.dataset.url || '');
+        });
       });
     </script>
 
