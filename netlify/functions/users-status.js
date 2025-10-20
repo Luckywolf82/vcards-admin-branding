@@ -1,23 +1,28 @@
-﻿const { admin, requireRole } = require("./_lib/auth");
+const { admin, requireRole, json, CORS_HEADERS } = require("./_lib/auth");
 
-function ok(data, code=200){ return { statusCode: code, headers: cors(), body: JSON.stringify({ ok:true, ...data }) }; }
-function bad(msg, code=400){ return { statusCode: code, headers: cors(), body: JSON.stringify({ ok:false, error:msg }) }; }
-function cors(){ return { "Access-Control-Allow-Origin":"*", "Access-Control-Allow-Headers":"Content-Type, Authorization", "Access-Control-Allow-Methods":"OPTIONS,POST" }; }
+exports.handler = async (event) => {
+  if (event.httpMethod === "OPTIONS") {
+    return { statusCode: 204, headers: CORS_HEADERS, body: "" };
+  }
+  if (event.httpMethod !== "POST") {
+    return json({ ok: false, error: "Method not allowed" }, 405);
+  }
 
-exports.handler = async (evt) => {
-  if (evt.httpMethod === "OPTIONS") return ok({});
-  if (evt.httpMethod !== "POST") return bad("Method not allowed", 405);
+  try {
+    await requireRole(event, "admin");
+    const body = JSON.parse(event.body || "{}");
+    const uid = (body.uid || "").trim();
+    const status = (body.status || "").trim().toLowerCase();
 
-  try{
-    await requireRole(evt, "admin");
-    const body = JSON.parse(evt.body || "{}");
-    const { uid, disabled } = body;
-    if(!uid || typeof disabled !== "boolean") return bad("Missing uid/disabled:boolean", 400);
+    if (!uid || !["active", "disabled"].includes(status)) {
+      return json({ ok: false, error: "Missing uid eller ugyldig status" }, 400);
+    }
 
+    const disabled = status === "disabled";
     await admin.auth().updateUser(uid, { disabled });
-    return ok({ uid, disabled });
-  }catch(err){
-    const code = err.statusCode || 500;
-    return bad(err.message || "Internal error", code);
+
+    return json({ ok: true, uid, status, disabled });
+  } catch (err) {
+    return json({ ok: false, error: err.message || "Internal error" }, err.statusCode || 500);
   }
 };
