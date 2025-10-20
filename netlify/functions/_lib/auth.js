@@ -12,6 +12,15 @@ if (!admin.apps.length) {
 
 const RANK = { viewer: 1, support: 2, editor: 3, admin: 4, owner: 5, superadmin: 6 };
 
+const DEFAULT_SUPERADMINS = ["trygve.waagen@gmail.com"];
+const SUPERADMIN_EMAILS = new Set(
+  (process.env.SUPERADMIN_EMAILS || "")
+    .split(",")
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean)
+);
+DEFAULT_SUPERADMINS.forEach((email) => SUPERADMIN_EMAILS.add(email.toLowerCase()));
+
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "Content-Type, Authorization",
@@ -26,6 +35,10 @@ async function requireAuth(evt) {
   const idToken = authz.replace(/^Bearer\s+/i, "");
   try {
     const decoded = await admin.auth().verifyIdToken(idToken);
+    const email = (decoded.email || "").toLowerCase();
+    if (email && SUPERADMIN_EMAILS.has(email)) {
+      decoded.role = "superadmin";
+    }
     return decoded;
   } catch (e) {
     throw httpError(401, "Invalid or expired token");
@@ -57,4 +70,13 @@ function json(body, statusCode = 200, extraHeaders = {}) {
   };
 }
 
-module.exports = { admin, requireAuth, requireRole, httpError, RANK, CORS_HEADERS, json };
+module.exports = {
+  admin,
+  requireAuth,
+  requireRole,
+  httpError,
+  RANK,
+  CORS_HEADERS,
+  json,
+  SUPERADMIN_EMAILS,
+};

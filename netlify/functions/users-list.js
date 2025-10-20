@@ -1,3 +1,4 @@
+const { admin, requireRole, json, CORS_HEADERS, SUPERADMIN_EMAILS } = require("./_lib/auth");
 const { admin, requireRole, json, CORS_HEADERS } = require("./_lib/auth");
 
 exports.handler = async (event) => {
@@ -21,7 +22,11 @@ exports.handler = async (event) => {
     const listed = await admin.auth().listUsers(limit, pageToken);
     let users = listed.users.map((u) => {
       const claims = u.customClaims || {};
-      const role = (claims.role || "").toLowerCase() || null;
+      let role = (claims.role || "").toLowerCase() || null;
+      const email = (u.email || "").toLowerCase();
+      if (email && SUPERADMIN_EMAILS.has(email)) {
+        role = "superadmin";
+      }
       return {
         uid: u.uid,
         email: u.email || null,

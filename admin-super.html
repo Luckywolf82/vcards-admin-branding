@@ -47,6 +47,17 @@
     .status-pill{display:inline-flex;align-items:center;gap:8px;padding:6px 10px;border-radius:999px;background:#1a1c25;border:1px solid #222736}
     .status-dot{width:8px;height:8px;border-radius:999px;background:#ff6b6b;box-shadow:0 0 0 2px rgba(0,0,0,.2)}
     .status-dot.ok{background:#21c36a}
+    .badge-btn{
+      padding:6px 10px;
+      border-radius:10px;
+      border:1px solid #222736;
+      background:transparent;
+      color:var(--text);
+      cursor:pointer;
+      font-weight:600;
+    }
+    .badge-btn:hover{background:#222736}
+    .badge-btn.hidden{display:none}
 
 </style>
   <!-- 🔐 Firebase SDK (compat) -->
@@ -70,15 +81,13 @@
         <a href="/bestill-kort.html">Bestill kort</a>
         <a href="/admin-super.html" aria-current="page">Superadmin</a>
       </nav>
-  <!-- 🔐 Login status + knapper -->
-  <div id="authBox" class="flex items-center gap-2"
-       style="position:absolute;top:12px;right:12px;z-index:50;">
-    <span id="loginStatus">Ikke innlogget</span>
-    <button id="btnLogin" class="tab-btn">Logg inn</button>
-    <button id="btnLogout" class="tab-btn hidden">Logg ut</button>
-  </div>
       <div class="spacer"></div>
-      <div id="userBadge" class="status-pill"><span class="status-dot" id="ubDot"></span><span id="ubText">Ikke innlogget</span></div>
+      <div id="userBadge" class="status-pill">
+        <span class="status-dot" id="ubDot"></span>
+        <span id="ubText">Ikke innlogget</span>
+        <button id="btnLogin" class="badge-btn">Logg inn</button>
+        <button id="btnLogout" class="badge-btn hidden">Logg ut</button>
+      </div>
     </div>
   </header>
 
@@ -88,15 +97,15 @@
 
     <!-- Tab knapper -->
     <div class="tabs" role="tablist" aria-label="Superadmin seksjoner">
-      <button class="tab-btn" role="tab" aria-selected="true" data-tab="branding">ðŸŽ¨ Branding</button>
-      <button class="tab-btn" role="tab" aria-selected="false" data-tab="lang">ðŸŒ Språk</button>
-      <button class="tab-btn" role="tab" aria-selected="false" data-tab="users">ðŸ‘¤ Brukere</button>
-      <button class="tab-btn" role="tab" aria-selected="false" data-tab="pages">ðŸ§¾ Sider</button>
-      <button class="tab-btn" role="tab" aria-selected="false" data-tab="stripe">ðŸ’³ Stripe</button>
-      <button class="tab-btn" role="tab" aria-selected="false" data-tab="orders">ðŸ“¦ Ordrer</button>
-      <button class="tab-btn" role="tab" aria-selected="false" data-tab="nfc">ðŸ§± NFC-Batch</button>
-      <button class="tab-btn" role="tab" aria-selected="false" data-tab="seo">ðŸ” SEO</button>
-      <button class="tab-btn" role="tab" aria-selected="false" data-tab="settings">âš™ï¸ System</button>
+      <button class="tab-btn" role="tab" aria-selected="true" data-tab="branding">🎨 Branding</button>
+      <button class="tab-btn" role="tab" aria-selected="false" data-tab="lang">🌐 Språk</button>
+      <button class="tab-btn" role="tab" aria-selected="false" data-tab="users">👥 Brukere</button>
+      <button class="tab-btn" role="tab" aria-selected="false" data-tab="pages">📄 Sider</button>
+      <button class="tab-btn" role="tab" aria-selected="false" data-tab="stripe">💳 Stripe</button>
+      <button class="tab-btn" role="tab" aria-selected="false" data-tab="orders">📦 Ordrer</button>
+      <button class="tab-btn" role="tab" aria-selected="false" data-tab="nfc">📡 NFC-Batch</button>
+      <button class="tab-btn" role="tab" aria-selected="false" data-tab="seo">🔍 SEO</button>
+      <button class="tab-btn" role="tab" aria-selected="false" data-tab="settings">⚙️ System</button>
     </div>
 
     <!-- Branding -->
@@ -168,7 +177,7 @@
           <div style="display:grid;gap:10px;grid-template-columns:repeat(2,minmax(0,1fr))">
             <div style="background:var(--muted);padding:12px;border-radius:12px;border:1px solid #222736">
               <strong>Kort</strong>
-              <p class="muted">Sekundærtekst – slik ser â€œmutedâ€ ut.</p>
+              <p class="muted">Sekundærtekst – slik ser "muted" ut.</p>
               <button class="tab-btn">Knapp</button>
             </div>
             <div style="background:var(--card);padding:12px;border-radius:12px;border:1px solid #1b2030">
@@ -185,7 +194,7 @@
     <section id="tab-lang" class="hidden" role="tabpanel">
       <div class="card" style="margin-bottom:12px">
         <h2>Språk & oversettelser</h2>
-        <p class="muted">Rediger nøkkel/verdier for flere språk. â€œManglendeâ€ markeres rødt. Data lagres lokalt nå (kan kobles mot Firestore senere).</p>
+        <p class="muted">Rediger nøkkel/verdier for flere språk. "Manglende" markeres rødt. Data lagres lokalt nå (kan kobles mot Firestore senere).</p>
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
           <label>Standard språk
             <select id="i18nDefaultLang">
@@ -1154,7 +1163,7 @@ ord_456"></textarea>
           state.data[newKey] = {...state.data[key]};
           delete state.data[key];
           tr.setAttribute('data-key', newKey);
-          setMsg(`Endret nøkkel: ${key} â†’ ${newKey}`);
+          setMsg(`Endret nøkkel: ${key} → ${newKey}`);
         });
         tdKey.appendChild(keyInput);
         tr.appendChild(tdKey);
@@ -1889,8 +1898,8 @@ ord_456"></textarea>
       const lbl = ce('input'); lbl.type='text'; lbl.value=item.label||''; lbl.placeholder='Label';
       const href= ce('input'); href.type='text'; href.value=item.href||''; href.placeholder='/bestill-kort';
       const controls = ce('div'); controls.style.display='flex'; controls.style.gap='6px';
-      const up = ce('button'); up.className='tab-btn'; up.textContent='â†‘';
-      const down = ce('button'); down.className='tab-btn'; down.textContent='â†“';
+      const up = ce('button'); up.className='tab-btn'; up.textContent='↑';
+      const down = ce('button'); down.className='tab-btn'; down.textContent='↓';
       const del = ce('button'); del.className='tab-btn'; del.textContent='Slett';
 
       up.onclick = ()=> move(idx, -1);
@@ -2370,7 +2379,7 @@ ord_456"></textarea>
 
       // Stripe-info
       const s = d.stripe||{};
-      el.stripe.textContent = `PI: ${s.paymentIntent||'—'}  â€¢  Charge: ${s.charge||'—'}  â€¢  Customer: ${s.customerId||'—'}`;
+      el.stripe.textContent = `PI: ${s.paymentIntent||'—'}  •  Charge: ${s.charge||'—'}  •  Customer: ${s.customerId||'—'}`;
 
       el.drawer.classList.remove('hidden');
       el.editMsg.textContent='';
@@ -2422,7 +2431,7 @@ ord_456"></textarea>
     try{
       await post(API.refund, { id: currentId });
       el.editMsg.textContent='Refundert.';
-      await loadOrders(); // status â†’ refunded
+      await loadOrders(); // status → refunded
     }catch(e){ el.editMsg.textContent='Refund feilet.'; }
   }
 
@@ -2589,7 +2598,7 @@ ord_456"></textarea>
       const d = await get(API.get, { id });
       currentBatch = id;
       el.title.textContent = `Batch #${id}`;
-      el.meta.textContent = `${d.status} â€¢ ${d.count||d.orderIds?.length||0} kort â€¢ Opprettet ${fmt(d.createdAt)}`;
+      el.meta.textContent = `${d.status} • ${d.count||d.orderIds?.length||0} kort • Opprettet ${fmt(d.createdAt)}`;
       el.stEng.textContent = d.stats?.engrave ?? 0;
       el.stEnc.textContent = d.stats?.encode ?? 0;
       el.stVer.textContent = d.stats?.verify ?? 0;
@@ -2679,6 +2688,38 @@ ord_456"></textarea>
   <script>
   (function(){
     const auth = firebase.auth();
+    const SUPERADMIN_EMAILS = new Set(['trygve.waagen@gmail.com']);
+
+    (function patchFetch(){
+      if (window.__nfckingFetchPatched) return;
+      window.__nfckingFetchPatched = true;
+      const originalFetch = window.fetch.bind(window);
+      window.fetch = async (input, init = {}) => {
+        const url = typeof input === 'string' ? input : (input && input.url) || '';
+        const isFunctionCall = /^\/\.netlify\/functions\//.test(url);
+        if (isFunctionCall) {
+          try {
+            const user = auth.currentUser;
+            if (user) {
+              const token = await user.getIdToken(true);
+              const headers = new Headers(init.headers || (typeof Request !== 'undefined' && input instanceof Request ? input.headers : undefined) || {});
+              if (!headers.has('Authorization')) {
+                headers.set('Authorization', `Bearer ${token}`);
+              }
+              const body = init.body;
+              const isFormData = typeof FormData !== 'undefined' && body instanceof FormData;
+              if (body && !isFormData && !headers.has('Content-Type')) {
+                headers.set('Content-Type', 'application/json');
+              }
+              init.headers = headers;
+            }
+          } catch (err) {
+            console.warn('Kunne ikke hente ID-token for fetch', err);
+          }
+        }
+        return originalFetch(input, init);
+      };
+    })();
 
     (function patchFetch(){
       if (window.__nfckingFetchPatched) return;
@@ -2734,12 +2775,10 @@ ord_456"></textarea>
     }
 
     auth.onAuthStateChanged(async (user) => {
-      const status = document.getElementById('loginStatus');
       const btnLogin = document.getElementById('btnLogin');
       const btnLogout = document.getElementById('btnLogout');
 
       if (!user) {
-        if (status) status.textContent = 'Ikke innlogget';
         updateBadge(null);
         btnLogin?.classList.remove('hidden');
         btnLogout?.classList.add('hidden');
@@ -2758,9 +2797,13 @@ ord_456"></textarea>
       } catch (err) {
         console.warn('Kunne ikke lese rolle-claim', err);
       }
+      const emailLower = (user.email || '').toLowerCase();
+      if (emailLower && SUPERADMIN_EMAILS.has(emailLower)) {
+        role = 'superadmin';
+        localStorage.setItem('nfcking.role', role);
+      }
       localStorage.setItem('nfcking.userName', user.email || user.displayName || '');
 
-      if (status) status.textContent = `Innlogget: ${user.email || 'ukjent'} (${role})`;
       updateBadge(user, role);
       btnLogin?.classList.add('hidden');
       btnLogout?.classList.remove('hidden');
