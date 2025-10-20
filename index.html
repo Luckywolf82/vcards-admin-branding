@@ -1899,6 +1899,18 @@
           }
 
           window.ORG_PROFILES = visible;
+          if (fallbackAll) {
+            orgAccessState.set(Object.keys(visible), false);
+            setOrgAccessMessage(
+              Object.keys(visible).length
+                ? 'Ingen tildelte organisasjoner funnet – viser alle tilgjengelige for nå.'
+                : 'Ingen organisasjoner funnet.'
+            );
+          } else {
+            setOrgAccessMessage(describeAccess(visible));
+          }
+
+          window.ORG_PROFILES = visible;
           setOrgAccessMessage(describeAccess(visible));
         } catch (e) {
           console.warn('Klarte ikke hente orgs fra Firestore:', e);

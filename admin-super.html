@@ -89,6 +89,21 @@
     .builder-dropzone{padding:16px;border:1px dashed #2d3243;border-radius:12px;text-align:center;color:var(--sub);transition:background .2s ease}
     .builder-dropzone.active{background:rgba(255,26,26,.1);color:#fff;border-color:var(--brand)}
 
+    .input-grid{display:grid;gap:12px}
+    .input-grid.cols-2{grid-template-columns:repeat(2,minmax(0,1fr))}
+    @media (max-width:719px){.input-grid.cols-2{grid-template-columns:1fr}}
+    .input-stack{display:flex;flex-direction:column;gap:4px}
+    .input-stack input,
+    .input-stack textarea,
+    .input-stack select{background:#0f111a;color:var(--text);border:1px solid #2d3243;border-radius:8px;padding:8px;font:inherit}
+    label.inline-check{display:flex;align-items:center;gap:8px;font-weight:600}
+    label.inline-check input[type="checkbox"]{width:auto}
+    .form-actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:12px}
+    .status-line{display:inline-flex;align-items:center;gap:6px;margin-top:8px;font-weight:600;color:var(--sub)}
+    .status-line.ok{color:var(--ok)}
+    .status-line.err{color:var(--err)}
+    #smtpMeta{margin-top:12px;line-height:1.4}
+
 </style>
   <!-- 🔐 Firebase SDK (compat) -->
   <script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-app-compat.js"></script>
@@ -920,7 +935,89 @@ ord_456"></textarea>
 
     <!-- System -->
     <section id="tab-settings" class="hidden" role="tabpanel">
-      <div class="card"><h2>System</h2><p class="muted">Miljø, API-nøkler (maskert), audit, backup …</p></div>
+      <div class="grid cols-2" style="align-items:start">
+        <form id="smtpForm" class="card">
+          <h2>SMTP / e-post</h2>
+          <p class="muted">Konfigurer e-postserveren som brukes til invitasjoner, varsler og andre utsendelser.</p>
+
+          <div class="input-grid">
+            <label class="inline-check">
+              <input type="checkbox" id="smtpEnabled" />
+              Aktiver e-postutsendelser
+            </label>
+
+            <label class="input-stack">
+              <span>Vertsnavn</span>
+              <input type="text" id="smtpHost" placeholder="smtp.example.com" autocomplete="off" />
+            </label>
+
+            <div class="input-grid cols-2">
+              <label class="input-stack">
+                <span>Port</span>
+                <input type="number" id="smtpPort" min="1" step="1" placeholder="587" />
+              </label>
+              <label class="inline-check">
+                <input type="checkbox" id="smtpSecure" />
+                Bruk TLS (secure)
+              </label>
+            </div>
+
+            <label class="input-stack">
+              <span>Brukernavn</span>
+              <input type="text" id="smtpUser" autocomplete="off" />
+            </label>
+
+            <label class="input-stack">
+              <span>Passord / API-nøkkel</span>
+              <input type="password" id="smtpPass" autocomplete="new-password" />
+            </label>
+
+            <label class="inline-check">
+              <input type="checkbox" id="smtpClearPass" />
+              Fjern lagret passord når jeg lagrer
+            </label>
+
+            <label class="input-stack">
+              <span>Avsender (From)</span>
+              <input type="text" id="smtpFrom" placeholder="NFCKING Admin &lt;no-reply@example.com&gt;" />
+            </label>
+
+            <label class="input-stack">
+              <span>Reply-to (valgfri)</span>
+              <input type="text" id="smtpReply" placeholder="support@example.com" />
+            </label>
+          </div>
+
+          <div class="form-actions">
+            <button type="submit" class="tab-btn" id="smtpSave">Lagre</button>
+            <button type="button" class="tab-btn" id="smtpReload">Oppdater</button>
+            <span id="smtpStatus" class="status-line"></span>
+          </div>
+
+          <div class="input-grid cols-2" style="margin-top:12px;align-items:end">
+            <label class="input-stack">
+              <span>Send test til</span>
+              <input type="email" id="smtpTestEmail" placeholder="navn@example.com" />
+            </label>
+            <div class="form-actions" style="margin-top:0">
+              <button type="button" class="tab-btn" id="smtpTest">Send test</button>
+            </div>
+          </div>
+
+          <p id="smtpMeta" class="muted"></p>
+        </form>
+
+        <div class="card" id="smtpHelp">
+          <h2>Hjelp &amp; miljøvariabler</h2>
+          <p class="muted">Hvis SMTP-variabler er satt i Netlify-miljøet, brukes de automatisk og overstyrer denne konfigurasjonen.</p>
+          <ul class="muted">
+            <li><code>SMTP_HOST</code>, <code>SMTP_PORT</code>, <code>SMTP_USER</code>, <code>SMTP_PASS</code>, <code>SMTP_FROM</code></li>
+            <li>Valgfritt: <code>SMTP_REPLY_TO</code>, <code>SMTP_SECURE</code>, <code>SMTP_ENABLED</code></li>
+            <li>Test-knappen sender en enkel e-post med dagens oppsett.</li>
+            <li>For å fjerne lagret passord: huk av «Fjern lagret passord» og lagre.</li>
+          </ul>
+        </div>
+      </div>
     </section>
   </main>
 
@@ -1414,8 +1511,335 @@ ord_456"></textarea>
   })();
   </script>
 
+  <!-- Del 6 – system script -->
+  <script>
+  (function(){
+    const API = {
+      get: '/.netlify/functions/settings-get',
+      save: '/.netlify/functions/settings-save',
+      test: '/.netlify/functions/settings-test-smtp',
+    };
+
+    const state = {
+      loaded: false,
+      loading: false,
+      hasPass: false,
+      activeSource: 'none',
+      envInfo: null,
+    };
+
+    const el = {};
+    let ready = false;
+
+    const qs = (sel, root=document) => root.querySelector(sel);
+
+    function setupElements(){
+      if (ready) return true;
+      el.form = qs('#smtpForm');
+      if (!el.form) return false;
+      el.enabled = qs('#smtpEnabled');
+      el.host = qs('#smtpHost');
+      el.port = qs('#smtpPort');
+      el.secure = qs('#smtpSecure');
+      el.user = qs('#smtpUser');
+      el.pass = qs('#smtpPass');
+      el.clearPass = qs('#smtpClearPass');
+      el.from = qs('#smtpFrom');
+      el.reply = qs('#smtpReply');
+      el.status = qs('#smtpStatus');
+      el.reload = qs('#smtpReload');
+      el.testBtn = qs('#smtpTest');
+      el.testEmail = qs('#smtpTestEmail');
+      el.meta = qs('#smtpMeta');
+
+      el.form.addEventListener('submit', onSubmit);
+      el.reload?.addEventListener('click', (ev) => { ev.preventDefault(); load(true); });
+      el.testBtn?.addEventListener('click', onTest);
+
+      if (el.clearPass) {
+        el.clearPass.checked = false;
+        el.clearPass.disabled = true;
+      }
+      if (el.meta) {
+        el.meta.textContent = 'Logg inn som superadministrator for å konfigurere SMTP.';
+      }
+
+      ready = true;
+      return true;
+    }
+
+    function setStatus(message, type){
+      if (!ready && !setupElements()) return;
+      if (!el.status) return;
+      el.status.textContent = message || '';
+      el.status.classList.remove('ok','err');
+      if (!message) return;
+      if (type === 'ok') el.status.classList.add('ok');
+      else if (type === 'err') el.status.classList.add('err');
+    }
+
+    function formatDate(iso){
+      if (!iso) return '';
+      try {
+        return new Date(iso).toLocaleString('no-NO', { dateStyle: 'short', timeStyle: 'short' });
+      } catch {
+        return iso;
+      }
+    }
+
+    function updateMeta(data){
+      if (!el.meta) return;
+      const parts = [];
+      if (state.activeSource === 'env') {
+        parts.push('Miljøvariabler brukes for utsendelser.');
+        if (state.envInfo?.host) parts.push(`Host: ${state.envInfo.host}`);
+        if (state.envInfo?.from) parts.push(`From: ${state.envInfo.from}`);
+      } else {
+        const stamp = formatDate(data.updatedAt);
+        if (stamp) parts.push(`Sist oppdatert ${stamp}`);
+        if (data.updatedBy) parts.push(`av ${data.updatedBy}`);
+      }
+      if (state.hasPass) {
+        parts.push('Passord/API-nøkkel er lagret.');
+      }
+      if (!data.enabled && state.activeSource !== 'env' && data.host) {
+        parts.push('Utsendelser er deaktivert.');
+      }
+      if (!parts.length) {
+        parts.push('Ingen SMTP-innstillinger lagret enda.');
+      }
+      el.meta.textContent = parts.join(' • ');
+    }
+
+    function populate(data){
+      if (!setupElements()) return;
+      state.hasPass = Boolean(data.hasPass);
+      if (el.enabled) el.enabled.checked = Boolean(data.enabled);
+      if (el.host) el.host.value = data.host || '';
+      if (el.port) el.port.value = data.port || '';
+      if (el.secure) el.secure.checked = Boolean(data.secure);
+      if (el.user) el.user.value = data.user || '';
+      if (el.from) el.from.value = data.from || '';
+      if (el.reply) el.reply.value = data.replyTo || '';
+      if (el.pass) {
+        el.pass.value = '';
+        el.pass.placeholder = state.hasPass ? '••••••••' : '';
+      }
+      if (el.clearPass) {
+        el.clearPass.checked = false;
+        el.clearPass.disabled = !state.hasPass;
+      }
+      updateMeta(data);
+    }
+
+    function gatherPayload(){
+      if (!setupElements()) return null;
+      const payload = {
+        host: (el.host?.value || '').trim(),
+        port: el.port?.value || '',
+        secure: Boolean(el.secure?.checked),
+        user: (el.user?.value || '').trim(),
+        from: (el.from?.value || '').trim(),
+        replyTo: (el.reply?.value || '').trim(),
+        enabled: Boolean(el.enabled?.checked),
+      };
+      if (el.pass) {
+        const pwd = el.pass.value;
+        if (pwd) {
+          payload.pass = pwd;
+        } else if (state.hasPass && el.clearPass?.checked) {
+          payload.pass = '';
+        } else {
+          payload.pass = null;
+        }
+      } else {
+        payload.pass = null;
+      }
+      return payload;
+    }
+
+    async function request(url, options){
+      const res = await fetch(url, options);
+      const text = await res.text();
+      let data;
+      try { data = JSON.parse(text); }
+      catch { throw new Error(text || `HTTP ${res.status}`); }
+      if (!res.ok || data.ok === false) {
+        throw new Error(data.error || data.message || text || `HTTP ${res.status}`);
+      }
+      return data;
+    }
+
+    function isSuperadmin(){
+      try {
+        return (localStorage.getItem('nfcking.role') || '').toLowerCase() === 'superadmin';
+      } catch {
+        return false;
+      }
+    }
+
+    function isSettingsTabActive(){
+      const hash = (location.hash || '#branding').replace('#','');
+      return hash === 'settings';
+    }
+
+    async function load(force){
+      if (!setupElements()) return;
+      if (!isSuperadmin()) {
+        if (force) {
+          setStatus('Kun superadministratorer kan endre SMTP.', 'err');
+        }
+        return;
+      }
+      if (state.loading) return;
+      if (state.loaded && !force && !isSettingsTabActive()) return;
+
+      state.loading = true;
+      setStatus('Laster SMTP-oppsett …');
+      try {
+        const data = await request(API.get);
+        state.loaded = true;
+        state.activeSource = data.activeSource || 'none';
+        state.envInfo = data.env || null;
+        populate(data.smtp || {});
+        if (state.activeSource === 'env') {
+          setStatus('Miljøvariabler er aktive.', null);
+        } else {
+          setStatus('');
+          if (!data.smtp?.host) {
+            setStatus('Legg inn serverdetaljene for å aktivere e-post.', 'err');
+          } else if (!data.smtp?.enabled) {
+            setStatus('SMTP-oppsettet er lagret, men utsendelser er deaktivert.', 'err');
+          }
+        }
+      } catch (err) {
+        state.loaded = false;
+        setStatus(`Kunne ikke hente SMTP: ${err.message}`, 'err');
+      } finally {
+        state.loading = false;
+      }
+    }
+
+    async function onSubmit(ev){
+      ev.preventDefault();
+      if (!setupElements()) return;
+      if (!isSuperadmin()) {
+        setStatus('Kun superadministratorer kan lagre SMTP.', 'err');
+        return;
+      }
+      const payload = gatherPayload();
+      if (!payload) return;
+      if (!payload.host || !payload.user || (!payload.pass && !state.hasPass) || !payload.from) {
+        setStatus('Vertsnavn, brukernavn, avsender og passord/API-nøkkel er påkrevd.', 'err');
+        return;
+      }
+      setStatus('Lagrer SMTP-oppsett …');
+      try {
+        const data = await request(API.save, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        state.loaded = true;
+        state.activeSource = data.smtp?.enabled ? 'stored' : 'none';
+        state.envInfo = null;
+        populate(data.smtp || {});
+        if (data.smtp?.enabled) {
+          setStatus('SMTP-oppsett lagret.', 'ok');
+        } else {
+          setStatus('SMTP-oppsett lagret, men utsendelser er deaktivert.', 'err');
+        }
+      } catch (err) {
+        setStatus(`Kunne ikke lagre: ${err.message}`, 'err');
+      }
+    }
+
+    async function onTest(ev){
+      ev.preventDefault();
+      if (!setupElements()) return;
+      if (!isSuperadmin()) {
+        setStatus('Kun superadministratorer kan sende test.', 'err');
+        return;
+      }
+      const email = (el.testEmail?.value || '').trim();
+      if (!email) {
+        setStatus('Angi en testadresse.', 'err');
+        return;
+      }
+      setStatus(`Sender test til ${email} …`);
+      try {
+        const res = await request(API.test, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ to: email }),
+        });
+        setStatus(`Test sendt til ${res.deliveredTo || email}.`, 'ok');
+      } catch (err) {
+        setStatus(`Kunne ikke sende test: ${err.message}`, 'err');
+      }
+    }
+
+    function resetForm(){
+      if (!setupElements()) return;
+      state.loaded = false;
+      state.hasPass = false;
+      state.activeSource = 'none';
+      state.envInfo = null;
+      if (el.form) el.form.reset();
+      if (el.enabled) el.enabled.checked = false;
+      if (el.host) el.host.value = '';
+      if (el.port) el.port.value = '';
+      if (el.secure) el.secure.checked = false;
+      if (el.user) el.user.value = '';
+      if (el.from) el.from.value = '';
+      if (el.reply) el.reply.value = '';
+      if (el.pass) {
+        el.pass.value = '';
+        el.pass.placeholder = '';
+      }
+      if (el.clearPass) {
+        el.clearPass.checked = false;
+        el.clearPass.disabled = true;
+      }
+      if (el.testEmail) el.testEmail.value = '';
+      setStatus('');
+      if (el.meta) {
+        el.meta.textContent = 'Logg inn som superadministrator for å konfigurere SMTP.';
+      }
+    }
+
+    function onRoleChange(ev){
+      const role = (ev.detail && ev.detail.role) ? String(ev.detail.role).toLowerCase() : '';
+      if (role === 'superadmin') {
+        load(true);
+      } else {
+        resetForm();
+      }
+    }
+
+    function onHashChange(){
+      if (!isSuperadmin()) return;
+      if (isSettingsTabActive()) {
+        load(false);
+      }
+    }
+
+    document.addEventListener('nfcking:role', onRoleChange);
+    window.addEventListener('hashchange', onHashChange);
+
+    document.addEventListener('DOMContentLoaded', () => {
+      if (!setupElements()) return;
+      if (isSuperadmin() && isSettingsTabActive()) {
+        load(true);
+      } else {
+        resetForm();
+      }
+    });
+  })();
+  </script>
+
   <!-- Del 6 – del 5/6: Brukere script -->
-  
+
   <script>
   (function(){
     const qs = (sel, root=document) => root.querySelector(sel);
@@ -3873,6 +4297,7 @@ ord_456"></textarea>
         localStorage.removeItem('nfcking.userName');
         localStorage.removeItem('nfcking.idToken');
         enforceAccess(null);
+        document.dispatchEvent(new CustomEvent('nfcking:role', { detail: { role: null } }));
         return;
       }
 
@@ -3896,6 +4321,15 @@ ord_456"></textarea>
       btnLogin?.classList.add('hidden');
       btnLogout?.classList.remove('hidden');
       enforceAccess(role);
+      document.dispatchEvent(
+        new CustomEvent('nfcking:role', {
+          detail: {
+            role,
+            email: user.email || '',
+            uid: user.uid || null,
+          },
+        })
+      );
     });
 
     async function doLogin(){

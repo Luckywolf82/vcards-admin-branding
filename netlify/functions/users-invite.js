@@ -5,6 +5,7 @@ const {
   CORS_HEADERS,
   normaliseOrgKey,
 } = require("./_lib/auth");
+const { loadSmtpConfig, sendSmtpMail } = require("./_lib/settings");
 
 function parseOrgKeys(body = {}) {
   const set = new Set();
@@ -137,21 +138,19 @@ exports.handler = async (event) => {
     }
 
     let emailSent = false;
-    const { SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM } = process.env;
-
-    if (SMTP_HOST && SMTP_PORT && SMTP_USER && SMTP_PASS && SMTP_FROM) {
-      try {
-        const nodemailer = await import("nodemailer").then((m) => m.default || m);
-        const transporter = nodemailer.createTransport({
-          host: SMTP_HOST,
-          port: Number(SMTP_PORT) || 587,
-          secure: false,
-          auth: { user: SMTP_USER, pass: SMTP_PASS },
-        });
-        await transporter.sendMail({
-          from: SMTP_FROM,
+    let note = null;
+    try {
+      const smtpConfig = await loadSmtpConfig();
+      if (smtpConfig) {
+        await sendSmtpMail(smtpConfig, {
           to: email,
           subject: "NFCKING – invitasjon",
+          text: [
+            `Hei${displayName ? ` ${displayName}` : ""}!`,
+            "",
+            "Du er invitert til NFCKING administrasjon. Åpne lenken for å logge inn:",
+            inviteLink,
+          ].join("\n"),
           html: `
             <p>Hei${displayName ? ` ${displayName}` : ""}!</p>
             <p>Du er invitert til NFCKING administrasjon. Klikk lenken under for å logge inn:</p>
@@ -161,22 +160,15 @@ exports.handler = async (event) => {
           `,
         });
         emailSent = true;
-      } catch (err) {
-        return json({
-          ok: true,
-          uid: user.uid,
-          role,
-          orgKey: primaryOrg,
-          orgs,
-          inviteLink,
-          emailSent: false,
-          note:
-            "SMTP-variabler er satt, men e-post kunne ikke sendes. Kontroller nodemailer og legitimasjon.",
-        });
+      } else {
+        note =
+          "SMTP er ikke konfigurert. Lenken vises her slik at du kan sende invitasjonen manuelt.";
       }
+    } catch (err) {
+      note = `E-post kunne ikke sendes automatisk: ${err.message || err}`;
     }
 
-    return json({
+    const response = {
       ok: true,
       uid: user.uid,
       role,
@@ -184,7 +176,11 @@ exports.handler = async (event) => {
       orgs,
       inviteLink,
       emailSent,
-    });
+    };
+    if (note) {
+      response.note = note;
+    }
+    return json(response);
   } catch (err) {
     return json({ ok: false, error: err.message || "Internal error" }, err.statusCode || 500);
   }
