@@ -94,9 +94,9 @@
         <div>
           <h3 style="margin:0 0 6px">Siste opplastede filer</h3>
           <p class="note" id="recentFilesSub" style="margin:0">
-            <span id="recentModeLabel">Viser vedlegg</span>
+            <span id="recentModeLabel">Viser kort</span>
             &nbsp;|&nbsp;
-            <a href="#" id="switchToCards" style="color:#8fd3ff;text-decoration:none;">Kort</a>
+            <a href="#" id="switchToCards" style="color:#8fd3ff;text-decoration:none;">Vedlegg</a>
           </p>
         </div>
         <div class="actions">
@@ -113,12 +113,12 @@
       <label>Velg organisasjon
         <select id="orgSelect"></select>
       </label>
+      <div class="inline" id="latestCardRow" style="gap:8px;margin-top:6px">
+        <button type="button" class="pill" id="btnFetchLatestCard">Hent siste kort</button>
+        <span class="note" id="latestCardStatus"></span>
+      </div>
 
-      
-<div class="inline" id="latestCardRow" style="gap:8px;margin-top:6px">
-  <button type="button" class="pill" id="btnFetchLatestCard">Hent siste kort</button>
-  <span class="note" id="latestCardStatus"></span>
-</div><div class="inline">
+      <div class="inline">
         <label style="flex:1">Org key (mappe – case sensitive)
           <input id="orgKey" placeholder="OrgKey" required oninput="applyBranding('force'); syncOrgSelectFromKey(); loadEmployees();">
         </label>
@@ -251,8 +251,11 @@
       </label>
     </div>
 
-    <button id="generate">Generer & Publiser</button>
-    <span id="status"></span>
+    <div class="inline" style="gap:10px;align-items:center;margin:12px 0;flex-wrap:wrap">
+      <button type="button" id="btnGenerate" class="pill">Generer</button>
+      <button type="button" id="btnPublish" class="pill">Publiser</button>
+      <span id="status" class="note"></span>
+    </div>
 
     <h3>Resultat</h3>
     <p>NFC-URL: <input id="nfcUrl" style="width:100%" readonly></p>
@@ -319,29 +322,207 @@
         if (idx >= 0) orgSelect.selectedIndex = idx;
       }
 
-      function loadEmployees(){
-        const key = document.getElementById('orgKey').value.trim();
-        const list = (window.EMPLOYEES || {})[key] || [];
-        const sel = document.getElementById('employeeSelect');
-        sel.innerHTML = '<option value="">(Velg ansatt…)</option>';
+      const EMPLOYEE_CACHE_TTL = 60 * 1000;
+      const employeeFetches = {};
+      const employeeCacheMeta = {};
+      let employeeLoadTimer = null;
+      let employeeRequestId = 0;
+
+      const trimSlashes = (s) => (s || '').replace(/^\/+|\/+$/g, '');
+      const pathToSegments = (s) => trimSlashes(s).split('/').filter(Boolean);
+
+      function renderEmployeeOptions(sel, orgKey, preferredSlug){
+        const store = window.EMPLOYEES || (window.EMPLOYEES = {});
+        const list = Array.isArray(store[orgKey]) ? store[orgKey] : [];
+        sel.innerHTML = '';
+        const baseOpt = document.createElement('option');
+        baseOpt.value = '';
+        baseOpt.dataset.slug = '';
+        baseOpt.textContent = list.length ? '(Velg ansatt…)' : '(Ingen ansatte funnet)';
+        sel.appendChild(baseOpt);
         list.forEach((emp, i)=>{
+          const slug = (emp && (emp.slug || emp._slug || '')) || '';
           const opt = document.createElement('option');
           opt.value = String(i);
-          opt.textContent = emp.name + (emp.title ? ' – ' + emp.title : '');
+          opt.dataset.slug = slug;
+          const name = emp?.name || slug || `Kort ${i + 1}`;
+          opt.textContent = emp?.title ? `${name} – ${emp.title}` : name;
+          if (preferredSlug && slug && slug === preferredSlug) opt.selected = true;
           sel.appendChild(opt);
         });
+        return list.length;
+      }
+
+      async function fetchEmployeesForOrg(orgKey, opts = {}){
+        const key = (orgKey || '').trim();
+        if (!key) return [];
+        const now = Date.now();
+        const cachedMeta = employeeCacheMeta[key];
+        if (!opts.force && cachedMeta && (now - cachedMeta.loadedAt) < EMPLOYEE_CACHE_TTL) {
+          const store = window.EMPLOYEES || {};
+          return Array.isArray(store[key]) ? store[key] : [];
+        }
+        if (employeeFetches[key]) return employeeFetches[key];
+
+        const owner = (document.getElementById('ghUser')?.value || 'Luckywolf82').trim();
+        const repo  = (document.getElementById('ghRepo')?.value || 'Vcards').trim();
+        const basePath = (document.getElementById('basePath')?.value || 'Vcards');
+        const dirSegments = [...pathToSegments(basePath), key];
+        if (!owner || !repo || dirSegments.length === 0) {
+          const store = window.EMPLOYEES || {};
+          return Array.isArray(store[key]) ? store[key] : [];
+        }
+        const encodedDir = dirSegments.map(seg => encodeURIComponent(seg)).join('/');
+        const dirUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${encodedDir}?ref=HEAD`;
+
+        const promise = (async ()=>{
+          try {
+            const dirResp = await fetch(dirUrl, { headers: { Accept: 'application/vnd.github+json' } });
+            if (dirResp.status === 404) {
+              (window.EMPLOYEES || (window.EMPLOYEES = {}))[key] = [];
+              employeeCacheMeta[key] = { loadedAt: Date.now() };
+              return [];
+            }
+            if (!dirResp.ok) throw new Error(`${dirResp.status} ${dirResp.statusText}`);
+            let listing;
+            try { listing = await dirResp.json(); }
+            catch { listing = []; }
+            const directories = Array.isArray(listing) ? listing.filter(entry => entry && entry.type === 'dir').slice(0, 40) : [];
+            const employees = [];
+            for (const entry of directories) {
+              const slug = entry?.name || '';
+              if (!slug) continue;
+              const dataSegments = [...dirSegments, slug, 'data.json'];
+              const rawUrl = `https://raw.githubusercontent.com/${owner}/${repo}/HEAD/${dataSegments.map(seg => encodeURIComponent(seg)).join('/')}`;
+              try {
+                const resp = await fetch(rawUrl, { cache: 'no-store' });
+                if (!resp.ok) continue;
+                let data;
+                try { data = await resp.json(); }
+                catch { continue; }
+                const normalized = Object.assign({}, data || {});
+                normalized.slug = normalized.slug || slug;
+                normalized.orgKey = normalized.orgKey || key;
+                employees.push(normalized);
+              } catch (err) {
+                console.warn('Kunne ikke hente data for', `${key}/${slug}`, err);
+              }
+            }
+            (window.EMPLOYEES || (window.EMPLOYEES = {}))[key] = employees;
+            employeeCacheMeta[key] = { loadedAt: Date.now() };
+            return employees;
+          } catch (err) {
+            console.warn('Kunne ikke hente ansatte for', key, err);
+            const store = window.EMPLOYEES || {};
+            return Array.isArray(store[key]) ? store[key] : [];
+          } finally {
+            delete employeeFetches[key];
+          }
+        })();
+
+        employeeFetches[key] = promise;
+        return promise;
+      }
+
+      function loadEmployees(){
+        const sel = document.getElementById('employeeSelect');
+        if (!sel) return;
+        const key = document.getElementById('orgKey').value.trim();
+        clearTimeout(employeeLoadTimer);
+
+        if (!key) {
+          sel.innerHTML = '<option value="">(Velg ansatt…)</option>';
+          sel.disabled = true;
+          return;
+        }
+
+        const prevSlug = sel.selectedOptions?.[0]?.dataset?.slug || '';
+        const cached = Array.isArray((window.EMPLOYEES || {})[key]) ? window.EMPLOYEES[key] : null;
+
+        if (cached && cached.length) {
+          renderEmployeeOptions(sel, key, prevSlug);
+          sel.disabled = false;
+        } else {
+          sel.innerHTML = '<option value="">Laster ansatte…</option>';
+          sel.disabled = true;
+        }
+
+        const requestId = ++employeeRequestId;
+        const targetKey = key;
+
+        employeeLoadTimer = setTimeout(async ()=>{
+          try {
+            await fetchEmployeesForOrg(targetKey);
+            if (requestId !== employeeRequestId) return;
+            const count = renderEmployeeOptions(sel, targetKey, prevSlug);
+            sel.disabled = count === 0;
+          } catch (err) {
+            if (requestId !== employeeRequestId) return;
+            sel.innerHTML = '<option value="">Kunne ikke hente ansatte</option>';
+            sel.disabled = true;
+          }
+        }, 200);
       }
 
       function fillEmployee(iStr){
         const key = document.getElementById('orgKey').value.trim();
         const list = (window.EMPLOYEES || {})[key] || [];
-        const emp  = list[parseInt(iStr,10)];
-        if (!emp) return;
+        const idx = parseInt(iStr, 10);
+        if (Number.isNaN(idx)) return;
+        const emp = list[idx];
+        if (!emp || typeof emp !== 'object') return;
+
+        const normalized = Object.assign({}, emp);
+        normalized.slug = normalized.slug || normalized._slug || '';
+        normalized.orgKey = normalized.orgKey || key;
+
+        if (typeof window._fillFromCardData === 'function') {
+          window._fillFromCardData(normalized);
+          return;
+        }
+
         const set = (id, val) => { const el=document.getElementById(id); if (el) el.value = val || ''; };
-        set('slug', emp.slug); set('name', emp.name); set('title', emp.title);
-        set('phone', emp.phone); set('email', emp.email);
-        set('site', emp.site); set('address', emp.address); set('vcfFilename', emp.vcfFilename);
+        set('slug', normalized.slug);
+        set('name', normalized.name);
+        set('title', normalized.title);
+        set('phone', normalized.phone);
+        set('email', normalized.email);
+        set('site', normalized.site);
+        set('address', normalized.address);
+        set('vcfFilename', normalized.vcfFilename);
+
+        const links = Array.isArray(normalized.links) ? normalized.links : [];
+        if (typeof window._clearLinkRows === 'function') {
+          window._clearLinkRows();
+          if (typeof window._addLinkRow === 'function') {
+            links.forEach(l => window._addLinkRow(l?.label || '', l?.url || '', l?.pre || '', l?.post || ''));
+          }
+        }
+
+        const attachments = Array.isArray(normalized.attachments) ? normalized.attachments : [];
+        window._latestAttachments = attachments;
+        if (typeof window._setAttachmentsFromData === 'function') {
+          window._setAttachmentsFromData(attachments);
+        }
+        if (typeof window.previewLogo === 'function') {
+          window.previewLogo();
+        }
       }
+
+      window._refreshEmployeeSelect = function(orgKey, preferredSlug){
+        const sel = document.getElementById('employeeSelect');
+        if (!sel) return;
+        const currentOrg = document.getElementById('orgKey').value.trim();
+        if (orgKey && currentOrg && orgKey !== currentOrg) return;
+        const slug = preferredSlug || sel.selectedOptions?.[0]?.dataset?.slug || '';
+        const count = renderEmployeeOptions(sel, currentOrg || orgKey || '', slug);
+        sel.disabled = count === 0;
+      };
+
+      window._markEmployeesLoaded = function(orgKey){
+        if (!orgKey) return;
+        employeeCacheMeta[orgKey] = { loadedAt: Date.now() };
+      };
 
       document.getElementById('employeeSelect').addEventListener('change', (e)=> fillEmployee(e.target.value));
     </script>
@@ -362,6 +543,9 @@
         tbody.appendChild(tr);
       }
 
+      window._addLinkRow = addRow;
+      window._clearLinkRows = () => { tbody.innerHTML = ''; };
+
       document.getElementById('addLink').addEventListener('click', () => {
         addRow(
           document.getElementById('newLabel').value,
@@ -372,9 +556,10 @@
         ['newLabel','newUrl','newPre','newPost'].forEach(id => document.getElementById(id).value = '');
       });
 
-      document.querySelectorAll('.pill').forEach(btn => {
-        if (btn.closest('.row')) return; // bare de i forvalgseksjonen
-        btn.addEventListener?.('click', () => addRow(btn.dataset.label, btn.dataset.url));
+      document.querySelectorAll('button.pill[data-label]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          addRow(btn.dataset.label || '', btn.dataset.url || '');
+        });
       });
     </script>
 
@@ -442,42 +627,171 @@
       });
       updatePathPreview();
 
-      window._uploadedAttachments = [];   // f.eks. ["brosjyre.pdf", {name:"…", url:"https://…"}]
+      const HTML_ESCAPE = {
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        "\"": "&quot;",
+        "'": "&#39;",
+      };
+      const escapeHtml = (str='') => String(str).replace(/[&<>"']/g, c => HTML_ESCAPE[c] || c);
+      const escapeAttr = (str='') => escapeHtml(str);
+
+      function normalizeAttachment(entry){
+        if (!entry) return null;
+        if (typeof entry === 'string'){
+          return { kind:'file', file: entry, label:'', sourceUrl:'' };
+        }
+        if (typeof entry === 'object'){
+          if (entry.kind === 'file' || entry.type === 'file'){
+            const file = entry.file || entry.url || entry.name || '';
+            const label = entry.label || entry.name || '';
+            return file ? { kind:'file', file, label, sourceUrl: entry.sourceUrl || entry.rawUrl || '' } : null;
+          }
+          if (entry.kind === 'url' || entry.type === 'url'){
+            const url = entry.url || '';
+            if (!url) return null;
+            const label = entry.label || entry.name || '';
+            return { kind:'url', url, label };
+          }
+          const url = entry.url || '';
+          const label = entry.name || entry.label || '';
+          if (url){
+            if (/^https?:\/\//i.test(url)){
+              return { kind:'url', url, label };
+            }
+            return { kind:'file', file: url, label, sourceUrl: entry.sourceUrl || '' };
+          }
+          if (entry.name){
+            return { kind:'file', file: entry.name, label: entry.label || '' };
+          }
+        }
+        return null;
+      }
+
+      function computeAttachmentDisplay(item){
+        if (!item) return '';
+        if (item.kind === 'file'){
+          return (item.label && item.label.trim()) || item.file || '';
+        }
+        if (item.kind === 'url'){
+          return (item.label && item.label.trim()) || item.url || '';
+        }
+        return '';
+      }
+
+      function setAttachmentsFromData(list){
+        const normalized = (Array.isArray(list) ? list : []).map(normalizeAttachment).filter(Boolean);
+        window._uploadedAttachments = normalized;
+        renderAttachments();
+      }
+
+      window._uploadedAttachments = [];
 
       function renderAttachments(){
         const list = document.getElementById('attachmentsList');
+        if (!list) return;
         const ghUser = document.getElementById('ghUser').value.trim();
         const ghRepo = document.getElementById('ghRepo').value.trim();
         const basePath = (document.getElementById('basePath').value || 'Vcards').replace(/^\/+|\/+$/g,'');
         const orgKey = document.getElementById('orgKey').value.trim();
         const slug   = document.getElementById('slug').value.trim();
         const pagesBase = ghUser && ghRepo ? `https://${ghUser}.github.io/${ghRepo}${basePath?`/${basePath}`:''}/${orgKey}/${slug}/files/` : '';
-        list.innerHTML = (window._uploadedAttachments || []).map(a=>{
-          if (typeof a === 'string'){
-            const url = pagesBase ? (pagesBase + encodeURIComponent(a)) : a;
-            return `<li>📎 ${a} ${pagesBase ? `<a class="pill" href="${url}" target="_blank" rel="noopener">Åpne</a>`:''}</li>`;
-          } else {
-            const label = a.name || (a.url.split('/').pop());
-            const url = a.url;
-            return `<li>🔗 ${label} <a class="pill" href="${url}" target="_blank" rel="noopener">Åpne</a></li>`;
+        const attachments = window._uploadedAttachments || [];
+        if (!attachments.length){
+          list.innerHTML = '<li class="note">Ingen vedlegg lagt til enda.</li>';
+          return;
+        }
+        list.innerHTML = attachments.map((item, index)=>{
+          const isFile = item.kind === 'file';
+          const display = computeAttachmentDisplay(item) || '(uten navn)';
+          const fileName = isFile ? (item.file || '') : '';
+          const labelValue = item.label || '';
+          const urlValue = isFile ? '' : (item.url || '');
+          const openHref = isFile
+            ? (fileName ? (pagesBase ? pagesBase + encodeURIComponent(fileName) : item.sourceUrl || '') : '')
+            : (urlValue || '');
+          const actions = [];
+          if (openHref){
+            actions.push(`<a class="pill" href="${escapeAttr(openHref)}" target="_blank" rel="noopener">Åpne</a>`);
           }
+          actions.push('<button type="button" class="pill" data-act="remove">Fjern</button>');
+          const labelInput = `<label style="display:block;margin-top:6px">Visningsnavn<input data-field="label" value="${escapeAttr(labelValue)}" placeholder="${isFile?'Standard = filnavn':'F.eks. Produktark'}" style="width:100%"></label>`;
+          const urlInput = isFile ? '' : `<label style="display:block;margin-top:6px">URL<input data-field="url" value="${escapeAttr(urlValue)}" placeholder="https://…" style="width:100%"></label>`;
+          const note = isFile && fileName ? `<small class="note">Lagringsfil: ${escapeHtml(fileName)}</small>` : '';
+          return `<li data-ix="${index}" class="attachment-item" style="margin:8px 0;padding:8px;border:1px solid #283246;border-radius:8px">`
+            + `<div class="inline" style="gap:8px"><span>${isFile?'📎':'🔗'}</span><strong data-role="display">${escapeHtml(display)}</strong></div>`
+            + labelInput
+            + urlInput
+            + `<div class="inline" style="gap:6px;margin-top:8px">${actions.join(' ')}</div>`
+            + (note ? `<div style="margin-top:4px">${note}</div>` : '')
+            + `</li>`;
         }).join('');
       }
 
       function _collectAttachments(){
-        return (window._uploadedAttachments || []).slice();
+        const attachments = window._uploadedAttachments || [];
+        return attachments.map(item=>{
+          if (item.kind === 'file'){
+            const file = (item.file || '').trim();
+            if (!file) return null;
+            const label = (item.label || '').trim();
+            return label ? { name: label, url: file } : file;
+          }
+          if (item.kind === 'url'){
+            const url = (item.url || '').trim();
+            if (!url) return null;
+            const label = (item.label || '').trim();
+            return { name: label || url, url };
+          }
+          return null;
+        }).filter(Boolean);
       }
       window._collectAttachments = _collectAttachments;
+      window._setAttachmentsFromData = setAttachmentsFromData;
+
+      const attachmentsListEl = document.getElementById('attachmentsList');
+      attachmentsListEl?.addEventListener('click', (e)=>{
+        const btn = e.target.closest('button[data-act="remove"]');
+        if (!btn) return;
+        e.preventDefault();
+        const li = btn.closest('li[data-ix]');
+        if (!li) return;
+        const ix = Number(li.getAttribute('data-ix'));
+        if (Number.isNaN(ix)) return;
+        (window._uploadedAttachments || []).splice(ix, 1);
+        renderAttachments();
+      });
+
+      attachmentsListEl?.addEventListener('input', (e)=>{
+        const field = e.target?.dataset?.field;
+        if (!field) return;
+        const li = e.target.closest('li[data-ix]');
+        if (!li) return;
+        const ix = Number(li.getAttribute('data-ix'));
+        if (Number.isNaN(ix)) return;
+        const item = (window._uploadedAttachments || [])[ix];
+        if (!item) return;
+        item[field] = e.target.value;
+        const displayEl = li.querySelector('[data-role="display"]');
+        if (displayEl){
+          displayEl.textContent = computeAttachmentDisplay(item) || '(uten navn)';
+        }
+      });
 
       document.getElementById('addExtBtn')?.addEventListener('click', ()=>{
         const url = document.getElementById('extUrl').value.trim();
         const name= document.getElementById('extName').value.trim();
         if (!url) return;
-        window._uploadedAttachments.push({ name: name || url.split('/').pop(), url });
+        const entry = normalizeAttachment({ kind:'url', url, label: name || '' });
+        if (!entry) return;
+        window._uploadedAttachments.push(entry);
         document.getElementById('extUrl').value = '';
         document.getElementById('extName').value = '';
         renderAttachments();
       });
+
+      setAttachmentsFromData(window._latestAttachments || []);
 
       async function uploadOneFile(file, ctx){
         const arrBuf = await file.arrayBuffer();
@@ -519,8 +833,8 @@
         try{
           for (const f of files){
             const res = await uploadOneFile(f, ctx);
-            // Vi lagrer kun filnavnet – URL genereres på kortet & i listen
-            window._uploadedAttachments.push(res.name);
+            const entry = normalizeAttachment({ kind:'file', file: res.name, label:'', sourceUrl: res.url });
+            if (entry) window._uploadedAttachments.push(entry);
           }
           status.innerHTML = '<span class="ok">✅ Opplasting ferdig</span>';
           document.getElementById('attachmentsInput').value = '';
@@ -531,501 +845,513 @@
       });
     </script>
 
-    <!-- vCard/HTML + helpers -->
+    <!-- Generer & Publiser + Live preview + NFC -->
     <script>
-      function normalizePhone(p){ p=(p||'').trim(); if(!p) return p; if(p.startsWith('0')&&!p.startsWith('+')){ if(p.length<=8) return '+47'+p.replace(/^0+/, ''); } return p; }
-      function makeVcard(d){
-        const parts = d.name.trim().split(' ');
-        const first = parts[0]||''; const last = parts.length>1?parts[parts.length-1]:'';
-        const phone = normalizePhone(d.phone||'');
-        return ['BEGIN:VCARD','VERSION:3.0',`FN:${d.name}`,`N:${last};${first};;;`,`ORG:${d.orgName||d.orgKey}`,`TITLE:${d.title||''}`,`TEL;TYPE=CELL:${phone}`,`EMAIL;TYPE=INTERNET:${d.email||''}`,`URL:${d.site||''}`,`ADR;TYPE=WORK:;;${d.address||''}`,'END:VCARD'].join('\n');
-      }
-      const esc = s => (s||'').replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
-      function makeLinksHTML(links){
-        if(!links.length) return '';
-        return links.map(l=>{
-          const pre  = l.pre  ? `<div class="pre"  style="margin:8px 0 4px;color:#bfc8d6">${esc(l.pre)}</div>` : '';
-          const post = l.post ? `<div class="post" style="margin:4px 0 10px;color:#97a3b6;font-size:.95rem">${esc(l.post)}</div>` : '';
-          return `<div class="link-block" style="margin-top:10px">${pre}<a class="btn" href="${esc(l.url)}" target="_blank" rel="noopener">${esc(l.label)}</a>${post}</div>`;
-        }).join('');
-      }
-      function makeDownloadsHTML(attachments){
-        attachments = attachments || [];
-        if (!attachments.length) return '';
-        const rows = attachments.map(a=>{
-          if (typeof a === 'string') {
-            const name = a.split('/').pop();
-            const href = `./files/${encodeURIComponent(name)}`;
-            return `<li><a class="btn" href="${href}" download rel="noopener">${esc(name)}</a></li>`;
+      (function(){
+        const DEFAULT_OWNER = 'Luckywolf82';
+        const DEFAULT_REPO = 'Vcards';
+        const DEFAULT_BASE_PATH = 'Vcards';
+
+        const state = {
+          owner: DEFAULT_OWNER,
+          repo: DEFAULT_REPO,
+          basePath: DEFAULT_BASE_PATH,
+          strategy: 'pr',
+          data: null,
+          html: '',
+          vcf: '',
+          htmlUrl: '',
+          vcfUrl: ''
+        };
+
+        const $status = document.getElementById('status');
+        const $htmlPreview = document.getElementById('htmlPreview');
+        const $vcfPreview = document.getElementById('vcfPreview');
+        const $generate = document.getElementById('btnGenerate');
+        const $publish = document.getElementById('btnPublish');
+
+        const HTML_ESCAPE = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+        const escapeHtml = (str = '') => String(str).replace(/[&<>"']/g, c => HTML_ESCAPE[c] || c);
+
+        const trimSlashes = (s = '') => s.replace(/^\/+|\/+$/g, '');
+        const getVal = (id) => (document.getElementById(id)?.value || '').trim();
+        const setVal = (id, value) => { const el = document.getElementById(id); if (el) el.value = value; };
+
+        function ensureUrlControls(id, label){
+          const input = document.getElementById(id);
+          if (!input) return;
+          if (input.nextSibling?.classList?.contains('url-actions')) return;
+          const wrap = document.createElement('span');
+          wrap.className = 'url-actions';
+          wrap.innerHTML = `<button type="button" class="pill" data-act="copy">Kopier ${label}</button>`+
+            `<button type="button" class="pill" data-act="open">Åpne</button>`;
+          input.after(wrap);
+          wrap.addEventListener('click', (e)=>{
+            const btn = e.target.closest('button[data-act]');
+            if (!btn) return;
+            const val = input.value.trim();
+            if (!val) return;
+            if (btn.dataset.act === 'copy') navigator.clipboard?.writeText(val);
+            if (btn.dataset.act === 'open') window.open(val, '_blank', 'noopener');
+          });
+        }
+        window.ensureUrlControls = window.ensureUrlControls || ensureUrlControls;
+
+        function normalizePhone(p){
+          p = (p || '').trim();
+          if (!p) return p;
+          if (p.startsWith('0') && !p.startsWith('+')){
+            if (p.length <= 8) return '+47' + p.replace(/^0+/, '');
           }
-          const raw  = (a.name || a.url || '').split('/').pop();
-          const isAbs = a.url && /^https?:\/\//i.test(a.url);
-          const href = isAbs ? a.url : (`./files/${encodeURIComponent(a.url || raw)}`);
-          const label = esc(a.name || raw);
-          return `<li><a class="btn" href="${href}" download rel="noopener">${label}</a></li>`;
-        }).join('');
-        return `<section id="downloads" style="margin-top:16px">
+          return p;
+        }
+
+        function makeVcard(d){
+          const parts = (d.name || '').trim().split(' ');
+          const first = parts[0] || '';
+          const last = parts.length > 1 ? parts[parts.length - 1] : '';
+          const phone = normalizePhone(d.phone || '');
+          return [
+            'BEGIN:VCARD',
+            'VERSION:3.0',
+            `FN:${d.name || ''}`,
+            `N:${last};${first};;;`,
+            `ORG:${d.orgName || d.orgKey || ''}`,
+            `TITLE:${d.title || ''}`,
+            `TEL;TYPE=CELL:${phone}`,
+            `EMAIL;TYPE=INTERNET:${d.email || ''}`,
+            `URL:${d.site || ''}`,
+            `ADR;TYPE=WORK:;;${d.address || ''}`,
+            'END:VCARD'
+          ].join('\n');
+        }
+
+        function makeLinksHTML(links){
+          if (!Array.isArray(links) || !links.length) return '';
+          return links.map(l => {
+            const pre  = l.pre  ? `<div class="pre" style="margin:8px 0 4px;color:#bfc8d6">${escapeHtml(l.pre)}</div>` : '';
+            const post = l.post ? `<div class="post" style="margin:4px 0 10px;color:#97a3b6;font-size:.95rem">${escapeHtml(l.post)}</div>` : '';
+            const label = escapeHtml(l.label || 'Lenke');
+            const href = escapeHtml(l.url || '#');
+            return `<div class="link-block" style="margin-top:10px">${pre}<a class="btn" href="${href}" target="_blank" rel="noopener">${label}</a>${post}</div>`;
+          }).join('');
+        }
+
+        function describeAttachment(item){
+          if (!item) return null;
+          if (typeof item === 'string'){
+            const name = item.split('/').pop();
+            if (!name) return null;
+            return { label: name, href: `./files/${encodeURIComponent(name)}` };
+          }
+          if (item.kind === 'file'){
+            const file = item.file || item.url || '';
+            if (!file) return null;
+            const name = item.label || file.split('/').pop() || file;
+            const local = file.split('/').pop() || file;
+            return { label: name, href: `./files/${encodeURIComponent(local)}` };
+          }
+          if (item.kind === 'url'){
+            const url = item.url || '';
+            if (!url) return null;
+            return { label: item.label || url, href: url };
+          }
+          const url = item.url || '';
+          const name = item.name || item.label || '';
+          if (url){
+            const href = /^https?:\/\//i.test(url) ? url : `./files/${encodeURIComponent(url.split('/').pop() || url)}`;
+            return { label: name || url, href };
+          }
+          if (name){
+            return { label: name, href: `./files/${encodeURIComponent(name.split('/').pop() || name)}` };
+          }
+          return null;
+        }
+
+        function makeDownloadsHTML(attachments){
+          const list = Array.isArray(attachments) ? attachments : [];
+          if (!list.length) return '';
+          const rows = list.map(describeAttachment).filter(Boolean).map(item =>
+            `<li><a class="btn" href="${escapeHtml(item.href)}" download rel="noopener">${escapeHtml(item.label)}</a></li>`
+          ).join('');
+          if (!rows) return '';
+          return `<section id="downloads" style="margin-top:16px">
           <h2 style="margin:0 0 8px">Last ned</h2>
           <ul style="margin:0;padding-left:18px">${rows}</ul>
         </section>`;
-      }
-      function makeHTML(d, vcfFile, links){
-        const accent  = d.accent || '#8fd3ff';
-        const bgStyle = `background:${d.logoBg || '#ffffff'};border-radius:8px;padding:6px;`;
-        const logoTag = d.logoUrl ? `<img class="brand-logo" src="${d.logoUrl}" style="${bgStyle}" alt="${esc(d.orgName||d.orgKey)} logo">` : '';
-        const extras  = makeLinksHTML(links);
-        const downloads = makeDownloadsHTML(d.attachments||[]);
-        return `<!doctype html>
+        }
+
+        function makeHTML(d, vcfFile, links, attachments){
+          const accent  = d.accent || '#8fd3ff';
+          const bgStyle = `background:${d.logoBg || '#ffffff'};border-radius:8px;padding:6px;`;
+          const safeLogoUrl = d.logoUrl ? escapeHtml(d.logoUrl) : '';
+          const logoTag = safeLogoUrl ? `<img class="brand-logo" src="${safeLogoUrl}" style="${bgStyle}" alt="${escapeHtml(d.orgName || d.orgKey || '')} logo">` : '';
+          const extras  = makeLinksHTML(links);
+          const downloads = makeDownloadsHTML(attachments);
+          return `<!doctype html>
 <html lang="no">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Kontaktkort – ${esc(d.name)}</title>
-<style>
-:root{--accent:${accent};}
-body{font-family:system-ui,-apple-system,Roboto,Arial;background:#0b0b10;color:#eee;padding:20px}
-.container{max-width:760px;margin:0 auto;background:#12121a;padding:24px;border-radius:12px}
-.btn{display:inline-block;padding:12px 14px;background:var(--accent);color:#03101a;border-radius:10px;text-decoration:none;font-weight:700}
-.links{margin-top:12px;display:flex;gap:8px;flex-wrap:wrap}
-.card p{color:#bfc8d6}
-.brand-logo{max-height:56px;max-width:280px;object-fit:contain;margin:0 0 12px 0;display:block}
-</style>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Kontaktkort – ${escapeHtml(d.name || '')}</title>
+  <style>
+    :root{--accent:${accent};}
+    body{font-family:system-ui,-apple-system,Roboto,Arial;background:#0b0b10;color:#eee;padding:20px;margin:0}
+    .container{max-width:760px;margin:0 auto;background:#12121a;padding:24px;border-radius:12px;box-shadow:0 8px 28px rgba(0,0,0,0.45)}
+    .btn{display:inline-block;padding:12px 14px;background:var(--accent);color:#03101a;border-radius:10px;text-decoration:none;font-weight:700}
+    .links{margin-top:12px;display:flex;gap:8px;flex-wrap:wrap}
+    p{color:#bfc8d6;margin:8px 0}
+    h1{margin:0 0 6px;font-size:2rem}
+    .brand-logo{max-height:56px;max-width:280px;object-fit:contain;margin:0 0 12px 0;display:block}
+    .note{font-size:0.95rem;color:#9aa6b2}
+    ul{list-style:disc;padding-left:20px;margin:10px 0 0}
+    li{margin:4px 0}
+  </style>
 </head>
 <body>
-<main class="container card">
-  ${logoTag}
-  <h1>Kontaktkort – ${esc(d.name)}</h1>
-  <p class="muted">${esc(d.title||'')} · ${esc(d.orgName||d.orgKey)}</p>
-  <p><a class="btn" href="./${vcfFile}" download>Last ned vCard (.vcf)</a></p>
-  <div class="links">
-    <a href="tel:${esc(d.phone||'')}" class="btn">Ring</a>
-    <a href="mailto:${esc(d.email||'')}" class="btn">E-post</a>
-    <a href="${esc(d.site||'#')}" class="btn" target="_blank">Besøk nettside</a>
-    <a href="../index.html" class="btn">← Tilbake</a>
-  </div>
-  ${extras}
-
-  ${downloads}
-
-  <p style="margin-top:14px">Adresse: ${esc(d.address||'')}</p>
-  <p style="margin-top:8px;font-size:0.9rem;color:#9aa6b2">NFC-URL: <code id="nfcInline"></code></p>
-</main>
-<script>
-document.addEventListener("DOMContentLoaded", ()=>{
-  ["ghUser","ghRepo"].forEach(id=>{
-    const el = document.getElementById(id);
-    if (!el) return;
-    el.style.display = "none";
-    const lab = el.closest("label");
-    if (lab) lab.style.display = "none";
-  });
-});
-</script>
-<script>
-(function(){
-  const $btn  = document.getElementById("btnFetchLatestCard");
-  const $stat = document.getElementById("latestCardStatus");
-  if (!$btn) return;
-
-  const getVal = (id)=> (document.getElementById(id)?.value || "").trim();
-  const setVal = (id, v)=>{ const el = document.getElementById(id); if (el) el.value = (v||""); };
-  const trimSlashes = (s)=> (s||"").replace(/^\/+|\/+$/g, "");
-
-  async function j(url){
-    const r = await fetch(url, { headers: { "Accept":"application/vnd.github+json" } });
-    if(!r.ok) throw new Error(r.status + " " + r.statusText);
-    return r.json();
-  }
-
-  async function fetchLatestSlug(owner, repo, basePath, orgKey){
-    const path = encodeURIComponent(trimSlashes(basePath) + "/" + orgKey);
-    const commits = await j(`https://api.github.com/repos/${owner}/${repo}/commits?path=${path}&per_page=20`);
-    const details = await Promise.all((commits||[]).slice(0,8).map(c => j(c.url).catch(()=>null)));
-    let latest = null;
-    for (const dc of details){
-      if(!dc || !Array.isArray(dc.files)) continue;
-      const when = dc.commit?.author?.date || dc.commit?.committer?.date || "";
-      for (const f of dc.files){
-        const p = f.filename || "";
-        if(!/\/index\.html$/.test(p)) continue;
-        if(!p.includes("/"+orgKey+"/")) continue;
-        const parts = p.split("/");
-        const slug = parts[parts.length-2] || "";
-        if(!slug) continue;
-        if(!latest || new Date(when) > new Date(latest.when)){
-          latest = { slug, when };
-        }
+  <main class="container card">
+    ${logoTag}
+    <h1>Kontaktkort – ${escapeHtml(d.name || '')}</h1>
+    <p class="note">${escapeHtml(d.title || '')} · ${escapeHtml(d.orgName || d.orgKey || '')}</p>
+    <p><a class="btn" href="./${encodeURIComponent(vcfFile)}" download>Last ned vCard (.vcf)</a></p>
+    <div class="links">
+      <a href="tel:${escapeHtml(d.phone || '')}" class="btn">Ring</a>
+      <a href="mailto:${escapeHtml(d.email || '')}" class="btn">E-post</a>
+      <a href="${escapeHtml(d.site || '#')}" class="btn" target="_blank" rel="noopener">Besøk nettside</a>
+      <a href="../index.html" class="btn">← Tilbake</a>
+    </div>
+    ${extras}
+    ${downloads}
+    <p>Adresse: ${escapeHtml(d.address || '')}</p>
+    <p class="note">NFC-URL: <code id="nfcInline"></code></p>
+  </main>
+  <script>
+    (function(){
+      const code = document.getElementById('nfcInline');
+      if (!code) return;
+      const file = ${JSON.stringify(vcfFile)};
+      try {
+        const href = window.location.href;
+        const base = href.replace(/index\\.html?$/i, '');
+        code.textContent = base + file;
+      } catch {
+        code.textContent = './' + file;
       }
-    }
-    return latest?.slug || "";
-  }
-
-  function applyData(d){
-    setVal("slug", d.slug);
-    setVal("name", d.name);
-    setVal("title", d.title);
-    setVal("phone", d.phone);
-    setVal("email", d.email);
-    setVal("site", d.site);
-    setVal("address", d.address);
-    setVal("vcfFilename", d.vcfFilename);
-    setVal("orgName", d.orgName || d.orgKey);
-    setVal("accent", d.accent);
-    setVal("logoUrl", d.logoUrl);
-    setVal("logoBg", d.logoBg);
-
-    // Links-tabell
-    const tbody = document.querySelector("#linksTable tbody");
-    if (tbody) {
-      tbody.innerHTML = "";
-      (d.links||[]).forEach(l=>{
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-          <td><input value="${l.label||''}" class="lbl" /></td>
-          <td><input value="${l.url||''}"   class="lnk" style="width:100%"/></td>
-          <td><textarea class="pre" rows="2">${l.pre||''}</textarea></td>
-          <td><textarea class="post" rows="2">${l.post||''}</textarea></td>
-          <td><button type="button" class="remove">Fjern</button></td>`;
-        tr.querySelector(".remove").addEventListener("click", ()=> tr.remove());
-        tbody.appendChild(tr);
-      });
-    }
-
-    // Vedlegg (hvis du bruker _collectAttachments i genereringen)
-    window._latestAttachments = Array.isArray(d.attachments) ? d.attachments : [];
-    if (typeof window.previewLogo === "function") { window.previewLogo(); }
-  }
-
-  $btn.addEventListener("click", async ()=>{
-    const owner = (document.getElementById("ghUser")?.value || "Luckywolf82");
-    const repo  = (document.getElementById("ghRepo")?.value || "Vcards");
-    const basePath = trimSlashes(getVal("basePath") || "Vcards");
-    const orgKey   = getVal("orgKey");
-    if(!orgKey){ if($stat) $stat.textContent = "Angi Org key først."; return; }
-    try{
-      if($stat) $stat.textContent = "Leter etter siste kort…";
-      const slug = await fetchLatestSlug(owner, repo, basePath, orgKey);
-      if(!slug){ if($stat) $stat.textContent = "Fant ingen index.html for denne organisasjonen enda."; return; }
-      const raw = `https://raw.githubusercontent.com/${owner}/${repo}/HEAD/${basePath}/${orgKey}/${slug}/data.json`;
-      const r = await fetch(raw, { cache:"no-store" });
-      if(!r.ok){ if($stat) $stat.textContent = "Fant slug, men ikke data.json."; return; }
-      const d = await r.json();
-      d.slug = slug; // safety
-      applyData(d);
-      if($stat) $stat.textContent = "Fylte feltene fra: " + orgKey + "/" + slug;
-    }catch(e){
-      if($stat) $stat.textContent = "Feil: " + (e.message||e);
-    }
-  });
-})();
-</script>
-<script>
-document.addEventListener("DOMContentLoaded", ()=>{
-  const tbody = document.querySelector("#linksTable tbody");
-  const addBtn = document.getElementById("btnAddLink");
-  if (addBtn && tbody) {
-    addBtn.addEventListener("click", ()=>{
-      const tr = document.createElement("tr");
-      tr.innerHTML = `
-        <td><input class="lbl" placeholder="Etikett" /></td>
-        <td><input class="lnk" placeholder="https://..." style="width:100%" /></td>
-        <td><textarea class="pre" rows="2" placeholder="Tekst over"></textarea></td>
-        <td><textarea class="post" rows="2" placeholder="Tekst under"></textarea></td>
-        <td><button type="button" class="remove">Fjern</button></td>`;
-      tbody.appendChild(tr);
-    });
-  }
-  if (tbody) {
-    tbody.addEventListener("click", (e)=>{
-      const btn = e.target.closest(".remove");
-      if (!btn) return;
-      e.preventDefault();
-      const tr = btn.closest("tr");
-      if (tr) tr.remove();
-    });
-  }
-});
-</script>
-<script>
-(function(){
-  // En liten "state" for sist opplastede sti'er i denne økta:
-  const filesState = []; // {path, name}
-  const $list = document.getElementById("uploadedList");
-
-  function renderList(){
-    if (!$list) return;
-    if (filesState.length === 0) { $list.innerHTML = ""; return; }
-    $list.innerHTML = `
-      <h4 style="margin:8px 0 6px">Opplastede filer (denne økten)</h4>
-      <ul style="margin:0;padding-left:18px">
-        ${filesState.map(f => `
-          <li>
-            <a href="${f.viewUrl}" target="_blank" rel="noopener">${f.name}</a>
-            <button type="button" class="pill" data-del="${encodeURIComponent(f.path)}" style="margin-left:6px">Slett</button>
-          </li>
-        `).join("")}
-      </ul>`;
-  }
-
-  async function deleteFile(owner, repo, path, basePath){
-    const res = await fetch('/api/deleteFile', {
-      method: 'POST',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ owner, repo, path, message: 'Delete attachment from admin' })
-    });
-    if (!res.ok) throw new Error(await res.text());
-    // fjern fra state
-    const ix = filesState.findIndex(x => x.path === path);
-    if (ix >= 0) filesState.splice(ix,1);
-    renderList();
-  }
-
-  // Hook inn i eksisterende opplasting (etter vellykket opplasting, legg til i state)
-  const fileInput = document.getElementById('fileInput');
-  if (fileInput) {
-    fileInput.addEventListener('change', ()=>{
-      // Vi "patcher" global upload-flyt via fetch-override dersom din opplasting bruker /api/uploadFile
-      const owner   = (document.getElementById("ghUser")?.value || "Luckywolf82").trim();
-      const repo    = (document.getElementById("ghRepo")?.value || "Vcards").trim();
-      const baseDir = (document.getElementById("basePath")?.value || "Vcards").replace(/^\/+|\/+$/g,'');
-      const orgKey  = (document.getElementById("orgKey")?.value || "Common").trim();
-      const slug    = (document.getElementById("slug")?.value || "").trim();
-      // Når serverless uploaden returnerer 200, regn ut path og listelenke
-      // Vi lytter på en "customEvent" hvis du allerede har en; ellers fallback: liten timeout og gjenbruk av felt
-      setTimeout(()=>{
-        const f = fileInput.files?.[0];
-        if (!f || !slug) return;
-        const relPath = `${baseDir}/${orgKey}/${slug}/files/${encodeURIComponent(f.name)}`;
-        const viewUrl = `https://${owner}.github.io/${repo}/${relPath}`;
-        filesState.push({ path: `${baseDir}/${orgKey}/${slug}/files/${f.name}`, name: f.name, viewUrl });
-        renderList();
-      }, 800);
-    });
-  }
-
-  // Delegert klikk på Slett-knapper
-  if ($list) {
-    $list.addEventListener('click', async (e)=>{
-      const btn = e.target.closest('button[data-del]');
-      if (!btn) return;
-      e.preventDefault();
-      const encoded = btn.getAttribute('data-del');
-      const path = decodeURIComponent(encoded);
-      const owner   = (document.getElementById("ghUser")?.value || "Luckywolf82").trim();
-      const repo    = (document.getElementById("ghRepo")?.value || "Vcards").trim();
-      try{
-        btn.disabled = true; btn.textContent = 'Sletter...';
-        await deleteFile(owner, repo, path);
-        btn.textContent = 'Slettet';
-      }catch(err){
-        alert('Sletting feilet: ' + (err?.message || err));
-        btn.disabled = false; btn.textContent = 'Slett';
-      }
-    });
-  }
-})();
-</script>
+    })();
+  </script>
 </body>
 </html>`;
-      }
+        }
 
-      async function postJSON(url, data){
-        const r = await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
-        const t = await r.text(); try{return{ok:r.ok,status:r.status,json:JSON.parse(t)}}catch{return{ok:r.ok,status:r.status,text:t}};
-      }
+        function showStatus(kind, html){
+          if (!$status) return;
+          $status.className = kind ? `note ${kind}` : 'note';
+          $status.innerHTML = html || '';
+        }
 
-      // Expose ensureUrlControls via window (kan settes av Firebase-modulskriptet også)
-      function ensureUrlControls(id,label){
-        const input = document.getElementById(id); if(!input) return;
-        if (input.nextSibling?.classList?.contains('url-actions')) return;
-        const wrap = document.createElement('span'); wrap.className = 'url-actions';
-        wrap.innerHTML = `<button type="button" class="pill" data-act="copy">Kopier ${label}</button><button type="button" class="pill" data-act="open">Åpne</button>`;
-        input.after(wrap);
-        wrap.addEventListener('click',(e)=>{
-          const btn=e.target.closest('button[data-act]'); if(!btn) return;
-          const val=input.value.trim(); if(!val) return;
-          if(btn.dataset.act==='copy') navigator.clipboard.writeText(val);
-          if(btn.dataset.act==='open') window.open(val,'_blank','noopener');
-        });
-      }
-      window.ensureUrlControls = window.ensureUrlControls || ensureUrlControls;
-    </script>
+        function collectLinks(){
+          return Array.from(document.querySelectorAll('#linksTable tbody tr')).map(tr => {
+            const lbl = tr.querySelector('.lbl');
+            const lnk = tr.querySelector('.lnk');
+            const pre = tr.querySelector('.pre');
+            const post = tr.querySelector('.post');
+            return {
+              label: lbl ? lbl.value.trim() : '',
+              url: lnk ? lnk.value.trim() : '',
+              pre: pre ? pre.value.trim() : '',
+              post: post ? post.value.trim() : ''
+            };
+          }).filter(link => link.label && link.url);
+        }
 
-    <!-- Generer & Publiser + Live preview + NFC -->
-    <script>
-      document.getElementById('generate').addEventListener('click', async ()=>{
-        const get = id => document.getElementById(id).value.trim();
-        const d = {
-          orgKey:get('orgKey'),
-          orgName:get('orgName')||get('orgKey'),
-          accent:get('accent')||'#8fd3ff',
-          logoUrl:get('logoUrl'),
-          logoBg:get('logoBg')||'',
-          slug:get('slug'),
-          name:get('name'),
-          title:get('title'),
-          phone:get('phone'),
-          email:get('email'),
-          site:get('site'),
-          address:get('address'),
-          vcfFilename:get('vcfFilename')||(get('slug')+'_'+get('orgKey')+'.vcf'),
-          ghUser:(document.getElementById("ghUser")?.value || "Luckywolf82"),
-          ghRepo:(document.getElementById("ghRepo")?.value || "Vcards"),
-          basePath:get('basePath')||'Vcards',
-          strategy:document.getElementById('strategy').value
-        };
-        if(!d.orgKey||!d.slug||!d.name){ alert('Mangler: orgKey, slug, name'); return; }
+        function collectAttachments(){
+          return window._collectAttachments ? window._collectAttachments() : [];
+        }
 
-        const links = Array.from(document.querySelectorAll('#linksTable tbody tr')).map(tr=>({
-          label: tr.querySelector('.lbl').value.trim(),
-          url:   tr.querySelector('.lnk').value.trim(),
-          pre:   tr.querySelector('.pre').value.trim(),
-          post:  tr.querySelector('.post').value.trim()
-        })).filter(x=>x.label && x.url);
+        function resolveVcfFilename(raw, slug, orgKey){
+          const clean = (raw || '').trim();
+          if (clean) return clean.endsWith('.vcf') ? clean : `${clean}.vcf`;
+          const base = slug || `${orgKey || 'kort'}`;
+          return `${base.replace(/[^A-Za-z0-9_-]+/g,'-')}.vcf`;
+        }
 
-        // Vedlegg som er lastet inn i UI eller eksterne URLer
-        const attachments = (window._collectAttachments ? window._collectAttachments() : []);
-        d.attachments = attachments;
+        function computePublicUrls(owner, repo, basePath, orgKey, slug, vcfFilename){
+          const baseSegments = trimSlashes(basePath).split('/').filter(Boolean);
+          const cardSegments = [...baseSegments];
+          if (orgKey) cardSegments.push(orgKey);
+          if (slug) cardSegments.push(slug);
+          const encodedSegments = cardSegments.map(seg => encodeURIComponent(seg));
+          const prefix = encodedSegments.length ? '/' + encodedSegments.join('/') : '';
+          const baseUrl = `https://${owner}.github.io/${repo}${prefix}`;
+          const htmlUrl = `${baseUrl}/index.html`;
+          const vcfUrl = `${baseUrl}/${encodeURIComponent(vcfFilename)}`;
+          return { baseUrl, htmlUrl, vcfUrl, encodedSegments };
+        }
 
-        const vcf  = makeVcard(d);
-        const html = makeHTML(d, d.vcfFilename, links);
-        document.getElementById('vcfPreview').value  = vcf;
-        document.getElementById('htmlPreview').value = html;
-        updateLivePreview(html);
+        function updatePreview(html){
+          const frame = document.getElementById('livePreviewFrame');
+          if (!frame) return;
+          const doc = frame.contentDocument || frame.contentWindow?.document;
+          if (!doc) return;
+          doc.open();
+          doc.write(html);
+          doc.close();
+        }
 
-        const ownerPart = d.ghUser || '<owner>';
-        const repoPart  = d.ghRepo || '<repo>';
-        const basePath  = (d.basePath||'Vcards').replace(/^\/+|\/+$/g,'');
-        const baseUrl   = `https://${ownerPart}.github.io/${repoPart}${basePath?`/${basePath}`:''}/${d.orgKey}/${d.slug}`;
-        const htmlUrl   = `${baseUrl}/index.html`;
-        const vcfUrl    = `${baseUrl}/${d.vcfFilename}`;
-
-        document.getElementById('nfcUrl').value  = vcfUrl;
-        document.getElementById('htmlUrl').value = htmlUrl;
-        window.ensureUrlControls?.('nfcUrl','NFC-URL');
-        window.ensureUrlControls?.('htmlUrl','HTML-URL');
-        const inline = document.getElementById('nfcInline'); if(inline) inline.textContent = vcfUrl;
-
-        document.getElementById('status').textContent = 'Publiserer…';
-        const prefix = d.basePath ? (d.basePath.replace(/^\/+|\/+$/g,'') + '/') : '';
-        const payload = {
-          repoOwner:d.ghUser||undefined, repoName:d.ghRepo||undefined,
-          basePath:d.basePath, orgKey:d.orgKey, slug:d.slug,
-          files:[
-            { path:`${prefix}${d.orgKey}/${d.slug}/${d.vcfFilename}`, content: vcf },
-            { path:`${prefix}${d.orgKey}/${d.slug}/index.html`,       content: html },
-            { path:`${prefix}${d.orgKey}/${d.slug}/data.json`,        content: JSON.stringify({ ...d, links, attachments }, null, 2) },
-            { path:`${prefix}.nojekyll`,                              content: "" }
-          ],
-          strategy:d.strategy,
-          commitMessage:`Add/Update card: ${d.orgKey}/${d.slug}`
-        };
-
-        try{
-          const res = await postJSON('/api/createCard', payload);
-          if(res.ok){ document.getElementById('status').innerHTML = '<span class="ok">✅ Ferdig! Åpne HTML-URL-en (gi Pages litt tid).</span>'; }
-          else {
-            const msg = res.json && res.json.error ? res.json.error : (res.text || 'Ukjent feil');
-            document.getElementById('status').innerHTML = '<span class="err">❌ Feil: '+msg+'</span>';
-          }
-        }catch(e){ document.getElementById('status').innerHTML = '<span class="err">❌ Nettverksfeil: '+e.message+'</span>'; }
-      });
-
-      // Live preview
-      function updateLivePreview(html){
-        const frame = document.getElementById('livePreviewFrame'); if(!frame) return;
-        const doc = frame.contentDocument || frame.contentWindow.document;
-        doc.open(); doc.write(html); doc.close();
-      }
-      document.getElementById('openPreviewBtn')?.addEventListener('click', ()=>{
-        const blob = new Blob([document.getElementById('htmlPreview').value], {type:'text/html'});
-        const url  = URL.createObjectURL(blob); window.open(url,'_blank'); setTimeout(()=>URL.revokeObjectURL(url), 60_000);
-      });
-
-      // NFC helpers
-      function logNFC(msg){
-        const el = document.getElementById('nfcLog');
-        el.textContent += msg + '\n';
-        el.scrollTop = el.scrollHeight;
-      }
-      function supportsNFC(){
-        return ('NDEFReader' in window);
-      }
-
-      // LES NFC
-      document.getElementById('nfcRead').addEventListener('click', async ()=>{
-        if(!supportsNFC()){ alert('Web NFC støttes kun i Chrome/Android'); return; }
-        try{
-          const reader = new NDEFReader();
-          await reader.scan();
-          logNFC('Hold telefonen nær kortet – lytter...');
-          reader.onreadingerror = () => logNFC('Lesefeil');
-          reader.onreading = (event) => {
-            const { message, serialNumber } = event;
-            logNFC(`Serial: ${serialNumber || '(ukjent)'}`);
-            for (const record of message.records) {
-              try{
-                if (record.recordType === 'url') {
-                  const text = new TextDecoder().decode(record.data);
-                  logNFC('URL: ' + text);
-                } else if (record.recordType === 'text') {
-                  const text = new TextDecoder().decode(record.data);
-                  logNFC('Tekst: ' + text);
-                } else if (record.mediaType === 'text/vcard' || record.mediaType === 'text/x-vcard') {
-                  const vcf = new TextDecoder().decode(record.data);
-                  logNFC('vCard:\n' + vcf);
-                } else {
-                  logNFC(`Record: type=${record.recordType} mediaType=${record.mediaType||''}`);
-                }
-              }catch(e){ logNFC('Kunne ikke dekode record: '+e.message); }
-            }
+        function gatherCardInput(){
+          const orgKey = getVal('orgKey');
+          const slug = getVal('slug');
+          const vcfFilename = resolveVcfFilename(getVal('vcfFilename'), slug, orgKey);
+          return {
+            orgKey,
+            orgName: getVal('orgName') || orgKey,
+            orgSite: getVal('orgSite'),
+            accent: getVal('accent') || '#8fd3ff',
+            logoUrl: getVal('logoUrl'),
+            logoBg: getVal('logoBg'),
+            slug,
+            name: getVal('name'),
+            title: getVal('title'),
+            phone: getVal('phone'),
+            email: getVal('email'),
+            site: getVal('site'),
+            address: getVal('address'),
+            vcfFilename
           };
-        }catch(e){
-          logNFC('Start scanning feilet: '+e.message);
         }
-      });
 
-      // SKRIV NFC
-      document.getElementById('nfcWrite').addEventListener('click', async ()=>{
-        if(!supportsNFC()){ alert('Web NFC støttes kun i Chrome/Android'); return; }
-        const mode = document.getElementById('nfcWriteMode').value;
-        const payload = document.getElementById('nfcPayload').value.trim();
-        try{
-          const writer = new NDEFReader();
-          await writer.write(await buildNdefMessage(mode, payload));
-          logNFC('✅ Skrevet!');
-        }catch(e){
-          logNFC('Skrivefeil: '+e.message);
+        async function postJSON(url, data){
+          const res = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+          });
+          const text = await res.text();
+          try {
+            return { ok: res.ok, status: res.status, json: text ? JSON.parse(text) : null };
+          } catch {
+            return { ok: res.ok, status: res.status, text };
+          }
         }
-      });
 
-      async function buildNdefMessage(mode, payload){
-        if (mode === 'url') {
-          const url = payload || document.getElementById('htmlUrl').value.trim() || document.getElementById('nfcUrl').value.trim();
-          if (!url) throw new Error('Mangler URL å skrive');
-          return { records:[ { recordType:'url', data: url } ] };
-        }
-        if (mode === 'text') {
-          const text = payload || 'Hei fra NFCKING';
-          return { records:[ { recordType:'text', data: text } ] };
-        }
-        if (mode === 'vcard') {
-          const vcf = document.getElementById('vcfPreview').value.trim();
-          if (!vcf) throw new Error('Ingen vCard i forhåndsvisning. Generer først.');
-          return { records:[ { recordType:'mime', mediaType:'text/vcard', data: new TextEncoder().encode(vcf) } ] };
-        }
-        throw new Error('Ukjent skrive-modus');
-      }
+        function generateAndPreview(options = {}){
+          const { silent = false } = options;
 
-      // Init etter DOM ready (merk: auth viser/skjuler app)
-      document.addEventListener('DOMContentLoaded', ()=>{
-        const sel = document.getElementById('orgSelect');
-        if (sel) sel.addEventListener('change', syncOrgKeyFromSelect);
-        // NFC info
+          const owner = getVal('ghUser') || DEFAULT_OWNER;
+          const repo = getVal('ghRepo') || DEFAULT_REPO;
+          const basePathInput = getVal('basePath');
+          const basePathNormalized = trimSlashes(basePathInput || DEFAULT_BASE_PATH);
+          const basePath = basePathNormalized || DEFAULT_BASE_PATH;
+          const strategy = document.getElementById('strategy')?.value || 'pr';
+
+          const baseData = gatherCardInput();
+          if (!baseData.orgKey || !baseData.slug){
+            showStatus('err', '❌ Fyll ut både Org key og Slug før generering.');
+            return null;
+          }
+
+          const links = collectLinks();
+          const attachments = collectAttachments();
+          const cardData = { ...baseData, links, attachments };
+          const vcf = makeVcard(cardData);
+          const html = makeHTML(cardData, cardData.vcfFilename, links, attachments);
+
+          const urls = computePublicUrls(owner, repo, basePath, cardData.orgKey, cardData.slug, cardData.vcfFilename);
+
+          state.owner = owner;
+          state.repo = repo;
+          state.basePath = basePath;
+          state.strategy = strategy;
+          state.data = cardData;
+          state.html = html;
+          state.vcf = vcf;
+          state.htmlUrl = urls.htmlUrl;
+          state.vcfUrl = urls.vcfUrl;
+          window._latestGenerated = { html, vcf, data: cardData };
+
+          if ($vcfPreview) $vcfPreview.value = vcf;
+          if ($htmlPreview) $htmlPreview.value = html;
+          updatePreview(html);
+
+          setVal('htmlUrl', urls.htmlUrl);
+          setVal('nfcUrl', urls.vcfUrl);
+          ensureUrlControls('htmlUrl', 'HTML-URL');
+          ensureUrlControls('nfcUrl', 'NFC-URL');
+          const inline = document.getElementById('nfcInline');
+          if (inline) inline.textContent = urls.vcfUrl;
+
+          if (!silent){
+            showStatus('ok', '✅ Generering fullført. Publiser for å sende til GitHub.');
+          }
+
+          return { owner, repo, basePath, strategy, cardData, html, vcf, urls };
+        }
+
+        async function publishCard(){
+          const generated = generateAndPreview({ silent: true });
+          if (!generated) return;
+
+          const { owner, repo, basePath, strategy, cardData, html, vcf, urls } = generated;
+
+          if (!html || !vcf || !cardData){
+            showStatus('err', '❌ Kunne ikke finne generert innhold. Prøv å generere på nytt.');
+            return;
+          }
+
+          const files = [
+            { path: `${cardData.orgKey}/${cardData.slug}/${cardData.vcfFilename}`, content: vcf },
+            { path: `${cardData.orgKey}/${cardData.slug}/index.html`, content: html },
+            { path: `${cardData.orgKey}/${cardData.slug}/data.json`, content: JSON.stringify(cardData, null, 2) },
+            { path: '.nojekyll', content: '' }
+          ];
+
+          const payload = {
+            repoOwner: owner,
+            repoName: repo,
+            basePath,
+            orgKey: cardData.orgKey,
+            slug: cardData.slug,
+            files,
+            strategy,
+            commitMessage: `Add/Update card: ${cardData.orgKey}/${cardData.slug}`
+          };
+
+          showStatus('info', '⏳ Publiserer…');
+
+          try {
+            const res = await postJSON('/api/createCard', payload);
+            const errorText = !res.ok ? (res.json?.error || res.text || `Status ${res.status}`) : (!res.json?.ok && (res.json?.error || 'Ukjent feil'));
+            if (errorText){
+              let friendly = errorText;
+              if (/401|403/.test(String(errorText))) {
+                friendly = 'Mangler tilgang til GitHub-repoet. Sjekk token og rettigheter.';
+              } else if (/404/.test(String(errorText))) {
+                friendly = 'Fant ikke målstien i repoet. Sjekk base path og org/slug.';
+              } else if (/409/.test(String(errorText))) {
+                friendly = 'Det finnes allerede et kort med samme slug. Endre slug eller slett eksisterende mappe.';
+              }
+              showStatus('err', `❌ Publisering feilet: ${escapeHtml(friendly)}`);
+              return;
+            }
+
+            const ownerEnc = encodeURIComponent(owner);
+            const repoEnc = encodeURIComponent(repo);
+            const dataSegments = [...urls.encodedSegments, 'data.json'];
+            const dataLink = `https://raw.githubusercontent.com/${ownerEnc}/${repoEnc}/HEAD/${dataSegments.join('/')}`;
+            const htmlAnchor = `<a href="${urls.htmlUrl}" target="_blank" rel="noopener">index.html</a>`;
+            const vcfAnchor = `<a href="${urls.vcfUrl}" target="_blank" rel="noopener">${escapeHtml(cardData.vcfFilename)}</a>`;
+            const dataAnchor = `<a href="${dataLink}" target="_blank" rel="noopener">data.json</a>`;
+            const displayPath = [basePath, cardData.orgKey, cardData.slug].filter(Boolean).join('/') || `${cardData.orgKey}/${cardData.slug}`;
+            showStatus('ok', `✅ Publisert! Lagret til <code>${escapeHtml(displayPath)}</code>. ${htmlAnchor} · ${vcfAnchor} · ${dataAnchor}`);
+          } catch (err) {
+            showStatus('err', `❌ Nettverksfeil: ${escapeHtml(err.message || err)}`);
+          }
+        }
+
+        function logNFC(msg){
+          const el = document.getElementById('nfcLog');
+          if (!el) return;
+          el.textContent += msg + '\n';
+          el.scrollTop = el.scrollHeight;
+        }
+
+        function supportsNFC(){
+          return ('NDEFReader' in window);
+        }
+
+        async function buildNdefMessage(mode, payload){
+          if (mode === 'url'){
+            const url = payload || state.htmlUrl || getVal('htmlUrl') || getVal('nfcUrl');
+            if (!url) throw new Error('Mangler URL å skrive');
+            return { records:[ { recordType:'url', data: url } ] };
+          }
+          if (mode === 'text'){
+            const text = payload || 'Hei fra NFCKING';
+            return { records:[ { recordType:'text', data: text } ] };
+          }
+          if (mode === 'vcard'){
+            const vcf = state.vcf || ($vcfPreview?.value || '').trim();
+            if (!vcf) throw new Error('Ingen vCard i forhåndsvisning. Generer først.');
+            return { records:[ { recordType:'mime', mediaType:'text/vcard', data: new TextEncoder().encode(vcf) } ] };
+          }
+          throw new Error('Ukjent skrive-modus');
+        }
+
+        window.makeVcard = window.makeVcard || makeVcard;
+        window.makeHTML = window.makeHTML || ((d, vcfFile, links, attachments) => makeHTML(d, vcfFile, links, attachments));
+        window.generateCardPreview = generateAndPreview;
+
+        $generate?.addEventListener('click', () => generateAndPreview());
+        $publish?.addEventListener('click', () => publishCard());
+
+        document.getElementById('openPreviewBtn')?.addEventListener('click', ()=>{
+          const html = $htmlPreview?.value || '';
+          const blob = new Blob([html], { type:'text/html' });
+          const url = URL.createObjectURL(blob);
+          window.open(url, '_blank');
+          setTimeout(()=>URL.revokeObjectURL(url), 60_000);
+        });
+
+        document.getElementById('nfcRead')?.addEventListener('click', async ()=>{
+          if (!supportsNFC()){ alert('Web NFC støttes kun i Chrome/Android'); return; }
+          try {
+            const reader = new NDEFReader();
+            await reader.scan();
+            logNFC('Hold telefonen nær kortet – lytter...');
+            reader.onreadingerror = () => logNFC('Lesefeil');
+            reader.onreading = (event) => {
+              const { message, serialNumber } = event;
+              logNFC(`Serial: ${serialNumber || '(ukjent)'}`);
+              for (const record of message.records) {
+                try {
+                  if (record.recordType === 'url') {
+                    const text = new TextDecoder().decode(record.data);
+                    logNFC('URL: ' + text);
+                  } else if (record.recordType === 'text') {
+                    const text = new TextDecoder().decode(record.data);
+                    logNFC('Tekst: ' + text);
+                  } else if (record.mediaType === 'text/vcard' || record.mediaType === 'text/x-vcard') {
+                    const vcardText = new TextDecoder().decode(record.data);
+                    logNFC('vCard:\n' + vcardText);
+                  } else {
+                    logNFC(`Record: type=${record.recordType} mediaType=${record.mediaType||''}`);
+                  }
+                } catch (e) {
+                  logNFC('Kunne ikke dekode record: ' + e.message);
+                }
+              }
+            };
+          } catch (e) {
+            logNFC('Start scanning feilet: ' + e.message);
+          }
+        });
+
+        document.getElementById('nfcWrite')?.addEventListener('click', async ()=>{
+          if (!supportsNFC()){ alert('Web NFC støttes kun i Chrome/Android'); return; }
+          const mode = document.getElementById('nfcWriteMode')?.value || 'url';
+          const payload = getVal('nfcPayload');
+          try {
+            const writer = new NDEFReader();
+            await writer.write(await buildNdefMessage(mode, payload));
+            logNFC('✅ Skrevet!');
+          } catch (e) {
+            logNFC('Skrivefeil: ' + e.message);
+          }
+        });
+
+        const orgSelect = document.getElementById('orgSelect');
+        orgSelect?.addEventListener('change', syncOrgKeyFromSelect);
+
         if (!supportsNFC()){
           logNFC('ℹ️ Web NFC krever Chrome på Android. iOS støttes ikke per i dag.');
         } else {
           logNFC('ℹ️ Web NFC er tilgjengelig. Husk å holde kortet nær antenna ved les/skriv.');
         }
         logNFC('ℹ️ Tips: Bruk «URL»-modus for å åpne HTML-URL; «vCard»-modus for å skrive selve kontaktkortet.');
-      });
+
+        ensureUrlControls('htmlUrl', 'HTML-URL');
+        ensureUrlControls('nfcUrl', 'NFC-URL');
+      })();
     </script>
 
     <!-- Recent files banner (GitHub) – med modus-bytte (Vedlegg/Kort) -->
@@ -1043,11 +1369,14 @@ document.addEventListener("DOMContentLoaded", ()=>{
       const CACHE_TTL_MS        = 2 * 60 * 1000;
 
       let _recentAllItems = [];
-      let _recentMode = 'files'; // 'files' | 'cards'
+      let _recentMode = 'cards'; // 'files' | 'cards'
 
       function getField(id){ const el = document.getElementById(id); return (el?.value || '').trim(); }
       function pathJoin(){ return Array.from(arguments).filter(Boolean).join('/').replace(/\/+/g,'/'); }
       function trimSlashes(s){ return (s||'').replace(/^\/+|\/+$/g,''); }
+      function escHtml(s){ return String(s||'').replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]||c)); }
+      function escAttr(s){ return String(s||'').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]||c)); }
+      function splitSegments(str){ return trimSlashes(str).split('/').filter(Boolean); }
 
       function currentFilesPath(){
         const basePath = trimSlashes(getField('basePath') || 'Vcards');
@@ -1105,9 +1434,13 @@ document.addEventListener("DOMContentLoaded", ()=>{
         _recentAllItems = items.slice();
         const slice = items.slice(0, limit);
         function fmt(iso){ try { const d = new Date(iso); return d.toLocaleString('no-NO'); } catch { return iso||''; } }
-        $recentList.innerHTML = slice.map(it =>
-          '<li><a href="'+it.url+'" target="_blank" rel="noopener">'+it.file+'</a> <span class="note" style="margin-left:6px">'+fmt(it.when)+'</span></li>'
-        ).join('');
+        $recentList.innerHTML = slice.map(it => {
+          if (it.kind === 'card') {
+            const openLink = it.url ? ' <a class="note" href="'+escAttr(it.url)+'" target="_blank" rel="noopener">Åpne</a>' : '';
+            return '<li><a href="#" data-recent-card="1" data-slug="'+escAttr(it.slug)+'" data-path="'+escAttr(it.path)+'">'+escHtml(it.file)+'</a>'+openLink+' <span class="note" style="margin-left:6px">'+fmt(it.when)+'</span></li>';
+          }
+          return '<li><a href="'+escAttr(it.url)+'" target="_blank" rel="noopener">'+escHtml(it.file)+'</a> <span class="note" style="margin-left:6px">'+fmt(it.when)+'</span></li>';
+        }).join('');
 
         if (items.length > slice.length) {
           $recentMoreBtn.style.display = '';
@@ -1145,9 +1478,11 @@ document.addEventListener("DOMContentLoaded", ()=>{
         if (_recentMode === 'cards') {
           $recentModeLbl.textContent = 'Viser kort';
           $recentSub.innerHTML = 'Viser siste endringer i <code>/' + currentCardsPath() + '/(index.html)</code>';
+          if ($switchToCards) $switchToCards.textContent = 'Vedlegg';
         } else {
           $recentModeLbl.textContent = 'Viser vedlegg';
           $recentSub.innerHTML = 'Viser siste endringer i <code>/' + currentFilesPath() + '/</code>';
+          if ($switchToCards) $switchToCards.textContent = 'Kort';
         }
 
         if (useCache){
@@ -1184,6 +1519,7 @@ document.addEventListener("DOMContentLoaded", ()=>{
                 if (seen.has(key)) continue;
                 seen.add(key);
                 items.push({
+                  kind: 'file',
                   path: p,
                   file: fileName,
                   when: dt,
@@ -1198,6 +1534,8 @@ document.addEventListener("DOMContentLoaded", ()=>{
                 if (seen.has(key)) continue;
                 seen.add(key);
                 items.push({
+                  kind: 'card',
+                  slug: slugFromPath,
                   path: p,
                   file: orgKey + '/' + slugFromPath + '/index.html',
                   when: dt,
@@ -1235,6 +1573,52 @@ document.addEventListener("DOMContentLoaded", ()=>{
           $recentMoreBtn.style.display = 'none';
         }
       }
+
+      async function loadCardIntoForm(slug){
+        if (!slug) return;
+        const repoInfo = currentRepoInfo();
+        const owner = (repoInfo.owner || 'Luckywolf82').trim();
+        const repo  = (repoInfo.repo  || 'Vcards').trim();
+        const basePath = trimSlashes(getField('basePath') || 'Vcards');
+        const orgKey  = getField('orgKey');
+
+        if (!owner || !repo) {
+          setRecentStatus('err','Fyll ut GitHub owner og repo først.');
+          return;
+        }
+        if (!orgKey) {
+          setRecentStatus('err','Angi Org key for å hente kortdata.');
+          return;
+        }
+
+        const segments = [...splitSegments(basePath), orgKey, slug, 'data.json'];
+        const rawUrl = `https://raw.githubusercontent.com/${owner}/${repo}/HEAD/${segments.map(s => encodeURIComponent(s)).join('/')}`;
+
+        try {
+          setRecentStatus('', `Henter kortdata for ${orgKey}/${slug}…`);
+          const resp = await fetch(rawUrl, { cache: 'no-store' });
+          if (!resp.ok) {
+            throw new Error('Fant ikke data.json for '+orgKey+'/'+slug);
+          }
+          const data = await resp.json();
+          data.slug = slug;
+          if (typeof window._fillFromCardData === 'function') {
+            window._fillFromCardData(data);
+          }
+          setRecentStatus('ok', `Fylte feltene fra ${orgKey}/${slug}.`);
+        } catch (e) {
+          setRecentStatus('err', 'Kunne ikke hente kort: ' + (e.message || e));
+        }
+      }
+
+      $recentList?.addEventListener('click', (evt)=>{
+        const link = evt.target.closest('[data-recent-card]');
+        if (!link) return;
+        evt.preventDefault();
+        const slug = link.getAttribute('data-slug') || '';
+        if (!slug) return;
+        loadCardIntoForm(slug);
+      });
 
       $recentBtn?.addEventListener('click', ()=> fetchRecentFiles(RECENT_DEFAULT_SHOW, false));
       $recentMoreBtn?.addEventListener('click', ()=>{
@@ -1316,63 +1700,6 @@ document.addEventListener("DOMContentLoaded", ()=>{
         }
       }
 
-      function populateOrgSelect(){
-        const orgSelect = document.getElementById('orgSelect');
-        if (!orgSelect) return;
-        orgSelect.innerHTML = '';
-        const orgs = window.ORG_PROFILES || {};
-        Object.keys(orgs).forEach(key=>{
-          const opt = document.createElement('option');
-          opt.value = key;
-          opt.textContent = orgs[key].name || key;
-          orgSelect.appendChild(opt);
-        });
-      }
-
-      function previewLogo(){
-        const url = document.getElementById('logoUrl')?.value?.trim();
-        const img = document.getElementById('logoPreview');
-        const bg  = document.getElementById('logoBg')?.value?.trim();
-        if(!img) return;
-        if(!url){ img.style.display='none'; return; }
-        img.src = url; img.style.display='block';
-        img.style.borderRadius='8px'; img.style.padding='6px';
-        img.style.background = bg || '#ffffff';
-      }
-
-      function applyBranding(mode = 'auto'){
-        const key  = document.getElementById('orgKey')?.value?.trim();
-        const prof = (window.ORG_PROFILES || {})[key];
-        if (!prof) return;
-        const set = (id, val) => {
-          const el=document.getElementById(id);
-          if (!el) return;
-          if (mode==='force' || !el.value) el.value = val || '';
-        };
-        set('orgName', prof.name || key);
-        set('accent' , prof.accent || '#8fd3ff');
-        set('orgSite', prof.site || '');
-        set('logoUrl', prof.logo || '');
-        set('logoBg' , prof.logoBg || '#ffffff');
-        previewLogo();
-      }
-
-      function syncOrgKeyFromSelect(){
-        const sel = document.getElementById('orgSelect');
-        const key = sel?.value || '';
-        const elKey = document.getElementById('orgKey');
-        if (elKey) elKey.value = key;
-        applyBranding('force');
-      }
-
-      function syncOrgSelectFromKey(){
-        const key = document.getElementById('orgKey')?.value?.trim();
-        const orgSelect = document.getElementById('orgSelect');
-        if (!orgSelect) return;
-        const idx = Array.from(orgSelect.options).findIndex(o => o.value === key);
-        if (idx >= 0) orgSelect.selectedIndex = idx;
-      }
-
       onAuthStateChanged(auth, async (user) => {
         if (!user) {
           authSec?.classList?.remove('hide');
@@ -1380,10 +1707,14 @@ document.addEventListener("DOMContentLoaded", ()=>{
           return;
         }
         await loadOrgsFromFirestore();
-        populateOrgSelect();
+        window.populateOrgSelect?.();
         if (!document.getElementById('orgKey')?.value && document.getElementById('orgSelect')?.options.length){
-          document.getElementById('orgSelect').selectedIndex = 0; syncOrgKeyFromSelect();
-        } else { syncOrgSelectFromKey(); applyBranding('auto'); }
+          document.getElementById('orgSelect').selectedIndex = 0;
+          window.syncOrgKeyFromSelect?.();
+        } else {
+          window.syncOrgSelectFromKey?.();
+          window.applyBranding?.('auto');
+        }
         authSec?.classList?.add('hide');
         appSec?.classList?.remove('hide');
       });
@@ -1392,29 +1723,7 @@ document.addEventListener("DOMContentLoaded", ()=>{
         try { await signInWithPopup(auth, new GoogleAuthProvider()); }
         catch (e) { alert('Innlogging feilet: '+e.message); }
       });
-
-      // Eksponer globalt det vi trenger
       window._firebase = { auth, db };
-
-      // Små UX: debounce + url-kontroller
-      const deb = (fn, ms=250)=>{ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a),ms); } };
-      document.getElementById('logoUrl')?.addEventListener('input', deb(previewLogo, 150));
-      document.getElementById('logoBg') ?.addEventListener('input', deb(previewLogo, 150));
-      document.getElementById('orgKey') ?.addEventListener('input', deb(()=>{ applyBranding('auto'); syncOrgSelectFromKey(); }, 150));
-      function ensureUrlControls(id,label){
-        const input = document.getElementById(id); if(!input) return;
-        if (input.nextSibling?.classList?.contains('url-actions')) return;
-        const wrap = document.createElement('span'); wrap.className = 'url-actions';
-        wrap.innerHTML = `<button type="button" class="pill" data-act="copy">Kopier ${label}</button><button type="button" class="pill" data-act="open">Åpne</button>`;
-        input.after(wrap);
-        wrap.addEventListener('click',(e)=>{
-          const btn=e.target.closest('button[data-act]'); if(!btn) return;
-          const val=input.value.trim(); if(!val) return;
-          if(btn.dataset.act==='copy') navigator.clipboard.writeText(val);
-          if(btn.dataset.act==='open') window.open(val,'_blank','noopener');
-        });
-      }
-      window.ensureUrlControls = window.ensureUrlControls || ensureUrlControls;
     </script>
 
     <!-- =========================
@@ -1440,142 +1749,6 @@ document.addEventListener("DOMContentLoaded", ()=>{
 
   </main>
 
-<script>
-document.addEventListener("DOMContentLoaded", ()=>{
-  ["ghUser","ghRepo"].forEach(id=>{
-    const el = document.getElementById(id);
-    if (!el) return;
-    el.style.display = "none";
-    const lab = el.closest("label");
-    if (lab) lab.style.display = "none";
-  });
-});
-</script>
-<script>
-(function(){
-  const $btn  = document.getElementById("btnFetchLatestCard");
-  const $stat = document.getElementById("latestCardStatus");
-  if (!$btn) return;
-
-  const getVal = (id)=> (document.getElementById(id)?.value || "").trim();
-  const setVal = (id, v)=>{ const el = document.getElementById(id); if (el) el.value = (v||""); };
-  const trimSlashes = (s)=> (s||"").replace(/^\/+|\/+$/g, "");
-
-  async function j(url){
-    const r = await fetch(url, { headers: { "Accept":"application/vnd.github+json" } });
-    if(!r.ok) throw new Error(r.status + " " + r.statusText);
-    return r.json();
-  }
-
-  async function fetchLatestSlug(owner, repo, basePath, orgKey){
-    const path = encodeURIComponent(trimSlashes(basePath) + "/" + orgKey);
-    const commits = await j(`https://api.github.com/repos/${owner}/${repo}/commits?path=${path}&per_page=20`);
-    const details = await Promise.all((commits||[]).slice(0,8).map(c => j(c.url).catch(()=>null)));
-    let latest = null;
-    for (const dc of details){
-      if(!dc || !Array.isArray(dc.files)) continue;
-      const when = dc.commit?.author?.date || dc.commit?.committer?.date || "";
-      for (const f of dc.files){
-        const p = f.filename || "";
-        if(!/\/index\.html$/.test(p)) continue;
-        if(!p.includes("/"+orgKey+"/")) continue;
-        const parts = p.split("/");
-        const slug = parts[parts.length-2] || "";
-        if(!slug) continue;
-        if(!latest || new Date(when) > new Date(latest.when)){
-          latest = { slug, when };
-        }
-      }
-    }
-    return latest?.slug || "";
-  }
-
-  function applyData(d){
-    setVal("slug", d.slug);
-    setVal("name", d.name);
-    setVal("title", d.title);
-    setVal("phone", d.phone);
-    setVal("email", d.email);
-    setVal("site", d.site);
-    setVal("address", d.address);
-    setVal("vcfFilename", d.vcfFilename);
-    setVal("orgName", d.orgName || d.orgKey);
-    setVal("accent", d.accent);
-    setVal("logoUrl", d.logoUrl);
-    setVal("logoBg", d.logoBg);
-
-    // Links-tabell
-    const tbody = document.querySelector("#linksTable tbody");
-    if (tbody) {
-      tbody.innerHTML = "";
-      (d.links||[]).forEach(l=>{
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-          <td><input value="${l.label||''}" class="lbl" /></td>
-          <td><input value="${l.url||''}"   class="lnk" style="width:100%"/></td>
-          <td><textarea class="pre" rows="2">${l.pre||''}</textarea></td>
-          <td><textarea class="post" rows="2">${l.post||''}</textarea></td>
-          <td><button type="button" class="remove">Fjern</button></td>`;
-        tr.querySelector(".remove").addEventListener("click", ()=> tr.remove());
-        tbody.appendChild(tr);
-      });
-    }
-
-    // Vedlegg (hvis du bruker _collectAttachments i genereringen)
-    window._latestAttachments = Array.isArray(d.attachments) ? d.attachments : [];
-    if (typeof window.previewLogo === "function") { window.previewLogo(); }
-  }
-
-  $btn.addEventListener("click", async ()=>{
-    const owner = (document.getElementById("ghUser")?.value || "Luckywolf82");
-    const repo  = (document.getElementById("ghRepo")?.value || "Vcards");
-    const basePath = trimSlashes(getVal("basePath") || "Vcards");
-    const orgKey   = getVal("orgKey");
-    if(!orgKey){ if($stat) $stat.textContent = "Angi Org key først."; return; }
-    try{
-      if($stat) $stat.textContent = "Leter etter siste kort…";
-      const slug = await fetchLatestSlug(owner, repo, basePath, orgKey);
-      if(!slug){ if($stat) $stat.textContent = "Fant ingen index.html for denne organisasjonen enda."; return; }
-      const raw = `https://raw.githubusercontent.com/${owner}/${repo}/HEAD/${basePath}/${orgKey}/${slug}/data.json`;
-      const r = await fetch(raw, { cache:"no-store" });
-      if(!r.ok){ if($stat) $stat.textContent = "Fant slug, men ikke data.json."; return; }
-      const d = await r.json();
-      d.slug = slug; // safety
-      applyData(d);
-      if($stat) $stat.textContent = "Fylte feltene fra: " + orgKey + "/" + slug;
-    }catch(e){
-      if($stat) $stat.textContent = "Feil: " + (e.message||e);
-    }
-  });
-})();
-</script>
-<script>
-document.addEventListener("DOMContentLoaded", ()=>{
-  const tbody = document.querySelector("#linksTable tbody");
-  const addBtn = document.getElementById("btnAddLink");
-  if (addBtn && tbody) {
-    addBtn.addEventListener("click", ()=>{
-      const tr = document.createElement("tr");
-      tr.innerHTML = `
-        <td><input class="lbl" placeholder="Etikett" /></td>
-        <td><input class="lnk" placeholder="https://..." style="width:100%" /></td>
-        <td><textarea class="pre" rows="2" placeholder="Tekst over"></textarea></td>
-        <td><textarea class="post" rows="2" placeholder="Tekst under"></textarea></td>
-        <td><button type="button" class="remove">Fjern</button></td>`;
-      tbody.appendChild(tr);
-    });
-  }
-  if (tbody) {
-    tbody.addEventListener("click", (e)=>{
-      const btn = e.target.closest(".remove");
-      if (!btn) return;
-      e.preventDefault();
-      const tr = btn.closest("tr");
-      if (tr) tr.remove();
-    });
-  }
-});
-</script>
 <script>
 (function(){
   // En liten "state" for sist opplastede sti'er i denne økta:
@@ -1654,6 +1827,158 @@ document.addEventListener("DOMContentLoaded", ()=>{
     });
   }
 })();
+</script>
+<script id="hideGhInputs">
+document.addEventListener("DOMContentLoaded", ()=>{
+  ["ghUser","ghRepo"].forEach(id=>{
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.style.display = "none";
+    const lab = el.closest("label");
+    if (lab) lab.style.display = "none";
+  });
+});
+</script>
+<script id="latestCardScript">
+(function(){
+  const btn  = document.getElementById("btnFetchLatestCard");
+  const stat = document.getElementById("latestCardStatus");
+  if (!btn) return;
+
+  const gv=id=>(document.getElementById(id)?.value||"").trim();
+  const sv=(id,v)=>{ const el=document.getElementById(id); if(el) el.value=v||""; };
+  const ts=s=>(s||"").replace(/^\/+|\/+$/g,"");
+  const esc=s=>String(s||"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]||c));
+
+  async function j(u){
+    const r = await fetch(u,{ headers:{ Accept:"application/vnd.github+json" }});
+    if(!r.ok) throw new Error(r.status+" "+r.statusText);
+    return r.json();
+  }
+
+  // Finn siste slug for DIN bruker i /<basePath>/<orgKey>/*/index.html
+  async function latest(owner,repo,basePath,orgKey,author){
+    const path = encodeURIComponent(ts(basePath)+"/"+orgKey);
+    const commits = await j(`https://api.github.com/repos/${owner}/${repo}/commits?path=${path}&author=${encodeURIComponent(author)}&per_page=25`);
+    const details = await Promise.all((commits||[]).slice(0,10).map(c => j(c.url).catch(()=>null)));
+    let best=null;
+    for(const dc of details){
+      if(!dc || !Array.isArray(dc.files)) continue;
+      const when = dc.commit?.author?.date || dc.commit?.committer?.date || "";
+      for(const f of dc.files){
+        const p = f.filename||"";
+        if(!/\/index\.html$/.test(p)) continue;
+        if(!p.includes("/"+orgKey+"/")) continue;
+        const parts = p.split("/");
+        const slug  = parts[parts.length-2] || "";
+        if(!slug) continue;
+        if(!best || new Date(when) > new Date(best.when)) best = { slug, when };
+      }
+    }
+    return best?.slug || "";
+  }
+
+  function fill(d){
+    sv("slug", d.slug);
+    sv("name", d.name);
+    sv("title", d.title);
+    sv("phone", d.phone);
+    sv("email", d.email);
+    sv("site", d.site);
+    sv("address", d.address);
+    sv("vcfFilename", d.vcfFilename);
+    sv("orgName", d.orgName || d.orgKey);
+    sv("accent", d.accent);
+    sv("logoUrl", d.logoUrl);
+    sv("logoBg", d.logoBg);
+    sv("orgSite", d.orgSite || d.site || "");
+
+    const links = Array.isArray(d.links) ? d.links : [];
+    if (typeof window._clearLinkRows === "function") {
+      window._clearLinkRows();
+      if (typeof window._addLinkRow === "function") {
+        links.forEach(l => window._addLinkRow(l?.label || "", l?.url || "", l?.pre || "", l?.post || ""));
+      }
+    } else {
+      const tb=document.querySelector("#linksTable tbody");
+        if(tb){
+          tb.innerHTML="";
+          links.forEach(l=>{
+            const tr=document.createElement("tr");
+            tr.innerHTML=
+              `<td><input value="${esc(l?.label||"")}" class="lbl" /></td>`+
+              `<td><input value="${esc(l?.url||"")}"   class="lnk" style="width:100%"/></td>`+
+              `<td><textarea class="pre" rows="2">${esc(l?.pre||"")}</textarea></td>`+
+              `<td><textarea class="post" rows="2">${esc(l?.post||"")}</textarea></td>`+
+              `<td><button type="button" class="remove">Fjern</button></td>`;
+            tb.appendChild(tr);
+          });
+        }
+    }
+
+    window._latestAttachments = Array.isArray(d.attachments) ? d.attachments : [];
+    if (typeof window._setAttachmentsFromData === "function") {
+      window._setAttachmentsFromData(window._latestAttachments);
+    }
+    const orgForEmployee = d.orgKey || gv("orgKey");
+    const slugForEmployee = d.slug || "";
+    if (orgForEmployee && slugForEmployee) {
+      const store = window.EMPLOYEES || (window.EMPLOYEES = {});
+      const list = Array.isArray(store[orgForEmployee]) ? store[orgForEmployee] : (store[orgForEmployee] = []);
+      const normalizedEmployee = Object.assign({}, d, { orgKey: orgForEmployee, slug: slugForEmployee });
+      const matchIndex = list.findIndex(emp => (emp?.slug || emp?._slug || "") === slugForEmployee);
+      if (matchIndex >= 0) {
+        list[matchIndex] = normalizedEmployee;
+      } else {
+        list.push(normalizedEmployee);
+      }
+      window._markEmployeesLoaded?.(orgForEmployee);
+      window._refreshEmployeeSelect?.(orgForEmployee, slugForEmployee);
+    }
+    if (typeof window.previewLogo === "function") { window.previewLogo(); }
+  }
+
+  window._fillFromCardData = fill;
+
+  btn.addEventListener("click", async ()=>{
+    const owner  = (document.getElementById("ghUser")?.value || "Luckywolf82");
+    const repo   = (document.getElementById("ghRepo")?.value || "Vcards");
+    const base   = ts(gv("basePath") || "Vcards");
+    const orgKey = gv("orgKey");
+    const author = (document.getElementById("ghUser")?.value || "Luckywolf82");
+
+    if(!orgKey){ if(stat) stat.textContent="Angi Org key først."; return; }
+
+    try{
+      if(stat) stat.textContent="Henter siste kort…";
+      const slug = await latest(owner,repo,base,orgKey,author);
+      if(!slug){ if(stat) stat.textContent="Fant ingen kort nylig oppdatert av deg."; return; }
+
+      const raw = `https://raw.githubusercontent.com/${owner}/${repo}/HEAD/${base}/${orgKey}/${slug}/data.json`;
+      const r = await fetch(raw,{ cache:"no-store" });
+      if(!r.ok){ if(stat) stat.textContent="Fant slug, men ikke data.json."; return; }
+
+      const d = await r.json();
+      d.slug = slug;
+      fill(d);
+      if(stat) stat.textContent = `Fylte feltene fra: ${orgKey}/${slug}`;
+    }catch(e){
+      if(stat) stat.textContent = "Feil: " + (e.message||e);
+    }
+  });
+})();
+</script>
+<script id="linkDelegation">
+document.addEventListener("DOMContentLoaded", ()=>{
+  const tbody = document.querySelector("#linksTable tbody");
+  if(!tbody) return;
+  tbody.addEventListener("click", (e)=>{
+    const btn = e.target.closest("button.remove");
+    if(!btn) return;
+    const tr = btn.closest("tr");
+    if(tr) tr.remove();
+  });
+});
 </script>
 </body>
 </html>
