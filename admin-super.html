@@ -89,6 +89,9 @@
     .builder-dropzone{padding:16px;border:1px dashed #2d3243;border-radius:12px;text-align:center;color:var(--sub);transition:background .2s ease}
     .builder-dropzone.active{background:rgba(255,26,26,.1);color:#fff;border-color:var(--brand)}
 
+    .org-adder{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+    .org-adder select{background:#0f111a;color:var(--text);border:1px solid #2d3243;border-radius:8px;padding:6px;font:inherit;min-width:160px}
+
     .input-grid{display:grid;gap:12px}
     .input-grid.cols-2{grid-template-columns:repeat(2,minmax(0,1fr))}
     @media (max-width:719px){.input-grid.cols-2{grid-template-columns:1fr}}
@@ -317,6 +320,51 @@
           <button id="usrInviteOpen" class="tab-btn">+ Ny bruker</button>
         </div>
         <p id="usrMsg" class="muted" style="margin-top:6px"></p>
+      </div>
+
+      <div id="orgManager" class="card hidden" style="margin-bottom:12px">
+        <h3>Organisasjoner</h3>
+        <p class="muted">Legg til eller oppdater organisasjoner. Nye organisasjoner blir tilgjengelige i admin-menyer og kan knyttes til brukere.</p>
+        <div class="grid cols-2" style="gap:10px">
+          <label>Org-nøkkel
+            <input id="orgKeyInput" type="text" placeholder="Wayback" autocomplete="off" />
+          </label>
+          <label>Navn
+            <input id="orgNameInput" type="text" placeholder="Wayback AS" autocomplete="off" />
+          </label>
+          <label>Nettsted
+            <input id="orgSiteInput" type="url" placeholder="https://eksempel.no" autocomplete="off" />
+          </label>
+          <label>Accentfarge
+            <input id="orgAccentInput" type="text" placeholder="#ff1a1a" autocomplete="off" />
+          </label>
+          <label>Logo-URL
+            <input id="orgLogoInput" type="url" placeholder="https://…/logo.svg" autocomplete="off" />
+          </label>
+          <label>Logo-bakgrunn
+            <input id="orgLogoBgInput" type="text" placeholder="#ffffff" autocomplete="off" />
+          </label>
+        </div>
+        <div class="form-actions">
+          <button type="button" class="tab-btn" id="orgSaveBtn">Lagre organisasjon</button>
+          <button type="button" class="tab-btn" id="orgResetBtn">Nullstill</button>
+          <button type="button" class="tab-btn" id="orgReloadBtn">Oppdater liste</button>
+          <span id="orgMsg" class="muted"></span>
+        </div>
+        <div style="overflow:auto;margin-top:12px;max-height:220px">
+          <table id="orgTable" style="width:100%;border-collapse:collapse">
+            <thead>
+              <tr>
+                <th style="text-align:left;padding:8px;border-bottom:1px solid #222736">Nøkkel</th>
+                <th style="text-align:left;padding:8px;border-bottom:1px solid #222736">Navn</th>
+                <th style="text-align:left;padding:8px;border-bottom:1px solid #222736">Nettsted</th>
+                <th style="text-align:left;padding:8px;border-bottom:1px solid #222736;width:140px">Accent</th>
+                <th style="text-align:left;padding:8px;border-bottom:1px solid #222736;width:120px">Handling</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
       </div>
 
       <div class="card">
@@ -1860,6 +1908,18 @@ ord_456"></textarea>
       invCancel: qs('#invCancel'),
       prev: qs('#usrPrev'),
       next: qs('#usrNext'),
+      orgWrap: qs('#orgManager'),
+      orgKey: qs('#orgKeyInput'),
+      orgName: qs('#orgNameInput'),
+      orgSite: qs('#orgSiteInput'),
+      orgAccent: qs('#orgAccentInput'),
+      orgLogo: qs('#orgLogoInput'),
+      orgLogoBg: qs('#orgLogoBgInput'),
+      orgSave: qs('#orgSaveBtn'),
+      orgReset: qs('#orgResetBtn'),
+      orgReload: qs('#orgReloadBtn'),
+      orgTable: qs('#orgTable tbody'),
+      orgMsg: qs('#orgMsg'),
     };
 
     const builderLangBtns = Array.from(document.querySelectorAll('#pageBuilder .lang-btn'));
@@ -1872,6 +1932,11 @@ ord_456"></textarea>
       imp:    '/.netlify/functions/users-impersonate',
     };
 
+    const ORG_API = {
+      list: '/.netlify/functions/orgs-list',
+      save: '/.netlify/functions/orgs-save',
+    };
+
     const state = {
       pageTokens: [null],
       index: 0,
@@ -1879,6 +1944,17 @@ ord_456"></textarea>
       loading: false,
       loadedOnce: false,
     };
+
+    const orgState = {
+      list: [],
+      map: new Map(),
+      loading: false,
+      loaded: false,
+      promise: null,
+    };
+
+    const orgAdders = new Set();
+    const orgFormState = { currentKey: null };
 
     const roleOptions = ['superadmin','owner','admin','editor','support','viewer'];
     const ORG_KEY_PATTERN = /^[A-Za-z0-9_-]+$/;
@@ -1900,6 +1976,284 @@ ord_456"></textarea>
     function formatOrgList(list){
       if (!Array.isArray(list) || list.length === 0) return '';
       return list.join(', ');
+    }
+
+    function normaliseOrgKeyValue(value){
+      if (value === null || value === undefined) return '';
+      const trimmed = String(value).trim();
+      if (!trimmed) return '';
+      if (!ORG_KEY_PATTERN.test(trimmed)) return '';
+      return trimmed;
+    }
+
+    function setOrgMsg(text, opts={}){
+      if (!el.orgMsg) return;
+      el.orgMsg.textContent = '';
+      el.orgMsg.classList.remove('ok','err');
+      el.orgMsg.style.color = '';
+      if (!text) return;
+      if (opts.type === 'ok') {
+        el.orgMsg.classList.add('ok');
+        el.orgMsg.style.color = '#21c36a';
+      }
+      if (opts.type === 'err') {
+        el.orgMsg.classList.add('err');
+        el.orgMsg.style.color = '#ff6b6b';
+      }
+      el.orgMsg.append(document.createTextNode(text));
+    }
+
+    function toggleOrgManager(show){
+      if (!el.orgWrap) return;
+      el.orgWrap.classList.toggle('hidden', !show);
+      if (!show) {
+        clearOrgForm();
+        setOrgMsg('');
+        orgState.list = [];
+        orgState.map = new Map();
+        orgState.loaded = false;
+        orgState.promise = null;
+        orgState.loading = false;
+        if (el.orgTable) {
+          el.orgTable.innerHTML = '';
+        }
+      }
+    }
+
+    function clearOrgForm(){
+      if (el.orgKey) el.orgKey.value = '';
+      if (el.orgName) el.orgName.value = '';
+      if (el.orgSite) el.orgSite.value = '';
+      if (el.orgAccent) el.orgAccent.value = '';
+      if (el.orgLogo) el.orgLogo.value = '';
+      if (el.orgLogoBg) el.orgLogoBg.value = '';
+      orgFormState.currentKey = null;
+    }
+
+    function populateOrgForm(record){
+      if (!record) {
+        clearOrgForm();
+        return;
+      }
+      if (el.orgKey) el.orgKey.value = record.key || '';
+      if (el.orgName) el.orgName.value = record.name || '';
+      if (el.orgSite) el.orgSite.value = record.site || '';
+      if (el.orgAccent) el.orgAccent.value = record.accent || '';
+      if (el.orgLogo) el.orgLogo.value = record.logo || '';
+      if (el.orgLogoBg) el.orgLogoBg.value = record.logoBg || '';
+      orgFormState.currentKey = record.key || null;
+      setOrgMsg(`Redigerer ${record.key}.`);
+    }
+
+    function gatherOrgPayload(){
+      const key = normaliseOrgKeyValue(el.orgKey?.value);
+      if (!key) {
+        setOrgMsg('Org-nøkkel må settes (A–Z, 0–9, bindestrek eller underscore).', { type: 'err' });
+        return null;
+      }
+      let name = (el.orgName?.value || '').trim();
+      let site = (el.orgSite?.value || '').trim();
+      if (site && !/^https?:\/\//i.test(site)) {
+        site = `https://${site}`;
+      }
+      const accent = (el.orgAccent?.value || '').trim();
+      const logo = (el.orgLogo?.value || '').trim();
+      const logoBg = (el.orgLogoBg?.value || '').trim();
+      if (!name) name = key;
+      return { key, name, site, accent, logo, logoBg };
+    }
+
+    function renderOrgTable(){
+      if (!el.orgTable) return;
+      if (!Array.isArray(orgState.list) || orgState.list.length === 0) {
+        el.orgTable.innerHTML = '<tr><td colspan="5" style="padding:10px;text-align:center;color:var(--sub)">Ingen organisasjoner funnet.</td></tr>';
+        return;
+      }
+      const rows = orgState.list.map((org) => {
+        const tr = document.createElement('tr');
+        const makeCell = () => {
+          const td = document.createElement('td');
+          td.style.cssText = 'padding:8px;border-bottom:1px solid #1b2030;vertical-align:top';
+          return td;
+        };
+        const keyTd = makeCell();
+        keyTd.textContent = org.key;
+        tr.appendChild(keyTd);
+
+        const nameTd = makeCell();
+        nameTd.textContent = org.name || '—';
+        tr.appendChild(nameTd);
+
+        const siteTd = makeCell();
+        if (org.site) {
+          const link = document.createElement('a');
+          link.href = org.site;
+          link.target = '_blank';
+          link.rel = 'noopener';
+          link.textContent = org.site.replace(/^https?:\/\//i, '');
+          siteTd.appendChild(link);
+        } else {
+          siteTd.textContent = '—';
+        }
+        tr.appendChild(siteTd);
+
+        const accentTd = makeCell();
+        if (org.accent) {
+          const swatch = document.createElement('span');
+          swatch.style.cssText = 'display:inline-block;width:18px;height:18px;border-radius:6px;border:1px solid #2d3243;margin-right:6px;';
+          swatch.style.background = org.accent;
+          accentTd.appendChild(swatch);
+        }
+        accentTd.append(document.createTextNode(org.accent || '—'));
+        tr.appendChild(accentTd);
+
+        const actionTd = makeCell();
+        const editBtn = document.createElement('button');
+        editBtn.type = 'button';
+        editBtn.className = 'tab-btn';
+        editBtn.textContent = 'Rediger';
+        editBtn.addEventListener('click', () => populateOrgForm(org));
+        actionTd.appendChild(editBtn);
+        tr.appendChild(actionTd);
+
+        tr.addEventListener('dblclick', () => populateOrgForm(org));
+        return tr;
+      });
+
+      el.orgTable.replaceChildren(...rows);
+    }
+
+    function populateOrgSelect(select){
+      if (!select) return;
+      select.innerHTML = '';
+      const base = document.createElement('option');
+      base.value = '';
+      base.textContent = 'Velg organisasjon…';
+      select.appendChild(base);
+      orgState.list.forEach((org) => {
+        const opt = document.createElement('option');
+        opt.value = org.key;
+        opt.textContent = org.name && org.name !== org.key ? `${org.name} (${org.key})` : org.key;
+        select.appendChild(opt);
+      });
+    }
+
+    function refreshOrgAdders(){
+      orgAdders.forEach((entry) => {
+        if (entry && typeof entry.refresh === 'function') {
+          entry.refresh();
+        }
+      });
+    }
+
+    function resetOrgAdders(){
+      for (const entry of Array.from(orgAdders)) {
+        if (!entry || entry.persistent) continue;
+        orgAdders.delete(entry);
+      }
+    }
+
+    function createOrgAdder(targetInput, opts = {}){
+      if (!targetInput) return { wrap: null };
+      const persistent = Boolean(opts.persistent);
+      const wrap = document.createElement('div');
+      wrap.className = 'org-adder';
+      const select = document.createElement('select');
+      populateOrgSelect(select);
+      const addBtn = document.createElement('button');
+      addBtn.type = 'button';
+      addBtn.className = 'tab-btn';
+      addBtn.textContent = 'Legg til';
+      addBtn.addEventListener('click', () => {
+        const value = normaliseOrgKeyValue(select.value);
+        if (!value) return;
+        const set = new Set(parseOrgList(targetInput.value));
+        if (!set.has(value)) {
+          set.add(value);
+          targetInput.value = formatOrgList(Array.from(set));
+          targetInput.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+        select.value = '';
+      });
+      wrap.appendChild(select);
+      wrap.appendChild(addBtn);
+      const entry = {
+        persistent,
+        refresh: () => populateOrgSelect(select),
+      };
+      orgAdders.add(entry);
+      return { wrap, entry };
+    }
+
+    async function loadOrgDirectory(force=false){
+      if (!el.orgWrap) return [];
+      if (orgState.loading) {
+        return orgState.promise;
+      }
+      if (orgState.loaded && !force) {
+        return orgState.list;
+      }
+      orgState.loading = true;
+      setOrgMsg('Laster organisasjoner …');
+      const promise = request(ORG_API.list)
+        .then((data) => {
+          const raw = Array.isArray(data.orgs) ? data.orgs : [];
+          const mapped = raw.map((item) => {
+            const key = normaliseOrgKeyValue(item.key || item.id || item.orgKey || item.slug);
+            if (!key) return null;
+            const name = (item.name || item.title || '').toString().trim();
+            const site = (item.site || '').toString().trim();
+            const accent = (item.accent || '').toString().trim();
+            const logo = (item.logo || '').toString().trim();
+            const logoBg = (item.logoBg || '').toString().trim();
+            return { key, name: name || key, site, accent, logo, logoBg };
+          }).filter(Boolean);
+          mapped.sort((a, b) => a.key.localeCompare(b.key));
+          orgState.list = mapped;
+          orgState.map = new Map(mapped.map((org) => [org.key, org]));
+          orgState.loaded = true;
+          renderOrgTable();
+          refreshOrgAdders();
+          setOrgMsg(mapped.length ? `Fant ${mapped.length} organisasjoner.` : 'Ingen organisasjoner funnet.');
+          return mapped;
+        })
+        .catch((err) => {
+          orgState.loaded = false;
+          setOrgMsg(`Kunne ikke hente organisasjoner: ${err.message}`, { type: 'err' });
+          throw err;
+        })
+        .finally(() => {
+          orgState.loading = false;
+          orgState.promise = null;
+        });
+
+      orgState.promise = promise;
+      return promise;
+    }
+
+    async function saveOrg(){
+      if (!ensureLoggedIn()) return;
+      const payload = gatherOrgPayload();
+      if (!payload) return;
+      try {
+        setOrgMsg(`Lagrer ${payload.key} …`);
+        await request(ORG_API.save, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        await loadOrgDirectory(true);
+        const next = orgState.map.get(payload.key);
+        if (next) {
+          populateOrgForm(next);
+          setOrgMsg(`Lagret ${payload.key}.`, { type: 'ok' });
+        } else {
+          clearOrgForm();
+          setOrgMsg(`Lagret ${payload.key}.`, { type: 'ok' });
+        }
+      } catch (err) {
+        setOrgMsg(`Kunne ikke lagre: ${err.message}`, { type: 'err' });
+      }
     }
 
     function clearTable(){
@@ -1945,6 +2299,7 @@ ord_456"></textarea>
         if (el.prev) el.prev.disabled = true;
         if (el.next) el.next.disabled = true;
         setMsg('Logg inn for å administrere brukere.');
+        toggleOrgManager(false);
         return false;
       }
       const role = (localStorage.getItem('nfcking.role') || '').toLowerCase();
@@ -1953,8 +2308,10 @@ ord_456"></textarea>
         if (el.prev) el.prev.disabled = true;
         if (el.next) el.next.disabled = true;
         setMsg('Kun superadministratorer kan administrere brukere.');
+        toggleOrgManager(false);
         return false;
       }
+      toggleOrgManager(true);
       return true;
     }
 
@@ -1965,6 +2322,7 @@ ord_456"></textarea>
         return;
       }
 
+      resetOrgAdders();
       const rows = users.map((user) => {
         const data = { ...user };
         let orgList = [];
@@ -2040,7 +2398,15 @@ ord_456"></textarea>
         orgInput.placeholder = 'Wayback, Eksempel';
         orgInput.style.minWidth = '200px';
         orgInput.className = 'org-input';
+        orgInput.addEventListener('change', () => {
+          data.orgs = parseOrgList(orgInput.value);
+        });
         orgTd.appendChild(orgInput);
+
+        const adder = createOrgAdder(orgInput);
+        if (adder.wrap) {
+          orgTd.appendChild(adder.wrap);
+        }
         tr.appendChild(orgTd);
 
         const statusTd = cell();
@@ -2136,6 +2502,7 @@ ord_456"></textarea>
       });
 
       el.table.replaceChildren(...rows);
+      refreshOrgAdders();
     }
 
     async function request(url, options) {
@@ -2154,6 +2521,11 @@ ord_456"></textarea>
     async function loadUsers({ token, reset } = {}) {
       if (state.loading) return;
       if (!ensureLoggedIn()) return;
+      try {
+        await loadOrgDirectory();
+      } catch (_) {
+        // Ignorer feil her – visning av brukere kan fortsatt fortsette.
+      }
       state.loading = true;
       try {
         if (reset) {
@@ -2244,9 +2616,19 @@ ord_456"></textarea>
       }
     }
 
+    if (el.invOrg) {
+      const inviteAdder = createOrgAdder(el.invOrg, { persistent: true });
+      if (inviteAdder.wrap) {
+        el.invOrg.insertAdjacentElement('afterend', inviteAdder.wrap);
+      }
+    }
+
     if (el.inviteOpen) el.inviteOpen.addEventListener('click', () => toggleInvite(true));
     if (el.invCancel) el.invCancel.addEventListener('click', () => toggleInvite(false));
     if (el.invSend) el.invSend.addEventListener('click', sendInvite);
+    if (el.orgSave) el.orgSave.addEventListener('click', saveOrg);
+    if (el.orgReset) el.orgReset.addEventListener('click', () => { clearOrgForm(); setOrgMsg('Skjema nullstilt.'); });
+    if (el.orgReload) el.orgReload.addEventListener('click', () => loadOrgDirectory(true));
     if (el.refresh) el.refresh.addEventListener('click', () => loadUsers({ token: state.pageTokens[state.index] || null }));
     if (el.search) el.search.addEventListener('input', () => loadUsers({ token: null, reset: true }));
     if (el.role) el.role.addEventListener('change', () => loadUsers({ token: null, reset: true }));

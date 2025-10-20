@@ -313,21 +313,22 @@
           opt.textContent = orgs[key].name || key;
           orgSelect.appendChild(opt);
         });
-        enforceOrgSelection();
+        window.enforceOrgSelection?.();
       }
 
       function syncOrgKeyFromSelect(){
         const select = document.getElementById('orgSelect');
         if (!select) return;
         const key = select.value;
-        if (!hasOrgAccess(key)) {
-          setOrgAccessMessage(`Ingen tilgang til ${key}.`);
-          enforceOrgSelection();
+        if (!window.hasOrgAccess || !window.hasOrgAccess(key)) {
+          window.setOrgAccessMessage?.(`Ingen tilgang til ${key}.`);
+          window.enforceOrgSelection?.();
           return false;
         }
         document.getElementById('orgKey').value = key;
-        setOrgAccessMessage(describeAccess(window.ORG_PROFILES || {}));
-        applyBranding('force');
+        const desc = window.describeAccess ? window.describeAccess(window.ORG_PROFILES || {}) : '';
+        window.setOrgAccessMessage?.(desc);
+        window.applyBranding?.('force');
         loadEmployees();
         return true;
       }
@@ -336,14 +337,15 @@
         const key = document.getElementById('orgKey').value.trim();
         const orgSelect = document.getElementById('orgSelect');
         if (!orgSelect) return;
-        if (!hasOrgAccess(key)) {
-          if (key) setOrgAccessMessage(`Ingen tilgang til ${key}.`);
-          enforceOrgSelection();
+        if (!window.hasOrgAccess || !window.hasOrgAccess(key)) {
+          if (key) window.setOrgAccessMessage?.(`Ingen tilgang til ${key}.`);
+          window.enforceOrgSelection?.();
           return false;
         }
         const idx = Array.from(orgSelect.options).findIndex(o => o.value === key);
         if (idx >= 0) orgSelect.selectedIndex = idx;
-        setOrgAccessMessage(describeAccess(window.ORG_PROFILES || {}));
+        const desc = window.describeAccess ? window.describeAccess(window.ORG_PROFILES || {}) : '';
+        window.setOrgAccessMessage?.(desc);
         return true;
       }
 
@@ -1817,6 +1819,7 @@
         hasOrgAccess,
         describeAccess,
         setOrgAccessMessage,
+        enforceOrgSelection,
       });
 
       function enforceOrgSelection(){
