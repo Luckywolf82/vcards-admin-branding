@@ -1268,6 +1268,38 @@
             const vcfAnchor = `<a href="${urls.vcfUrl}" target="_blank" rel="noopener">${escapeHtml(cardData.vcfFilename)}</a>`;
             const dataAnchor = `<a href="${dataLink}" target="_blank" rel="noopener">data.json</a>`;
             const displayPath = [basePath, cardData.orgKey, cardData.slug].filter(Boolean).join('/') || `${cardData.orgKey}/${cardData.slug}`;
+
+            try {
+              const store = window.EMPLOYEES || (window.EMPLOYEES = {});
+              const list = Array.isArray(store[cardData.orgKey]) ? store[cardData.orgKey] : (store[cardData.orgKey] = []);
+              const normalized = {
+                slug: cardData.slug,
+                orgKey: cardData.orgKey,
+                name: cardData.name,
+                title: cardData.title,
+                phone: cardData.phone,
+                email: cardData.email,
+                site: cardData.site,
+                address: cardData.address,
+                vcfFilename: cardData.vcfFilename,
+                accent: cardData.accent,
+                logoUrl: cardData.logoUrl,
+                logoBg: cardData.logoBg,
+                links: Array.isArray(cardData.links) ? cardData.links : [],
+                attachments: Array.isArray(cardData.attachments) ? cardData.attachments : []
+              };
+              const matchIndex = list.findIndex(emp => (emp?.slug || emp?._slug || '') === cardData.slug);
+              if (matchIndex >= 0) {
+                list[matchIndex] = normalized;
+              } else {
+                list.push(normalized);
+              }
+              window._markEmployeesLoaded?.(cardData.orgKey);
+              window._refreshEmployeeSelect?.(cardData.orgKey, cardData.slug);
+            } catch (err) {
+              console.warn('Kunne ikke oppdatere ansattelisten lokalt', err);
+            }
+
             showStatus('ok', `✅ Publisert! Lagret til <code>${escapeHtml(displayPath)}</code>. ${htmlAnchor} · ${vcfAnchor} · ${dataAnchor}`);
           } catch (err) {
             showStatus('err', `❌ Nettverksfeil: ${escapeHtml(err.message || err)}`);
@@ -1887,6 +1919,18 @@
           } else {
             visible = fetched;
             fallbackAll = true;
+          }
+
+          window.ORG_PROFILES = visible;
+          if (fallbackAll) {
+            orgAccessState.set(Object.keys(visible), false);
+            setOrgAccessMessage(
+              Object.keys(visible).length
+                ? 'Ingen tildelte organisasjoner funnet – viser alle tilgjengelige for nå.'
+                : 'Ingen organisasjoner funnet.'
+            );
+          } else {
+            setOrgAccessMessage(describeAccess(visible));
           }
 
           window.ORG_PROFILES = visible;
