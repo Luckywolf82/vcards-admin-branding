@@ -1,5 +1,4 @@
 const { admin, requireRole, json, CORS_HEADERS, SUPERADMIN_EMAILS } = require("./_lib/auth");
-const { admin, requireRole, json, CORS_HEADERS } = require("./_lib/auth");
 
 exports.handler = async (event) => {
   if (event.httpMethod === "OPTIONS") {

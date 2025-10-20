@@ -1,8 +1,8 @@
-const admin = require("firebase-admin");
+const firebaseAdmin = require("firebase-admin");
 
-if (!admin.apps.length) {
-  admin.initializeApp({
-    credential: admin.credential.cert({
+if (!firebaseAdmin.apps.length) {
+  firebaseAdmin.initializeApp({
+    credential: firebaseAdmin.credential.cert({
       projectId: process.env.FIREBASE_PROJECT_ID,
       clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
       privateKey: (process.env.FIREBASE_PRIVATE_KEY || "").replace(/\\n/g, "\n"),
@@ -34,7 +34,7 @@ async function requireAuth(evt) {
   }
   const idToken = authz.replace(/^Bearer\s+/i, "");
   try {
-    const decoded = await admin.auth().verifyIdToken(idToken);
+    const decoded = await firebaseAdmin.auth().verifyIdToken(idToken);
     const email = (decoded.email || "").toLowerCase();
     if (email && SUPERADMIN_EMAILS.has(email)) {
       decoded.role = "superadmin";
@@ -71,7 +71,7 @@ function json(body, statusCode = 200, extraHeaders = {}) {
 }
 
 module.exports = {
-  admin,
+  admin: firebaseAdmin,
   requireAuth,
   requireRole,
   httpError,
