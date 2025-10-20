@@ -852,14 +852,21 @@
         const DEFAULT_REPO = 'Vcards';
         const DEFAULT_BASE_PATH = 'Vcards';
 
-        const state = { html: '', vcf: '', data: null };
+        const state = {
+          owner: DEFAULT_OWNER,
+          repo: DEFAULT_REPO,
+          basePath: DEFAULT_BASE_PATH,
+          strategy: 'pr',
+          data: null,
+          html: '',
+          vcf: '',
+          htmlUrl: '',
+          vcfUrl: ''
+        };
 
         const $status = document.getElementById('status');
         const $htmlPreview = document.getElementById('htmlPreview');
         const $vcfPreview = document.getElementById('vcfPreview');
-        const $htmlUrl = document.getElementById('htmlUrl');
-        const $nfcUrl = document.getElementById('nfcUrl');
-        const $inlineNfc = document.getElementById('nfcInline');
         const $generate = document.getElementById('btnGenerate');
         const $publish = document.getElementById('btnPublish');
 
@@ -1068,22 +1075,17 @@
           return `${base.replace(/[^A-Za-z0-9_-]+/g,'-')}.vcf`;
         }
 
-        function buildPathInfo(owner, repo, basePath, orgKey, slug){
-          const safeOwner = owner || DEFAULT_OWNER;
-          const safeRepo = repo || DEFAULT_REPO;
-          const baseSegments = trimSlashes(basePath || DEFAULT_BASE_PATH).split('/').filter(Boolean);
-          const segments = [...baseSegments];
-          if (orgKey) segments.push(orgKey);
-          if (slug) segments.push(slug);
-          const encodedSegments = segments.map(seg => encodeURIComponent(seg));
-          const pathPart = encodedSegments.length ? '/' + encodedSegments.join('/') : '';
-          return {
-            owner: safeOwner,
-            repo: safeRepo,
-            baseUrl: `https://${safeOwner}.github.io/${safeRepo}${pathPart}`,
-            displayPath: segments.join('/'),
-            encodedPath: encodedSegments.join('/')
-          };
+        function computePublicUrls(owner, repo, basePath, orgKey, slug, vcfFilename){
+          const baseSegments = trimSlashes(basePath).split('/').filter(Boolean);
+          const cardSegments = [...baseSegments];
+          if (orgKey) cardSegments.push(orgKey);
+          if (slug) cardSegments.push(slug);
+          const encodedSegments = cardSegments.map(seg => encodeURIComponent(seg));
+          const prefix = encodedSegments.length ? '/' + encodedSegments.join('/') : '';
+          const baseUrl = `https://${owner}.github.io/${repo}${prefix}`;
+          const htmlUrl = `${baseUrl}/index.html`;
+          const vcfUrl = `${baseUrl}/${encodeURIComponent(vcfFilename)}`;
+          return { baseUrl, htmlUrl, vcfUrl, encodedSegments };
         }
 
         function updatePreview(html){
@@ -1096,7 +1098,7 @@
           doc.close();
         }
 
-        function gatherBaseData(){
+        function gatherCardInput(){
           const orgKey = getVal('orgKey');
           const slug = getVal('slug');
           const vcfFilename = resolveVcfFilename(getVal('vcfFilename'), slug, orgKey);
@@ -1118,126 +1120,129 @@
           };
         }
 
-        function runGenerate(options = {}){
-          const { silent = false } = options;
+        async function postJSON(url, data){
+          const res = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+          });
+          const text = await res.text();
           try {
-            const baseData = gatherBaseData();
-            if (!baseData.orgKey || !baseData.slug){
-              showStatus('err', '❌ Fyll ut både Org key og Slug før generering.');
-              return null;
-            }
-
-            const links = collectLinks();
-            const attachments = collectAttachments();
-            const cardData = { ...baseData, links, attachments };
-            const vcf = makeVcard(cardData);
-            const html = makeHTML(cardData, baseData.vcfFilename, links, attachments);
-
-            state.html = html;
-            state.vcf = vcf;
-            state.data = cardData;
-            window._latestGenerated = { ...state };
-
-            if ($vcfPreview) $vcfPreview.value = vcf;
-            if ($htmlPreview) $htmlPreview.value = html;
-            updatePreview(html);
-
-            const owner = getVal('ghUser') || DEFAULT_OWNER;
-            const repo = getVal('ghRepo') || DEFAULT_REPO;
-            const basePath = getVal('basePath') || DEFAULT_BASE_PATH;
-            const pathInfo = buildPathInfo(owner, repo, basePath, cardData.orgKey, cardData.slug);
-            const htmlUrl = `${pathInfo.baseUrl}/index.html`;
-            const vcfUrl = `${pathInfo.baseUrl}/${encodeURIComponent(cardData.vcfFilename)}`;
-
-            setVal('htmlUrl', htmlUrl);
-            setVal('nfcUrl', vcfUrl);
-            ensureUrlControls('htmlUrl', 'HTML-URL');
-            ensureUrlControls('nfcUrl', 'NFC-URL');
-            if ($inlineNfc) $inlineNfc.textContent = vcfUrl;
-
-            if (!silent){
-              showStatus('ok', '✅ Generering fullført. Publiser for å sende til GitHub.');
-            }
-
-            return { html, vcf, data: cardData };
-          } catch (err) {
-            showStatus('err', `❌ Generering feilet: ${escapeHtml(err.message || err)}`);
-            return null;
+            return { ok: res.ok, status: res.status, json: text ? JSON.parse(text) : null };
+          } catch {
+            return { ok: res.ok, status: res.status, text };
           }
         }
 
-        async function publishCard(){
-          const generated = runGenerate({ silent: true });
-          if (!generated) return;
+        function generateAndPreview(options = {}){
+          const { silent = false } = options;
 
           const owner = getVal('ghUser') || DEFAULT_OWNER;
           const repo = getVal('ghRepo') || DEFAULT_REPO;
-          const basePathInput = getVal('basePath') || DEFAULT_BASE_PATH;
-          const basePath = trimSlashes(basePathInput) || DEFAULT_BASE_PATH;
+          const basePathInput = getVal('basePath');
+          const basePathNormalized = trimSlashes(basePathInput || DEFAULT_BASE_PATH);
+          const basePath = basePathNormalized || DEFAULT_BASE_PATH;
           const strategy = document.getElementById('strategy')?.value || 'pr';
 
-          const data = state.data;
-          const html = state.html;
-          const vcf = state.vcf;
-          if (!data || !html || !vcf){
+          const baseData = gatherCardInput();
+          if (!baseData.orgKey || !baseData.slug){
+            showStatus('err', '❌ Fyll ut både Org key og Slug før generering.');
+            return null;
+          }
+
+          const links = collectLinks();
+          const attachments = collectAttachments();
+          const cardData = { ...baseData, links, attachments };
+          const vcf = makeVcard(cardData);
+          const html = makeHTML(cardData, cardData.vcfFilename, links, attachments);
+
+          const urls = computePublicUrls(owner, repo, basePath, cardData.orgKey, cardData.slug, cardData.vcfFilename);
+
+          state.owner = owner;
+          state.repo = repo;
+          state.basePath = basePath;
+          state.strategy = strategy;
+          state.data = cardData;
+          state.html = html;
+          state.vcf = vcf;
+          state.htmlUrl = urls.htmlUrl;
+          state.vcfUrl = urls.vcfUrl;
+          window._latestGenerated = { html, vcf, data: cardData };
+
+          if ($vcfPreview) $vcfPreview.value = vcf;
+          if ($htmlPreview) $htmlPreview.value = html;
+          updatePreview(html);
+
+          setVal('htmlUrl', urls.htmlUrl);
+          setVal('nfcUrl', urls.vcfUrl);
+          ensureUrlControls('htmlUrl', 'HTML-URL');
+          ensureUrlControls('nfcUrl', 'NFC-URL');
+          const inline = document.getElementById('nfcInline');
+          if (inline) inline.textContent = urls.vcfUrl;
+
+          if (!silent){
+            showStatus('ok', '✅ Generering fullført. Publiser for å sende til GitHub.');
+          }
+
+          return { owner, repo, basePath, strategy, cardData, html, vcf, urls };
+        }
+
+        async function publishCard(){
+          const generated = generateAndPreview({ silent: true });
+          if (!generated) return;
+
+          const { owner, repo, basePath, strategy, cardData, html, vcf, urls } = generated;
+
+          if (!html || !vcf || !cardData){
             showStatus('err', '❌ Kunne ikke finne generert innhold. Prøv å generere på nytt.');
             return;
           }
 
           const files = [
-            { path: `${data.orgKey}/${data.slug}/${data.vcfFilename}`, content: vcf },
-            { path: `${data.orgKey}/${data.slug}/index.html`, content: html },
-            { path: `${data.orgKey}/${data.slug}/data.json`, content: JSON.stringify(data, null, 2) }
+            { path: `${cardData.orgKey}/${cardData.slug}/${cardData.vcfFilename}`, content: vcf },
+            { path: `${cardData.orgKey}/${cardData.slug}/index.html`, content: html },
+            { path: `${cardData.orgKey}/${cardData.slug}/data.json`, content: JSON.stringify(cardData, null, 2) },
+            { path: '.nojekyll', content: '' }
           ];
-          files.push({ path: '.nojekyll', content: '' });
 
           const payload = {
             repoOwner: owner,
             repoName: repo,
             basePath,
-            orgKey: data.orgKey,
-            slug: data.slug,
+            orgKey: cardData.orgKey,
+            slug: cardData.slug,
             files,
             strategy,
-            commitMessage: `Add/Update card: ${data.orgKey}/${data.slug}`
+            commitMessage: `Add/Update card: ${cardData.orgKey}/${cardData.slug}`
           };
 
           showStatus('info', '⏳ Publiserer…');
 
           try {
-            const res = await fetch('/api/createCard', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(payload)
-            });
-            const text = await res.text();
-            let json = null;
-            try { json = text ? JSON.parse(text) : null; } catch { json = null; }
-
-            if (!res.ok || !json?.ok){
-              const raw = json?.error || text || `Status ${res.status}`;
-              let friendly = raw;
-              if (res.status === 401 || res.status === 403 || /401|403/.test(raw)) {
+            const res = await postJSON('/api/createCard', payload);
+            const errorText = !res.ok ? (res.json?.error || res.text || `Status ${res.status}`) : (!res.json?.ok && (res.json?.error || 'Ukjent feil'));
+            if (errorText){
+              let friendly = errorText;
+              if (/401|403/.test(String(errorText))) {
                 friendly = 'Mangler tilgang til GitHub-repoet. Sjekk token og rettigheter.';
-              } else if (res.status === 404 || /404/.test(raw)) {
+              } else if (/404/.test(String(errorText))) {
                 friendly = 'Fant ikke målstien i repoet. Sjekk base path og org/slug.';
-              } else if (res.status === 409 || /409/.test(raw)) {
+              } else if (/409/.test(String(errorText))) {
                 friendly = 'Det finnes allerede et kort med samme slug. Endre slug eller slett eksisterende mappe.';
               }
               showStatus('err', `❌ Publisering feilet: ${escapeHtml(friendly)}`);
               return;
             }
 
-            const pathInfo = buildPathInfo(owner, repo, basePath, data.orgKey, data.slug);
-            const htmlLink = `<a href="${pathInfo.baseUrl}/index.html" target="_blank" rel="noopener">index.html</a>`;
-            const vcfLink = `<a href="${pathInfo.baseUrl}/${encodeURIComponent(data.vcfFilename)}" target="_blank" rel="noopener">${escapeHtml(data.vcfFilename)}</a>`;
-            const encodedDataPath = pathInfo.encodedPath ? `${pathInfo.encodedPath}/data.json` : 'data.json';
             const ownerEnc = encodeURIComponent(owner);
             const repoEnc = encodeURIComponent(repo);
-            const dataLink = `https://raw.githubusercontent.com/${ownerEnc}/${repoEnc}/HEAD/${encodedDataPath}`;
+            const dataSegments = [...urls.encodedSegments, 'data.json'];
+            const dataLink = `https://raw.githubusercontent.com/${ownerEnc}/${repoEnc}/HEAD/${dataSegments.join('/')}`;
+            const htmlAnchor = `<a href="${urls.htmlUrl}" target="_blank" rel="noopener">index.html</a>`;
+            const vcfAnchor = `<a href="${urls.vcfUrl}" target="_blank" rel="noopener">${escapeHtml(cardData.vcfFilename)}</a>`;
             const dataAnchor = `<a href="${dataLink}" target="_blank" rel="noopener">data.json</a>`;
-            const repoDisplay = pathInfo.displayPath || `${data.orgKey}/${data.slug}`;
-            showStatus('ok', `✅ Publisert! Lagret til <code>${escapeHtml(repoDisplay)}</code>. ${htmlLink} · ${vcfLink} · ${dataAnchor}`);
+            const displayPath = [basePath, cardData.orgKey, cardData.slug].filter(Boolean).join('/') || `${cardData.orgKey}/${cardData.slug}`;
+            showStatus('ok', `✅ Publisert! Lagret til <code>${escapeHtml(displayPath)}</code>. ${htmlAnchor} · ${vcfAnchor} · ${dataAnchor}`);
           } catch (err) {
             showStatus('err', `❌ Nettverksfeil: ${escapeHtml(err.message || err)}`);
           }
@@ -1256,7 +1261,7 @@
 
         async function buildNdefMessage(mode, payload){
           if (mode === 'url'){
-            const url = payload || getVal('htmlUrl') || getVal('nfcUrl');
+            const url = payload || state.htmlUrl || getVal('htmlUrl') || getVal('nfcUrl');
             if (!url) throw new Error('Mangler URL å skrive');
             return { records:[ { recordType:'url', data: url } ] };
           }
@@ -1265,14 +1270,18 @@
             return { records:[ { recordType:'text', data: text } ] };
           }
           if (mode === 'vcard'){
-            const vcf = ($vcfPreview?.value || '').trim();
+            const vcf = state.vcf || ($vcfPreview?.value || '').trim();
             if (!vcf) throw new Error('Ingen vCard i forhåndsvisning. Generer først.');
             return { records:[ { recordType:'mime', mediaType:'text/vcard', data: new TextEncoder().encode(vcf) } ] };
           }
           throw new Error('Ukjent skrive-modus');
         }
 
-        $generate?.addEventListener('click', () => runGenerate());
+        window.makeVcard = window.makeVcard || makeVcard;
+        window.makeHTML = window.makeHTML || ((d, vcfFile, links, attachments) => makeHTML(d, vcfFile, links, attachments));
+        window.generateCardPreview = generateAndPreview;
+
+        $generate?.addEventListener('click', () => generateAndPreview());
         $publish?.addEventListener('click', () => publishCard());
 
         document.getElementById('openPreviewBtn')?.addEventListener('click', ()=>{
@@ -1302,8 +1311,8 @@
                     const text = new TextDecoder().decode(record.data);
                     logNFC('Tekst: ' + text);
                   } else if (record.mediaType === 'text/vcard' || record.mediaType === 'text/x-vcard') {
-                    const vcf = new TextDecoder().decode(record.data);
-                    logNFC('vCard:\n' + vcf);
+                    const vcardText = new TextDecoder().decode(record.data);
+                    logNFC('vCard:\n' + vcardText);
                   } else {
                     logNFC(`Record: type=${record.recordType} mediaType=${record.mediaType||''}`);
                   }
