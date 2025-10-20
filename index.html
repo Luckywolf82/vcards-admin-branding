@@ -1867,6 +1867,9 @@
           } else {
             setOrgAccessMessage(describeAccess(visible));
           }
+
+          window.ORG_PROFILES = visible;
+          setOrgAccessMessage(describeAccess(visible));
         } catch (e) {
           console.warn('Klarte ikke hente orgs fra Firestore:', e);
           if (!window.ORG_PROFILES || Object.keys(window.ORG_PROFILES).length===0){
