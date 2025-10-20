@@ -43,10 +43,69 @@
     @media (min-width:1000px){ .grid.cols-2{grid-template-columns:1fr 1fr} .grid.cols-3{grid-template-columns:2fr 1fr 1fr} }
     .muted{color:var(--sub)}
     .hidden{display:none !important}
+    .gate{max-width:1200px;margin:40px auto;padding:24px}
+    .gate .card{margin:0 auto;max-width:640px;text-align:center}
   
     .status-pill{display:inline-flex;align-items:center;gap:8px;padding:6px 10px;border-radius:999px;background:#1a1c25;border:1px solid #222736}
     .status-dot{width:8px;height:8px;border-radius:999px;background:#ff6b6b;box-shadow:0 0 0 2px rgba(0,0,0,.2)}
     .status-dot.ok{background:#21c36a}
+    .badge-btn{
+      padding:6px 10px;
+      border-radius:10px;
+      border:1px solid #222736;
+      background:transparent;
+      color:var(--text);
+      cursor:pointer;
+      font-weight:600;
+    }
+    .badge-btn:hover{background:#222736}
+    .badge-btn.hidden{display:none}
+
+    .builder{margin-top:16px;padding:16px;border:1px solid #1b2030;border-radius:var(--radius);background:rgba(18,19,26,.6);}
+    .builder-toolbar{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:12px;align-items:center}
+    .builder-toolbar .builder-add{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+    .builder-toolbar .builder-lang{display:flex;gap:6px;align-items:center}
+    .lang-btn{border:1px solid #222736;background:var(--muted);color:var(--text);padding:6px 10px;border-radius:10px;cursor:pointer;font-weight:600}
+    .lang-btn[aria-pressed="true"]{outline:2px solid var(--brand);background:#1f2332}
+    .builder-add-btn{border:1px dashed #353a4c;background:transparent;color:var(--text);padding:6px 10px;border-radius:10px;cursor:pointer}
+    .builder-add-btn:hover{background:#1f2332}
+    .builder-list{display:flex;flex-direction:column;gap:12px}
+    .builder-empty{padding:20px;border:1px dashed #2d3243;border-radius:12px;text-align:center;color:var(--sub);}
+    .builder-block{border:1px solid #1f2332;border-radius:12px;padding:12px;background:rgba(11,13,20,.9);display:flex;flex-direction:column;gap:10px}
+    .builder-block.drag-over{outline:2px dashed var(--brand)}
+    .builder-block.dragging{opacity:.6}
+    .builder-block .block-head{display:flex;align-items:center;gap:10px;justify-content:space-between}
+    .builder-block .block-title{display:flex;gap:10px;align-items:center;font-weight:600}
+    .builder-drag{cursor:grab;padding:4px 6px;border-radius:8px;background:#1f2332;color:var(--sub);font-size:12px;letter-spacing:.08em;text-transform:uppercase}
+    .builder-block .block-actions{display:flex;gap:6px}
+    .builder-block .block-actions button{border:1px solid #2d3243;background:#161824;color:var(--text);padding:4px 8px;border-radius:8px;cursor:pointer}
+    .builder-block .block-actions button:hover{background:#23283a}
+    .builder-fields{display:grid;gap:8px}
+    .builder-fields .builder-field{display:flex;flex-direction:column;gap:4px}
+    .builder-fields .builder-field>input,
+    .builder-fields .builder-field>textarea,
+    .builder-fields .builder-field>select{background:#0f111a;color:var(--text);border:1px solid #2d3243;border-radius:8px;padding:8px;font:inherit}
+    .builder-fields textarea{min-height:90px;resize:vertical}
+    .builder-dropzone{padding:16px;border:1px dashed #2d3243;border-radius:12px;text-align:center;color:var(--sub);transition:background .2s ease}
+    .builder-dropzone.active{background:rgba(255,26,26,.1);color:#fff;border-color:var(--brand)}
+
+    .org-adder{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+    .org-adder select{background:#0f111a;color:var(--text);border:1px solid #2d3243;border-radius:8px;padding:6px;font:inherit;min-width:160px}
+
+    .input-grid{display:grid;gap:12px}
+    .input-grid.cols-2{grid-template-columns:repeat(2,minmax(0,1fr))}
+    @media (max-width:719px){.input-grid.cols-2{grid-template-columns:1fr}}
+    .input-stack{display:flex;flex-direction:column;gap:4px}
+    .input-stack input,
+    .input-stack textarea,
+    .input-stack select{background:#0f111a;color:var(--text);border:1px solid #2d3243;border-radius:8px;padding:8px;font:inherit}
+    label.inline-check{display:flex;align-items:center;gap:8px;font-weight:600}
+    label.inline-check input[type="checkbox"]{width:auto}
+    .form-actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:12px}
+    .status-line{display:inline-flex;align-items:center;gap:6px;margin-top:8px;font-weight:600;color:var(--sub)}
+    .status-line.ok{color:var(--ok)}
+    .status-line.err{color:var(--err)}
+    #smtpMeta{margin-top:12px;line-height:1.4}
 
 </style>
   <!-- 🔐 Firebase SDK (compat) -->
@@ -70,33 +129,39 @@
         <a href="/bestill-kort.html">Bestill kort</a>
         <a href="/admin-super.html" aria-current="page">Superadmin</a>
       </nav>
-  <!-- 🔐 Login status + knapper -->
-  <div id="authBox" class="flex items-center gap-2"
-       style="position:absolute;top:12px;right:12px;z-index:50;">
-    <span id="loginStatus">Ikke innlogget</span>
-    <button id="btnLogin" class="tab-btn">Logg inn</button>
-    <button id="btnLogout" class="tab-btn hidden">Logg ut</button>
-  </div>
       <div class="spacer"></div>
-      <div id="userBadge" class="status-pill"><span class="status-dot" id="ubDot"></span><span id="ubText">Ikke innlogget</span></div>
+      <div id="userBadge" class="status-pill">
+        <span class="status-dot" id="ubDot"></span>
+        <span id="ubText">Ikke innlogget</span>
+        <button id="btnLogin" class="badge-btn">Logg inn</button>
+        <button id="btnLogout" class="badge-btn hidden">Logg ut</button>
+      </div>
     </div>
   </header>
 
-  <main class="container">
+  <div id="accessGate" class="gate hidden" role="alert">
+    <div class="card">
+      <h2>Tilgang begrenset</h2>
+      <p class="muted">Denne siden er kun tilgjengelig for superadministratorer. Logg inn med en konto som har superadmin-rolle for å fortsette.</p>
+      <p class="muted">Gjeldende rolle: <strong id="accessRole">ingen</strong></p>
+    </div>
+  </div>
+
+  <main class="container hidden" id="superadminMain">
     <h1>Superadmin</h1>
     <p class="muted">Full kontroll over farger, språk, brukere, sider, Stripe, ordrer, NFC-batcher, SEO m.m.</p>
 
     <!-- Tab knapper -->
     <div class="tabs" role="tablist" aria-label="Superadmin seksjoner">
-      <button class="tab-btn" role="tab" aria-selected="true" data-tab="branding">ðŸŽ¨ Branding</button>
-      <button class="tab-btn" role="tab" aria-selected="false" data-tab="lang">ðŸŒ Språk</button>
-      <button class="tab-btn" role="tab" aria-selected="false" data-tab="users">ðŸ‘¤ Brukere</button>
-      <button class="tab-btn" role="tab" aria-selected="false" data-tab="pages">ðŸ§¾ Sider</button>
-      <button class="tab-btn" role="tab" aria-selected="false" data-tab="stripe">ðŸ’³ Stripe</button>
-      <button class="tab-btn" role="tab" aria-selected="false" data-tab="orders">ðŸ“¦ Ordrer</button>
-      <button class="tab-btn" role="tab" aria-selected="false" data-tab="nfc">ðŸ§± NFC-Batch</button>
-      <button class="tab-btn" role="tab" aria-selected="false" data-tab="seo">ðŸ” SEO</button>
-      <button class="tab-btn" role="tab" aria-selected="false" data-tab="settings">âš™ï¸ System</button>
+      <button class="tab-btn" role="tab" aria-selected="true" data-tab="branding">🎨 Branding</button>
+      <button class="tab-btn" role="tab" aria-selected="false" data-tab="lang">🌐 Språk</button>
+      <button class="tab-btn" role="tab" aria-selected="false" data-tab="users">👥 Brukere</button>
+      <button class="tab-btn" role="tab" aria-selected="false" data-tab="pages">📄 Sider</button>
+      <button class="tab-btn" role="tab" aria-selected="false" data-tab="stripe">💳 Stripe</button>
+      <button class="tab-btn" role="tab" aria-selected="false" data-tab="orders">📦 Ordrer</button>
+      <button class="tab-btn" role="tab" aria-selected="false" data-tab="nfc">📡 NFC-Batch</button>
+      <button class="tab-btn" role="tab" aria-selected="false" data-tab="seo">🔍 SEO</button>
+      <button class="tab-btn" role="tab" aria-selected="false" data-tab="settings">⚙️ System</button>
     </div>
 
     <!-- Branding -->
@@ -168,7 +233,7 @@
           <div style="display:grid;gap:10px;grid-template-columns:repeat(2,minmax(0,1fr))">
             <div style="background:var(--muted);padding:12px;border-radius:12px;border:1px solid #222736">
               <strong>Kort</strong>
-              <p class="muted">Sekundærtekst – slik ser â€œmutedâ€ ut.</p>
+              <p class="muted">Sekundærtekst – slik ser "muted" ut.</p>
               <button class="tab-btn">Knapp</button>
             </div>
             <div style="background:var(--card);padding:12px;border-radius:12px;border:1px solid #1b2030">
@@ -185,7 +250,7 @@
     <section id="tab-lang" class="hidden" role="tabpanel">
       <div class="card" style="margin-bottom:12px">
         <h2>Språk & oversettelser</h2>
-        <p class="muted">Rediger nøkkel/verdier for flere språk. â€œManglendeâ€ markeres rødt. Data lagres lokalt nå (kan kobles mot Firestore senere).</p>
+        <p class="muted">Rediger nøkkel/verdier for flere språk. "Manglende" markeres rødt. Data lagres lokalt nå (kan kobles mot Firestore senere).</p>
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
           <label>Standard språk
             <select id="i18nDefaultLang">
@@ -257,6 +322,51 @@
         <p id="usrMsg" class="muted" style="margin-top:6px"></p>
       </div>
 
+      <div id="orgManager" class="card hidden" style="margin-bottom:12px">
+        <h3>Organisasjoner</h3>
+        <p class="muted">Legg til eller oppdater organisasjoner. Nye organisasjoner blir tilgjengelige i admin-menyer og kan knyttes til brukere.</p>
+        <div class="grid cols-2" style="gap:10px">
+          <label>Org-nøkkel
+            <input id="orgKeyInput" type="text" placeholder="Wayback" autocomplete="off" />
+          </label>
+          <label>Navn
+            <input id="orgNameInput" type="text" placeholder="Wayback AS" autocomplete="off" />
+          </label>
+          <label>Nettsted
+            <input id="orgSiteInput" type="url" placeholder="https://eksempel.no" autocomplete="off" />
+          </label>
+          <label>Accentfarge
+            <input id="orgAccentInput" type="text" placeholder="#ff1a1a" autocomplete="off" />
+          </label>
+          <label>Logo-URL
+            <input id="orgLogoInput" type="url" placeholder="https://…/logo.svg" autocomplete="off" />
+          </label>
+          <label>Logo-bakgrunn
+            <input id="orgLogoBgInput" type="text" placeholder="#ffffff" autocomplete="off" />
+          </label>
+        </div>
+        <div class="form-actions">
+          <button type="button" class="tab-btn" id="orgSaveBtn">Lagre organisasjon</button>
+          <button type="button" class="tab-btn" id="orgResetBtn">Nullstill</button>
+          <button type="button" class="tab-btn" id="orgReloadBtn">Oppdater liste</button>
+          <span id="orgMsg" class="muted"></span>
+        </div>
+        <div style="overflow:auto;margin-top:12px;max-height:220px">
+          <table id="orgTable" style="width:100%;border-collapse:collapse">
+            <thead>
+              <tr>
+                <th style="text-align:left;padding:8px;border-bottom:1px solid #222736">Nøkkel</th>
+                <th style="text-align:left;padding:8px;border-bottom:1px solid #222736">Navn</th>
+                <th style="text-align:left;padding:8px;border-bottom:1px solid #222736">Nettsted</th>
+                <th style="text-align:left;padding:8px;border-bottom:1px solid #222736;width:140px">Accent</th>
+                <th style="text-align:left;padding:8px;border-bottom:1px solid #222736;width:120px">Handling</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
       <div class="card">
         <div style="overflow:auto">
           <table id="usrTable" style="width:100%;border-collapse:collapse">
@@ -265,7 +375,7 @@
                 <th style="text-align:left;padding:8px;border-bottom:1px solid #222736">Navn</th>
                 <th style="text-align:left;padding:8px;border-bottom:1px solid #222736">E-post</th>
                 <th style="text-align:left;padding:8px;border-bottom:1px solid #222736">Rolle</th>
-                <th style="text-align:left;padding:8px;border-bottom:1px solid #222736">Org</th>
+                <th style="text-align:left;padding:8px;border-bottom:1px solid #222736">Org(er)</th>
                 <th style="text-align:left;padding:8px;border-bottom:1px solid #222736">Status</th>
                 <th style="text-align:left;padding:8px;border-bottom:1px solid #222736;width:260px">Handling</th>
               </tr>
@@ -296,8 +406,8 @@
               <option value="superadmin">superadmin</option>
             </select>
           </label>
-          <label>Org-nøkkel
-            <input id="invOrg" type="text" placeholder="Wayback" />
+          <label>Org-nøkkel(er)
+            <input id="invOrg" type="text" placeholder="Wayback, Eksempel" />
           </label>
         </div>
         <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
@@ -372,12 +482,39 @@
             <input id="pgTitleEn" type="text" placeholder="Title (English)" />
           </label>
 
-          <label style="grid-column:1/-1">Innhold (HTML – nb)
+          <label style="grid-column:1/-1" class="hidden builder-source">Innhold (HTML – nb)
             <textarea id="pgBodyNb" rows="10" placeholder="&lt;section&gt;…&lt;/section&gt;"></textarea>
           </label>
-          <label style="grid-column:1/-1">Innhold (HTML – en)
+          <label style="grid-column:1/-1" class="hidden builder-source">Innhold (HTML – en)
             <textarea id="pgBodyEn" rows="10" placeholder="&lt;section&gt;…&lt;/section&gt;"></textarea>
           </label>
+
+          <div style="grid-column:1/-1">
+            <div id="pageBuilder" class="builder">
+              <div class="builder-toolbar">
+                <div class="builder-lang">
+                  <span>Språk:</span>
+                  <button type="button" class="lang-btn" data-lang="nb" aria-pressed="true">Norsk</button>
+                  <button type="button" class="lang-btn" data-lang="en" aria-pressed="false">English</button>
+                </div>
+                <div class="builder-add">
+                  <span>Legg til blokk:</span>
+                  <button type="button" class="builder-add-btn" data-type="heading">Overskrift</button>
+                  <button type="button" class="builder-add-btn" data-type="text">Tekst</button>
+                  <button type="button" class="builder-add-btn" data-type="image">Bilde</button>
+                  <button type="button" class="builder-add-btn" data-type="button">Knapp/Lenke</button>
+                  <button type="button" class="builder-add-btn" data-type="list">Liste</button>
+                  <button type="button" class="builder-add-btn" data-type="columns">Kolonner</button>
+                  <button type="button" class="builder-add-btn" data-type="video">Video</button>
+                  <button type="button" class="builder-add-btn" data-type="contact">Kontaktskjema</button>
+                  <button type="button" class="builder-add-btn" data-type="html">Custom HTML</button>
+                </div>
+              </div>
+              <div id="pgBuilderList" class="builder-list"></div>
+              <div id="pgBuilderEmpty" class="builder-empty">Ingen blokker ennå. Bruk knappene over for å legge til innhold.</div>
+              <div id="pgBuilderDrop" class="builder-dropzone hidden">Slipp her for å plassere blokken nederst.</div>
+            </div>
+          </div>
 
           <details style="grid-column:1/-1">
             <summary>SEO</summary>
@@ -846,1960 +983,94 @@ ord_456"></textarea>
 
     <!-- System -->
     <section id="tab-settings" class="hidden" role="tabpanel">
-      <div class="card"><h2>System</h2><p class="muted">Miljø, API-nøkler (maskert), audit, backup …</p></div>
+      <div class="grid cols-2" style="align-items:start">
+        <form id="smtpForm" class="card">
+          <h2>SMTP / e-post</h2>
+          <p class="muted">Konfigurer e-postserveren som brukes til invitasjoner, varsler og andre utsendelser.</p>
+
+          <div class="input-grid">
+            <label class="inline-check">
+              <input type="checkbox" id="smtpEnabled" />
+              Aktiver e-postutsendelser
+            </label>
+
+            <label class="input-stack">
+              <span>Vertsnavn</span>
+              <input type="text" id="smtpHost" placeholder="smtp.example.com" autocomplete="off" />
+            </label>
+
+            <div class="input-grid cols-2">
+              <label class="input-stack">
+                <span>Port</span>
+                <input type="number" id="smtpPort" min="1" step="1" placeholder="587" />
+              </label>
+              <label class="inline-check">
+                <input type="checkbox" id="smtpSecure" />
+                Bruk TLS (secure)
+              </label>
+            </div>
+
+            <label class="input-stack">
+              <span>Brukernavn</span>
+              <input type="text" id="smtpUser" autocomplete="off" />
+            </label>
+
+            <label class="input-stack">
+              <span>Passord / API-nøkkel</span>
+              <input type="password" id="smtpPass" autocomplete="new-password" />
+            </label>
+
+            <label class="inline-check">
+              <input type="checkbox" id="smtpClearPass" />
+              Fjern lagret passord når jeg lagrer
+            </label>
+
+            <label class="input-stack">
+              <span>Avsender (From)</span>
+              <input type="text" id="smtpFrom" placeholder="NFCKING Admin &lt;no-reply@example.com&gt;" />
+            </label>
+
+            <label class="input-stack">
+              <span>Reply-to (valgfri)</span>
+              <input type="text" id="smtpReply" placeholder="support@example.com" />
+            </label>
+          </div>
+
+          <div class="form-actions">
+            <button type="submit" class="tab-btn" id="smtpSave">Lagre</button>
+            <button type="button" class="tab-btn" id="smtpReload">Oppdater</button>
+            <span id="smtpStatus" class="status-line"></span>
+          </div>
+
+          <div class="input-grid cols-2" style="margin-top:12px;align-items:end">
+            <label class="input-stack">
+              <span>Send test til</span>
+              <input type="email" id="smtpTestEmail" placeholder="navn@example.com" />
+            </label>
+            <div class="form-actions" style="margin-top:0">
+              <button type="button" class="tab-btn" id="smtpTest">Send test</button>
+            </div>
+          </div>
+
+          <p id="smtpMeta" class="muted"></p>
+        </form>
+
+        <div class="card" id="smtpHelp">
+          <h2>Hjelp &amp; miljøvariabler</h2>
+          <p class="muted">Hvis SMTP-variabler er satt i Netlify-miljøet, brukes de automatisk og overstyrer denne konfigurasjonen.</p>
+          <ul class="muted">
+            <li><code>SMTP_HOST</code>, <code>SMTP_PORT</code>, <code>SMTP_USER</code>, <code>SMTP_PASS</code>, <code>SMTP_FROM</code></li>
+            <li>Valgfritt: <code>SMTP_REPLY_TO</code>, <code>SMTP_SECURE</code>, <code>SMTP_ENABLED</code></li>
+            <li>Test-knappen sender en enkel e-post med dagens oppsett.</li>
+            <li>For å fjerne lagret passord: huk av «Fjern lagret passord» og lagre.</li>
+          </ul>
+        </div>
+      </div>
     </section>
   </main>
 
-  <!-- Del 6 – del 2/6: Tab logic -->
-  <script>
-    (function(){
-      const TAB_MAP = [
-        { btn:'[data-tab="branding"]',  panel:'#tab-branding' },
-        { btn:'[data-tab="lang"]',      panel:'#tab-lang' },
-        { btn:'[data-tab="users"]',     panel:'#tab-users' },
-        { btn:'[data-tab="pages"]',     panel:'#tab-pages' },
-        { btn:'[data-tab="stripe"]',    panel:'#tab-stripe' },
-        { btn:'[data-tab="orders"]',    panel:'#tab-orders' },
-        { btn:'[data-tab="nfc"]',       panel:'#tab-nfc' },
-        { btn:'[data-tab="seo"]',       panel:'#tab-seo' },
-        { btn:'[data-tab="settings"]',  panel:'#tab-settings' }
-      ];
+  <script type="module" src="/scripts/superadmin/app.js"></script>
 
-      const qs = (sel, root=document) => root.querySelector(sel);
-      const qsa = (sel, root=document) => [...root.querySelectorAll(sel)];
-      const panels = TAB_MAP.map(t => qs(t.panel)).filter(Boolean);
-      const buttons = TAB_MAP.map(t => qs(t.btn)).filter(Boolean);
-
-      function activateTab(key, pushHash=true){
-        const entry = TAB_MAP.find(t => qs(t.btn)?.dataset.tab === key);
-        if(!entry){ return; }
-        buttons.forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab === key)));
-        panels.forEach(p => p.classList.add('hidden'));
-        qs(entry.panel)?.classList.remove('hidden');
-        if(pushHash){
-          const url = new URL(location.href);
-          url.hash = key;
-          history.replaceState(null, '', url);
-        }
-      }
-
-      qsa('.tab-btn').forEach(btn => {
-        if(btn.getAttribute('role') === 'tab'){
-          btn.addEventListener('click', () => activateTab(btn.dataset.tab));
-        }
-      });
-
-      const userBadge = qs('#userBadge');
-      try {
-        const name = localStorage.getItem('nfcking.userName');
-        const role = localStorage.getItem('nfcking.role');
-        if(name || role){
-          userBadge.textContent = [name, role ? `(${role})` : ''].filter(Boolean).join(' ');
-        }
-      } catch(_) {}
-
-      function focusPanelHeader(panelSel){
-        const h = qs(panelSel + ' h2');
-        if(h){ h.setAttribute('tabindex','-1'); h.focus({preventScroll:false}); }
-      }
-      const _activate = activateTab;
-      activateTab = function(key, pushHash=true){
-        _activate(key, pushHash);
-        const entry = TAB_MAP.find(t => qs(t.btn)?.dataset.tab === key);
-        if(entry){ focusPanelHeader(entry.panel); }
-      };
-
-      const initial = (location.hash || '').replace(/^#/, '') || 'branding';
-      activateTab(initial, false);
-      window.addEventListener('hashchange', () => {
-        const key = (location.hash || '').replace(/^#/, '') || 'branding';
-        activateTab(key, false);
-      });
-    })();
-  </script>
-
-  <!-- Del 6 – del 3/6: Branding script -->
-  <script>
-  (function(){
-    const qs = (s, r=document)=>r.querySelector(s);
-    const el = {
-      primary: qs('#themePrimary'),
-      secondary: qs('#themeSecondary'),
-      bg: qs('#themeBg'),
-      card: qs('#themeCard'),
-      text: qs('#themeText'),
-      muted: qs('#themeMuted'),
-      radius: qs('#themeRadius'),
-      mode: qs('#themeMode'),
-      msg: qs('#brandMsg'),
-      logoFile: qs('#logoFile'),
-      logoImg: qs('#logoImg'),
-      pvPrimary: qs('#pvPrimary'),
-      pvBg: qs('#pvBg'),
-    };
-
-    const STORAGE_KEY = 'nfcking.theme.v1';
-    const LOGO_KEY = 'nfcking.logoUrl';
-
-    function applyTheme(t){
-      const r = document.documentElement;
-      if(!t) return;
-      r.style.setProperty('--brand', t.primary || '#ff1a1a');
-      r.style.setProperty('--bg',    t.bg      || '#0b0b10');
-      r.style.setProperty('--card',  t.card    || '#12131a');
-      r.style.setProperty('--text',  t.text    || '#e9eef5');
-      r.style.setProperty('--muted', t.muted   || '#1a1c25');
-      r.style.setProperty('--radius', (t.radius??16)+'px');
-      document.body.dataset.theme = t.mode || 'dark';
-      el.pvPrimary.textContent = t.primary;
-      el.pvBg.textContent = t.bg;
-    }
-
-    function readForm(){
-      return {
-        primary:  el.primary.value,
-        secondary:el.secondary.value,
-        bg:       el.bg.value,
-        card:     el.card.value,
-        text:     el.text.value,
-        muted:    el.muted.value,
-        radius:   Number(el.radius.value || 16),
-        mode:     el.mode.value
-      };
-    }
-
-    function writeForm(t){
-      if(!t) return;
-      el.primary.value   = t.primary   || '#ff1a1a';
-      el.secondary.value = t.secondary || '#111827';
-      el.bg.value        = t.bg        || '#0b0b10';
-      el.card.value      = t.card      || '#12131a';
-      el.text.value      = t.text      || '#e9eef5';
-      el.muted.value     = t.muted     || '#1a1c25';
-      el.radius.value    = t.radius    ?? 16;
-      el.mode.value      = t.mode      || 'dark';
-    }
-
-    function saveLocal(t){
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(t));
-      el.msg.textContent = 'Tema lagret lokalt.';
-    }
-
-    function loadLocal(){
-      try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null'); }
-      catch{ return null; }
-    }
-
-    const initTheme = loadLocal();
-    if(initTheme){ writeForm(initTheme); applyTheme(initTheme); }
-    else { applyTheme(readForm()); }
-
-    ['input','change'].forEach(evt=>{
-      ['#themePrimary','#themeSecondary','#themeBg','#themeCard','#themeText','#themeMuted','#themeRadius','#themeMode']
-        .forEach(sel => qs(sel).addEventListener(evt, ()=>applyTheme(readForm())));
-    });
-
-    qs('#btnSaveTheme').addEventListener('click', ()=> saveLocal(readForm()));
-    qs('#btnResetTheme').addEventListener('click', ()=>{
-      localStorage.removeItem(STORAGE_KEY);
-      const def = {primary:'#ff1a1a',secondary:'#111827',bg:'#0b0b10',card:'#12131a',text:'#e9eef5',muted:'#1a1c25',radius:16,mode:'dark'};
-      writeForm(def); applyTheme(def); el.msg.textContent = 'Tilbakestilt til standard.';
-    });
-
-    qs('#btnExportTheme').addEventListener('click', ()=>{
-      const blob = new Blob([JSON.stringify(readForm(), null, 2)], {type:'application/json'});
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a'); a.href=url; a.download='nfcking-theme.json'; a.click();
-      URL.revokeObjectURL(url);
-    });
-    qs('#importThemeFile').addEventListener('change', async (e)=>{
-      const f = e.target.files?.[0]; if(!f) return;
-      try{
-        const txt = await f.text();
-        const t = JSON.parse(txt);
-        writeForm(t); applyTheme(t); saveLocal(t);
-      }catch{ el.msg.textContent = 'Kunne ikke lese JSON.'; }
-      e.target.value = '';
-    });
-
-    const uploadEndpoint = '/.netlify/functions/uploadLogo';
-    async function uploadLogo(file){
-      const fd = new FormData();
-      fd.append('file', file);
-      const res = await fetch(uploadEndpoint, { method:'POST', body: fd });
-      if(!res.ok) throw new Error('Upload feilet');
-      const data = await res.json();
-      return data.url || data.location || null;
-    }
-
-    const storedLogo = localStorage.getItem(LOGO_KEY);
-    if(storedLogo){ el.logoImg.src = storedLogo; el.logoImg.style.display='block'; }
-
-    qs('#btnUploadLogo').addEventListener('click', async ()=>{
-      const f = el.logoFile.files?.[0];
-      if(!f){ el.msg.textContent = 'Velg en logo-fil først.'; return; }
-      el.msg.textContent = 'Laster opp logo …';
-      try{
-        const url = await uploadLogo(f);
-        if(url){
-          localStorage.setItem(LOGO_KEY, url);
-          el.logoImg.src = url; el.logoImg.style.display='block';
-          el.msg.textContent = 'Logo lastet opp.';
-        } else {
-          el.msg.textContent = 'Manglende URL i svar.';
-        }
-      }catch(err){
-        el.msg.textContent = 'Opplasting feilet.';
-      }
-    });
-  })();
-  </script>
-
-  <!-- Del 6 – del 4/6: Språk script -->
-  <script>
-  (function(){
-    const qs=(s,r=document)=>r.querySelector(s);
-    const qsa=(s,r=document)=>[...r.querySelectorAll(s)];
-    const STORAGE_KEY='nfcking.i18n.v1';
-
-    function loadState(){
-      try{ return JSON.parse(localStorage.getItem(STORAGE_KEY)||''); }catch{ return null; }
-    }
-    function saveState(st){ localStorage.setItem(STORAGE_KEY, JSON.stringify(st)); }
-
-    function defaultState(){
-      return {
-        defaultLang:'nb',
-        langs:['nb','en'],
-        data:{
-          'app.title': { nb:'NFCKING', en:'NFCKING' },
-          'nav.home':  { nb:'Hjem', en:'Home' },
-          'nav.order': { nb:'Bestill', en:'Order' }
-        }
-      };
-    }
-
-    const el = {
-      msg: qs('#i18nMsg'),
-      def: qs('#i18nDefaultLang'),
-      langs: qs('#i18nLangs'),
-      table: qs('#i18nTable'),
-      tbody: qs('#i18nTable tbody'),
-      search: qs('#i18nSearch'),
-      addKey: qs('#i18nAddKey'),
-      save: qs('#i18nSave'),
-      reset: qs('#i18nReset'),
-      expJson: qs('#i18nExportJson'),
-      expCsv: qs('#i18nExportCsv'),
-      impJson: qs('#i18nImportJson'),
-      impCsv: qs('#i18nImportCsv'),
-    };
-
-    let state = loadState() || defaultState();
-    hydrateControls();
-    renderTable();
-
-    function hydrateControls(){
-      el.def.value = state.defaultLang;
-      el.langs.value = state.langs.join(',');
-    }
-
-    function setMsg(txt){ el.msg.textContent = txt; }
-
-    function normalizeLangs(){
-      state.langs = el.langs.value.split(',').map(s=>s.trim()).filter(Boolean);
-      if(!state.langs.length){ state.langs=['nb']; }
-      for(const [k, obj] of Object.entries(state.data)){
-        state.langs.forEach(L=>{ if(!(L in obj)) obj[L]=''; });
-      }
-    }
-
-    function renderHeader(){
-      qsa('th[data-lang]', el.table).forEach(th=>th.remove());
-      const headRow = qs('thead tr', el.table);
-      const actionTh = headRow.lastElementChild;
-      state.langs.forEach(L=>{
-        const th = document.createElement('th');
-        th.setAttribute('data-lang', L);
-        th.style.cssText = 'text-align:left;padding:8px;border-bottom:1px solid #222736;min-width:200px';
-        th.textContent = L;
-        headRow.insertBefore(th, actionTh);
-      });
-    }
-
-    function renderTable(){
-      normalizeLangs();
-      renderHeader();
-
-      const q = (el.search.value||'').toLowerCase();
-      const rows = [];
-      const keys = Object.keys(state.data).sort();
-
-      keys.forEach(key=>{
-        const obj = state.data[key] || {};
-        const textBlob = [key].concat(state.langs.map(L=>obj[L]||'')).join(' ').toLowerCase();
-        if(q && !textBlob.includes(q)) return;
-
-        const tr = document.createElement('tr');
-        tr.setAttribute('data-key', key);
-
-        const tdKey = document.createElement('td');
-        tdKey.style.cssText='padding:8px;border-bottom:1px solid #1b2030;vertical-align:top';
-        const keyInput = document.createElement('input');
-        keyInput.type='text'; keyInput.value=key; keyInput.style='width:100%';
-        keyInput.addEventListener('change', ()=>{
-          const newKey = keyInput.value.trim();
-          if(!newKey || newKey===key) return;
-          if(state.data[newKey]){ setMsg('Nøkkel finnes allerede.'); keyInput.value=key; return; }
-          state.data[newKey] = {...state.data[key]};
-          delete state.data[key];
-          tr.setAttribute('data-key', newKey);
-          setMsg(`Endret nøkkel: ${key} â†’ ${newKey}`);
-        });
-        tdKey.appendChild(keyInput);
-        tr.appendChild(tdKey);
-
-        state.langs.forEach(L=>{
-          const td = document.createElement('td');
-          td.style.cssText='padding:8px;border-bottom:1px solid #1b2030';
-          const ta = document.createElement('textarea');
-          ta.value = obj[L] || '';
-          ta.rows = 2; ta.style = 'width:100%;font-family:system-ui,monospace';
-          if(!ta.value){
-            ta.style.border='1px solid #ff6b6b';
-            ta.title='Mangler oversettelse';
-          } else {
-            ta.style.border='1px solid #222736';
-          }
-          ta.addEventListener('input', ()=>{
-            const rowKey = tr.getAttribute('data-key');
-            state.data[rowKey][L] = ta.value;
-            ta.style.border = ta.value ? '1px solid #222736' : '1px solid #ff6b6b';
-          });
-          td.appendChild(ta);
-          tr.appendChild(td);
-        });
-
-        const tdAct = document.createElement('td');
-        tdAct.style.cssText='padding:8px;border-bottom:1px solid #1b2030;vertical-align:top';
-        const delBtn = document.createElement('button');
-        delBtn.className='tab-btn'; delBtn.textContent='Slett';
-        delBtn.addEventListener('click', ()=>{
-          const k = tr.getAttribute('data-key');
-          delete state.data[k];
-          tr.remove();
-          setMsg(`Slettet nøkkel: ${k}`);
-        });
-        tdAct.appendChild(delBtn);
-        tr.appendChild(tdAct);
-
-        rows.push(tr);
-      });
-
-      el.tbody.replaceChildren(...rows);
-    }
-
-    el.search.addEventListener('input', renderTable);
-    el.def.addEventListener('change', ()=>{
-      state.defaultLang = el.def.value;
-      setMsg(`Standard språk: ${state.defaultLang}`);
-    });
-    el.langs.addEventListener('change', ()=>{ renderTable(); setMsg('Oppdatert språk-liste.'); });
-
-    el.addKey.addEventListener('click', ()=>{
-      let base='section.title', i=1, key=base;
-      while(state.data[key]){ i++; key=`${base}.${i}`; }
-      state.data[key] = Object.fromEntries(state.langs.map(L=>[L,'']));
-      renderTable();
-      setMsg(`La til nøkkel: ${key}`);
-    });
-
-    el.save.addEventListener('click', ()=>{
-      saveState(state);
-      setMsg('Oversettelser lagret lokalt.');
-    });
-
-    el.reset.addEventListener('click', ()=>{
-      state = defaultState();
-      hydrateControls();
-      renderTable();
-      saveState(state);
-      setMsg('Tilbakestilt til standard.');
-    });
-
-    el.expJson.addEventListener('click', ()=>{
-      const blob = new Blob([JSON.stringify(state, null, 2)], {type:'application/json'});
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a'); a.href=url; a.download='i18n.json'; a.click();
-      URL.revokeObjectURL(url);
-    });
-
-    el.expCsv.addEventListener('click', ()=>{
-      const lines = [['key','lang','value']];
-      for(const [k,obj] of Object.entries(state.data)){
-        state.langs.forEach(L=>{
-          lines.push([k, L, (obj[L]||'').replaceAll('"','""')]);
-        });
-      }
-      const csv = lines.map(r => r.map(c=>`"${c}"`).join(',')).join('\n');
-      const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a'); a.href=url; a.download='i18n.csv'; a.click();
-      URL.revokeObjectURL(url);
-    });
-
-    el.impJson.addEventListener('change', async (e)=>{
-      const f = e.target.files?.[0]; if(!f) return;
-      try{
-        const txt = await f.text();
-        const incoming = JSON.parse(txt);
-        if(!incoming || !incoming.data){ throw new Error('invalid'); }
-        if(Array.isArray(incoming.langs)) state.langs = Array.from(new Set([...(state.langs||[]), ...incoming.langs]));
-        if(incoming.defaultLang) state.defaultLang = incoming.defaultLang;
-        for(const [k,obj] of Object.entries(incoming.data)){
-          state.data[k] = {...(state.data[k]||{})};
-          for(const [L,val] of Object.entries(obj)){
-            state.data[k][L] = val;
-          }
-        }
-        hydrateControls(); renderTable(); saveState(state);
-        setMsg('Importert JSON og slått sammen.');
-      }catch{
-        setMsg('Kunne ikke importere JSON.');
-      }
-      e.target.value='';
-    });
-
-    el.impCsv.addEventListener('change', async (e)=>{
-      const f = e.target.files?.[0]; if(!f) return;
-      try{
-        const txt = await f.text();
-        const rows = txt.split(/\r?\n/).filter(Boolean).map(line=>{
-          const m=[...line.matchAll(/"((?:[^"]|"")*)"(,|$)/g)].map(x=>x[1].replaceAll('""','"'));
-          return m;
-        });
-        const header = (rows.shift()||[]).map(h=>h.toLowerCase());
-        const idxKey = header.indexOf('key');
-        const idxLang= header.indexOf('lang');
-        const idxVal = header.indexOf('value');
-        if(idxKey<0||idxLang<0||idxVal<0) throw new Error('bad header');
-        rows.forEach(cols=>{
-          const k=cols[idxKey]; const L=cols[idxLang]; const v=cols[idxVal]||'';
-          if(!k||!L) return;
-          if(!state.data[k]) state.data[k]={};
-          state.data[k][L]=v;
-          if(!state.langs.includes(L)) state.langs.push(L);
-        });
-        hydrateControls(); renderTable(); saveState(state);
-        setMsg('Importert CSV.');
-      }catch{
-        setMsg('Kunne ikke importere CSV.');
-      }
-      e.target.value='';
-    });
-
-  })();
-  </script>
-
-  <!-- Del 6 – del 5/6: Brukere script -->
-  <script>
-  (function(){
-    const qs=(s,r=document)=>r.querySelector(s);
-    const qsa=(s,r=document)=>[...r.querySelectorAll(s)];
-    const el = {
-      msg: qs('#usrMsg'),
-      table: qs('#usrTable tbody'),
-      search: qs('#usrSearch'),
-      roleF: qs('#usrRoleFilter'),
-      statF: qs('#usrStatusFilter'),
-      refresh: qs('#usrRefresh'),
-      inviteOpen: qs('#usrInviteOpen'),
-      inviteBox: qs('#usrInvite'),
-      invName: qs('#invName'),
-      invEmail: qs('#invEmail'),
-      invRole: qs('#invRole'),
-      invOrg: qs('#invOrg'),
-      invSend: qs('#invSend'),
-      invCancel: qs('#invCancel'),
-      prev: qs('#usrPrev'),
-      next: qs('#usrNext'),
-    };
-
-    const API = {
-      list:   '/.netlify/functions/users-list',
-      create: '/.netlify/functions/users-invite',
-      role:   '/.netlify/functions/users-role',
-      status: '/.netlify/functions/users-status',
-      imp:    '/.netlify/functions/users-impersonate'
-    };
-
-    let pageToken = null;
-    let lastQuery = {};
-
-    function setMsg(t){ el.msg.textContent = t || ''; }
-
-    async function idToken(){
-      return localStorage.getItem('nfcking.idToken') || '';
-    }
-
-    async function apiGet(url, params={}){
-      const token = await idToken();
-      const qs = new URLSearchParams(params).toString();
-      const res = await fetch(url + (qs ? `?${qs}` : ''), { headers:{ Authorization: token ? `Bearer ${token}` : '' }});
-      if(!res.ok) throw new Error(`GET ${url} ${res.status}`);
-      return res.json();
-    }
-    async function apiPost(url, body){
-      const token = await idToken();
-      const res = await fetch(url, {
-        method:'POST',
-        headers:{ 'Content-Type':'application/json', Authorization: token ? `Bearer ${token}` : '' },
-        body: JSON.stringify(body||{})
-      });
-      if(!res.ok) throw new Error(`POST ${url} ${res.status}`);
-      return res.json();
-    }
-
-    function renderRows(users){
-      const rows = users.map(u=>{
-        const tr = document.createElement('tr');
-        const td = (...nodes)=>{ const t=document.createElement('td'); t.style.cssText='padding:8px;border-bottom:1px solid #1b2030;vertical-align:top'; nodes.forEach(n=>t.append(n)); return t; };
-
-        tr.appendChild(td(document.createTextNode(u.name || '—')));
-
-        const aMail = document.createElement('a'); aMail.href = `mailto:${u.email}`; aMail.textContent = u.email||'—';
-        tr.appendChild(td(aMail));
-
-        const roleSel = document.createElement('select');
-        ['superadmin','admin','editor','viewer'].forEach(r=>{
-          const opt=document.createElement('option'); opt.value=r; opt.textContent=r;
-          if((u.roles||[]).includes(r)) opt.selected = true;
-          roleSel.appendChild(opt);
-        });
-        roleSel.addEventListener('change', async ()=>{
-          try{
-            await apiPost(API.role, { uid:u.uid, roles:[roleSel.value], orgKey:u.orgKey||null });
-            setMsg(`Oppdatert rolle for ${u.email} â†’ ${roleSel.value}`);
-          }catch{ setMsg('Kunne ikke oppdatere rolle.'); }
-        });
-        tr.appendChild(td(roleSel));
-
-        tr.appendChild(td(document.createTextNode(u.orgKey || '—')));
-
-        const statusBadge = document.createElement('span');
-        statusBadge.textContent = u.status || 'active';
-        statusBadge.className = 'muted';
-        tr.appendChild(td(statusBadge));
-
-        const actions = document.createElement('div');
-        actions.style.display='flex'; actions.style.gap='6px'; actions.style.flexWrap='wrap';
-
-        const btnToggle = document.createElement('button');
-        btnToggle.className='tab-btn';
-        btnToggle.textContent = (u.status==='disabled') ? 'Aktiver' : 'Deaktiver';
-        btnToggle.addEventListener('click', async ()=>{
-          try{
-            const to = (u.status==='disabled') ? 'active' : 'disabled';
-            await apiPost(API.status, { uid:u.uid, status:to });
-            u.status = to; statusBadge.textContent = to;
-            btnToggle.textContent = (to==='disabled') ? 'Aktiver' : 'Deaktiver';
-            setMsg(`Status oppdatert for ${u.email} â†’ ${to}`);
-          }catch{ setMsg('Kunne ikke endre status.'); }
-        });
-        actions.appendChild(btnToggle);
-
-        const btnImpersonate = document.createElement('button');
-        btnImpersonate.className='tab-btn'; btnImpersonate.textContent='Impersonate (lese)';
-        btnImpersonate.addEventListener('click', async ()=>{
-          try{
-            await apiPost(API.imp, { uid:u.uid });
-            setMsg(`Impersonate-token generert for ${u.email} (lese-modus).`);
-          }catch{ setMsg('Kunne ikke impersonate.'); }
-        });
-        actions.appendChild(btnImpersonate);
-
-        tr.appendChild(td(actions));
-        return tr;
-      });
-
-      el.table.replaceChildren(...rows);
-    }
-
-    async function loadUsers(opts={}){
-      const params = {
-        q: el.search.value || '',
-        role: el.roleF.value || '',
-        status: el.statF.value || '',
-        pageToken: opts.pageToken || null,
-        limit: 20
-      };
-      lastQuery = params;
-      setMsg('Laster brukere …');
-      try{
-        const data = await apiGet(API.list, params);
-        renderRows(data.users || []);
-        pageToken = { next: data.nextPageToken || null, prev: data.prevPageToken || null };
-        el.prev.disabled = !pageToken.prev;
-        el.next.disabled = !pageToken.next;
-        setMsg(`Fant ${data.count ?? (data.users||[]).length} brukere.`);
-      }catch{
-        setMsg('Kunne ikke hente brukere.');
-      }
-    }
-
-    function toggleInvite(show){
-      el.inviteBox.classList.toggle('hidden', !show);
-      if(show){ el.invName.focus(); }
-    }
-
-    el.inviteOpen.addEventListener('click', ()=> toggleInvite(true));
-    el.invCancel.addEventListener('click', ()=> toggleInvite(false));
-    el.invSend.addEventListener('click', async ()=>{
-      const name = el.invName.value.trim();
-      const email = el.invEmail.value.trim();
-      const role = el.invRole.value;
-      const org  = el.invOrg.value.trim() || null;
-      if(!email){ setMsg('E-post er påkrevd.'); return; }
-      setMsg('Sender invitasjon …');
-      try{
-        const res = await apiPost(API.create, { name, email, role, orgKey: org });
-        setMsg(`Invitasjon sendt til ${email}. UID: ${res.uid || '—'}`);
-        toggleInvite(false); el.invName.value=''; el.invEmail.value='';
-        await loadUsers();
-      }catch{
-        setMsg('Kunne ikke sende invitasjon.');
-      }
-    });
-
-    el.refresh.addEventListener('click', ()=> loadUsers());
-    el.search.addEventListener('input', ()=> loadUsers());
-    el.roleF.addEventListener('change', ()=> loadUsers());
-    el.statF.addEventListener('change', ()=> loadUsers());
-
-    el.prev.addEventListener('click', ()=> pageToken?.prev && loadUsers({ pageToken: pageToken.prev }));
-    el.next.addEventListener('click', ()=> pageToken?.next && loadUsers({ pageToken: pageToken.next }));
-
-    function onTabChange(){
-      const active = (location.hash||'#branding').replace('#','');
-      if(active==='users'){ loadUsers(); }
-    }
-    window.addEventListener('hashchange', onTabChange);
-    onTabChange();
-  })();
-  </script>
-
-  <!-- Del 6 – del 6/6: Sider script -->
-  <script>
-  (function(){
-    const qs=(s,r=document)=>r.querySelector(s);
-    const ce=(t)=>document.createElement(t);
-    const el = {
-      msg: qs('#pgMsg'),
-      table: qs('#pgTable tbody'),
-      search: qs('#pgSearch'),
-      status: qs('#pgStatus'),
-      refresh: qs('#pgRefresh'),
-      create: qs('#pgNew'),
-      editor: qs('#pgEditor'),
-      editorTitle: qs('#pgEditorTitle'),
-      slug: qs('#pgSlug'),
-      statusEdit: qs('#pgStatusEdit'),
-      scheduleAt: qs('#pgScheduleAt'),
-      org: qs('#pgOrg'),
-      titleNb: qs('#pgTitleNb'),
-      titleEn: qs('#pgTitleEn'),
-      bodyNb: qs('#pgBodyNb'),
-      bodyEn: qs('#pgBodyEn'),
-      seoTitle: qs('#pgSeoTitle'),
-      seoDesc: qs('#pgSeoDesc'),
-      seoOg: qs('#pgSeoOg'),
-      seoCanonical: qs('#pgSeoCanonical'),
-      menuShow: qs('#pgMenuShow'),
-      menuOrder: qs('#pgMenuOrder'),
-      saveDraft: qs('#pgSaveDraft'),
-      publish: qs('#pgPublish'),
-      preview: qs('#pgPreview'),
-      close: qs('#pgClose'),
-      editMsg: qs('#pgEditMsg'),
-      menuList: qs('#menuList'),
-      menuAdd: qs('#menuAdd'),
-      menuSave: qs('#menuSave'),
-      menuMsg: qs('#menuMsg'),
-    };
-
-    const API = {
-      list:   '/.netlify/functions/pages-list',
-      get:    '/.netlify/functions/pages-get',
-      save:   '/.netlify/functions/pages-save',
-      publish:'/.netlify/functions/pages-publish',
-      del:    '/.netlify/functions/pages-delete',
-      menuGet:'/.netlify/functions/menu-get',
-      menuSave:'/.netlify/functions/menu-save',
-      preview:'/preview/'
-    };
-
-    let editingId = null;
-    let lastPages = [];
-
-    function setMsg(t){ el.msg.textContent = t || ''; }
-    function setEditMsg(t){ el.editMsg.textContent = t || ''; }
-    function setMenuMsg(t){ el.menuMsg.textContent = t || ''; }
-
-    async function token(){
-      return localStorage.getItem('nfcking.idToken') || '';
-    }
-    async function apiGet(url, params={}){
-      const tk = await token();
-      const qs = new URLSearchParams(params).toString();
-      const res = await fetch(url + (qs?`?${qs}`:''), { headers: { Authorization: tk?`Bearer ${tk}`:'' } });
-      if(!res.ok) throw new Error(`GET ${url} ${res.status}`);
-      return res.json();
-    }
-    async function apiPost(url, body){
-      const tk = await token();
-      const res = await fetch(url, { method:'POST', headers:{'Content-Type':'application/json', Authorization: tk?`Bearer ${tk}`:''}, body: JSON.stringify(body||{}) });
-      if(!res.ok) throw new Error(`POST ${url} ${res.status}`);
-      return res.json();
-    }
-
-    function fmtDate(ts){
-      try{ const d = new Date(ts); return d.toLocaleString(); }catch{ return '—'; }
-    }
-
-    function renderPages(pages){
-      lastPages = pages || [];
-      const rows = lastPages.map(p=>{
-        const tr = ce('tr');
-        const td = (n)=>{ const t=ce('td'); t.style.cssText='padding:8px;border-bottom:1px solid #1b2030;vertical-align:top'; t.append(n); return t; };
-
-        tr.appendChild(td(document.createTextNode((p.title?.nb || p.title?.en || '—'))));
-        tr.appendChild(td(document.createTextNode(p.slug || '—')));
-        tr.appendChild(td(document.createTextNode(p.status || 'draft')));
-        tr.appendChild(td(document.createTextNode(p.updatedAt ? fmtDate(p.updatedAt) : '—')));
-
-        const actions = ce('div'); actions.style.display='flex'; actions.style.gap='6px'; actions.style.flexWrap='wrap';
-        const bEdit = ce('button'); bEdit.className='tab-btn'; bEdit.textContent='Rediger';
-        const bPub  = ce('button'); bPub.className='tab-btn'; bPub.textContent='Publiser';
-        const bPrev = ce('button'); bPrev.className='tab-btn'; bPrev.textContent='Vis';
-        const bDel  = ce('button'); bDel.className='tab-btn'; bDel.textContent='Slett';
-
-        bEdit.onclick = ()=> openEditor(p.slug);
-        bPub.onclick  = async ()=>{
-          setMsg('Publiserer …');
-          try{
-            await apiPost(API.publish, { slug:p.slug });
-            setMsg(`Publisert: /${p.slug}`);
-            await loadPages();
-          }catch{ setMsg('Publisering feilet.'); }
-        };
-        bPrev.onclick = ()=> window.open(`/${p.slug}`, '_blank');
-        bDel.onclick = async ()=>{
-          if(!confirm(`Slette side /${p.slug}?`)) return;
-          setMsg('Sletter …');
-          try{
-            await apiPost(API.del, { slug:p.slug });
-            setMsg(`Slettet /${p.slug}`);
-            await loadPages();
-          }catch{ setMsg('Sletting feilet.'); }
-        };
-
-        actions.append(bEdit,bPub,bPrev,bDel);
-        tr.appendChild(td(actions));
-        return tr;
-      });
-
-      el.table.replaceChildren(...rows);
-    }
-
-    async function loadPages(){
-      setMsg('Laster sider …');
-      try{
-        const data = await apiGet(API.list, { q: el.search.value || '', status: el.status.value || '', limit: 100 });
-        renderPages(data.pages || []);
-        setMsg(`Fant ${data.count ?? (data.pages||[]).length} sider.`);
-      }catch{
-        setMsg('Kunne ikke hente sider.');
-      }
-    }
-
-    function openEditor(slug){
-      if(!slug){
-        editingId = null;
-        el.editorTitle.textContent = 'Ny side';
-        el.slug.value=''; el.statusEdit.value='draft'; el.scheduleAt.value=''; el.org.value='';
-        el.titleNb.value=''; el.titleEn.value='';
-        el.bodyNb.value=''; el.bodyEn.value='';
-        el.seoTitle.value=''; el.seoDesc.value=''; el.seoOg.value=''; el.seoCanonical.value='';
-        el.menuShow.value='true'; el.menuOrder.value='10';
-        setEditMsg('');
-        el.editor.classList.remove('hidden');
-        return;
-      }
-      setMsg('Åpner side …');
-      apiGet(API.get, { slug }).then(p=>{
-        editingId = slug;
-        el.editorTitle.textContent = `Rediger: /${slug}`;
-        el.slug.value = p.slug || slug;
-        el.statusEdit.value = p.status || 'draft';
-        el.scheduleAt.value = p.scheduleAt ? new Date(p.scheduleAt).toISOString().slice(0,16) : '';
-        el.org.value = p.orgKey || '';
-        el.titleNb.value = p.title?.nb || '';
-        el.titleEn.value = p.title?.en || '';
-        el.bodyNb.value  = p.body?.nb  || '';
-        el.bodyEn.value  = p.body?.en  || '';
-        el.seoTitle.value = p.seo?.title || '';
-        el.seoDesc.value  = p.seo?.description || '';
-        el.seoOg.value    = p.seo?.ogImage || '';
-        el.seoCanonical.value = p.seo?.canonical || '';
-        el.menuShow.value = String(p.menu?.show ?? true);
-        el.menuOrder.value = Number(p.menu?.order ?? 10);
-        setEditMsg('');
-        el.editor.classList.remove('hidden');
-        setMsg('');
-      }).catch(()=> setMsg('Kunne ikke åpne side.'));
-    }
-
-    function collectPage(statusOverride){
-      const scheduleValue = el.scheduleAt.value ? new Date(el.scheduleAt.value).toISOString() : null;
-      return {
-        slug: (el.slug.value || '').trim(),
-        status: statusOverride || el.statusEdit.value || 'draft',
-        scheduleAt: scheduleValue,
-        orgKey: (el.org.value || '').trim() || null,
-        title: { nb: el.titleNb.value || '', en: el.titleEn.value || '' },
-        body:  { nb: el.bodyNb.value  || '', en: el.bodyEn.value  || '' },
-        seo:   { title: el.seoTitle.value || '', description: el.seoDesc.value || '', ogImage: el.seoOg.value || '', canonical: el.seoCanonical.value || '' },
-        menu:  { show: el.menuShow.value === 'true', order: Number(el.menuOrder.value || 10) }
-      };
-    }
-
-    async function saveDraft(){
-      const doc = collectPage('draft');
-      if(!doc.slug){ setEditMsg('Slug er påkrevd.'); return; }
-      setEditMsg('Lagrer kladd …');
-      try{
-        await apiPost(API.save, doc);
-        setEditMsg('Kladd lagret.');
-        await loadPages();
-      }catch{ setEditMsg('Lagring feilet.'); }
-    }
-
-    async function publishNow(){
-      const doc = collectPage('published');
-      if(!doc.slug){ setEditMsg('Slug er påkrevd.'); return; }
-      setEditMsg('Publiserer …');
-      try{
-        await apiPost(API.save, doc);
-        await apiPost(API.publish, { slug: doc.slug });
-        setEditMsg(`Publisert: /${doc.slug}`);
-        await loadPages();
-      }catch{ setEditMsg('Publisering feilet.'); }
-    }
-
-    el.refresh.addEventListener('click', loadPages);
-    el.search.addEventListener('input', loadPages);
-    el.status.addEventListener('change', loadPages);
-    el.create.addEventListener('click', ()=> openEditor(null));
-    el.saveDraft.addEventListener('click', saveDraft);
-    el.publish.addEventListener('click', publishNow);
-    el.preview.addEventListener('click', ()=>{
-      const slug = (el.slug.value||'').trim();
-      if(!slug) { setEditMsg('Sett slug først.'); return; }
-      window.open(`/${slug}`, '_blank');
-    });
-    el.close.addEventListener('click', ()=> el.editor.classList.add('hidden'));
-
-    function onTabChange(){
-      const active = (location.hash||'#branding').replace('#','');
-      if(active==='pages'){ loadPages(); loadMenu(); }
-    }
-    window.addEventListener('hashchange', onTabChange);
-    onTabChange();
-
-    function menuRow(item, idx){
-      const wrap = ce('div'); wrap.className='card'; wrap.style.display='grid'; wrap.style.gap='8px'; wrap.style.gridTemplateColumns='1fr 1fr auto';
-      const lbl = ce('input'); lbl.type='text'; lbl.value=item.label||''; lbl.placeholder='Label';
-      const href= ce('input'); href.type='text'; href.value=item.href||''; href.placeholder='/bestill-kort';
-      const controls = ce('div'); controls.style.display='flex'; controls.style.gap='6px';
-      const up = ce('button'); up.className='tab-btn'; up.textContent='â†‘';
-      const down = ce('button'); down.className='tab-btn'; down.textContent='â†“';
-      const del = ce('button'); del.className='tab-btn'; del.textContent='Slett';
-
-      up.onclick = ()=> move(idx, -1);
-      down.onclick = ()=> move(idx, +1);
-      del.onclick = ()=> { state.menu.splice(idx,1); renderMenu(); };
-
-      lbl.oninput = ()=> state.menu[idx].label = lbl.value;
-      href.oninput = ()=> state.menu[idx].href  = href.value;
-
-      controls.append(up,down,del);
-      wrap.append(lbl, href, controls);
-      return wrap;
-    }
-
-    const state = { menu: [] };
-
-    function renderMenu(){
-      el.menuList.replaceChildren(...state.menu.map(menuRow));
-    }
-    function move(i, d){
-      const j = i + d; if(j<0 || j>=state.menu.length) return;
-      const tmp = state.menu[i]; state.menu[i]=state.menu[j]; state.menu[j]=tmp;
-      renderMenu();
-    }
-
-    async function loadMenu(){
-      setMenuMsg('Laster meny …');
-      try{
-        const data = await apiGet(API.menuGet, {});
-        state.menu = Array.isArray(data.nav) ? data.nav : [];
-        renderMenu();
-        setMenuMsg(`Meny lastet (${state.menu.length} element).`);
-      }catch{
-        setMenuMsg('Kunne ikke laste meny.');
-      }
-    }
-    async function saveMenu(){
-      setMenuMsg('Lagrer meny …');
-      try{
-        await apiPost(API.menuSave, { nav: state.menu });
-        setMenuMsg('Meny lagret.');
-      }catch{
-        setMenuMsg('Kunne ikke lagre meny.');
-      }
-    }
-
-    el.menuAdd.addEventListener('click', ()=>{
-      state.menu.push({ label:'Ny side', href:'/' });
-      renderMenu();
-    });
-    el.menuSave.addEventListener('click', saveMenu);
-
-  })();
-  </script>
-<script>
-(function(){
-  // ----- helpers -----
-  const qs=(s,r=document)=>r.querySelector(s);
-  const ce=(t)=>document.createElement(t);
-  const API={
-
-  };
-  async function token(){ return localStorage.getItem('nfcking.idToken') || ''; }
-  async function get(url, params={}){
-    const t = await token();
-    const q = new URLSearchParams(params).toString();
-    const res = await fetch(url+(q?`?${q}`:''), { headers:{ Authorization: t?`Bearer ${t}`:'' }});
-    if(!res.ok) throw new Error(await res.text());
-    return res.json();
-  }
-  async function post(url, body){
-    const t = await token();
-    const res = await fetch(url, { method:'POST', headers:{'Content-Type':'application/json', Authorization: t?`Bearer ${t}`:''}, body: JSON.stringify(body||{}) });
-    if(!res.ok) throw new Error(await res.text());
-    return res.json();
-  }
-
-  // ----- Konfig -----
-  const el = {
-    mode: qs('#stMode'),
-    pub: qs('#stPubKey'),
-    connect: qs('#stConnect'),
-    webhookInfo: qs('#stWebhookInfo'),
-    load: qs('#stLoad'),
-    save: qs('#stSave'),
-    msg: qs('#stMsg'),
-
-    // produkter
-    prodReload: qs('#stProdReload'),
-    prodNew: qs('#stProdNew'),
-    prodForm: qs('#stProdForm'),
-    prodName: qs('#stNewProdName'),
-    prodDesc: qs('#stNewProdDesc'),
-    prodCreate: qs('#stProdCreate'),
-    prodCancel: qs('#stProdCancel'),
-    prodMsg: qs('#stProdMsg'),
-    prodSearch: qs('#stProdSearch'),
-    prodTable: qs('#stProdTable tbody'),
-
-    // priser (skapes inline pr produkt)
-    // betalinger
-    chStatus: qs('#stChStatus'),
-    chFrom: qs('#stChFrom'),
-    chTo: qs('#stChTo'),
-    chReload: qs('#stChReload'),
-    chMsg: qs('#stChMsg'),
-    chTable: qs('#stChTable tbody'),
-
-    // kunder
-    custEmail: qs('#stCustEmail'),
-    custReload: qs('#stCustReload'),
-    custCreate: qs('#stCustCreate'),
-    custMsg: qs('#stCustMsg'),
-    custTable: qs('#stCustTable tbody'),
-
-    // test
-    testPrice: qs('#stTestPrice'),
-    testQty: qs('#stTestQty'),
-    testStart: qs('#stStartCheckout'),
-    testMsg: qs('#stTestMsg'),
-  };
-
-  async function loadCfg(){
-    el.msg.textContent='Laster...';
-    try{
-      const d = await get(API.cfg, {});
-      el.mode.value = d.mode || 'test';
-      el.pub.value = d.publishableKey || '';
-      el.connect.value = String(d.connect?.enabled || false);
-      el.webhookInfo.textContent = 'Webhook secret: ' + (d.hasWebhookSecret ? 'satt ✅' : 'mangler ❌');
-      el.msg.textContent='OK';
-    }catch(e){ el.msg.textContent='Kunne ikke hente konfig.'; }
-  }
-  async function saveCfg(){
-    el.msg.textContent='Lagrer...';
-    try{
-      await post(API.cfg, {
-        mode: el.mode.value,
-        publishableKey: el.pub.value,
-        connect: { enabled: el.connect.value === 'true' }
-      });
-      el.msg.textContent='Lagret.';
-    }catch(e){ el.msg.textContent='Lagring feilet.'; }
-  }
-  el.load.addEventListener('click', loadCfg);
-  el.save.addEventListener('click', saveCfg);
-
-  // ----- Produkter & priser -----
-  let products = [];
-  function renderProducts(){
-    const q = (el.prodSearch.value||'').toLowerCase();
-    const rows = [];
-    products.forEach(p=>{
-      if(q && !String(p.name||'').toLowerCase().includes(q)) return;
-      const tr = ce('tr');
-      const td=(n)=>{ const t=ce('td'); t.style.cssText='padding:8px;border-bottom:1px solid #1b2030;vertical-align:top'; t.append(n); return t; };
-
-      // navn
-      tr.appendChild(td(document.createTextNode(p.name)));
-
-      // priser
-      const wrap = ce('div'); wrap.style.display='flex'; wrap.style.flexDirection='column'; wrap.style.gap='4px';
-      (p.prices||[]).forEach(pr=>{
-        const line = ce('div');
-        line.textContent = `${(pr.unit_amount/100).toFixed(2)} ${String(pr.currency||'').toUpperCase()} ${pr.recurring? `(${pr.recurring.interval})`:''}`;
-        wrap.append(line);
-      });
-      tr.appendChild(td(wrap));
-
-      // handlinger
-      const actions = ce('div'); actions.style.display='flex'; actions.style.gap='6px'; actions.style.flexWrap='wrap';
-      const makePrice = ce('button'); makePrice.className='tab-btn'; makePrice.textContent='+ Pris';
-      makePrice.onclick = ()=> openPriceForm(p.id);
-      actions.append(makePrice);
-      tr.appendChild(td(actions));
-
-      rows.push(tr);
-    });
-    el.prodTable.replaceChildren(...rows);
-  }
-  async function loadProducts(){
-    el.prodMsg.textContent='Laster...';
-    try{
-      const d = await get(API.prods, { active:'true', limit: 50 });
-      products = d.data || [];
-      el.prodMsg.textContent = `Fant ${products.length} produkt.`;
-      renderProducts();
-    }catch(e){ el.prodMsg.textContent='Kunne ikke hente produkter.'; }
-  }
-  function toggleProdForm(show){
-    el.prodForm.classList.toggle('hidden', !show);
-    if(show) el.prodName.focus();
-  }
-  el.prodNew.addEventListener('click', ()=> toggleProdForm(true));
-  el.prodCancel.addEventListener('click', ()=> toggleProdForm(false));
-  el.prodCreate.addEventListener('click', async ()=>{
-    const name = el.prodName.value.trim();
-    if(!name){ el.prodMsg.textContent='Navn mangler.'; return; }
-    el.prodMsg.textContent='Oppretter...';
-    try{
-      await post(API.prods, { name, description: el.prodDesc.value.trim(), prices: [] });
-      el.prodMsg.textContent='Opprettet.';
-      toggleProdForm(false); el.prodName.value=''; el.prodDesc.value='';
-      await loadProducts();
-    }catch(e){ el.prodMsg.textContent='Opprettelse feilet.'; }
-  });
-  el.prodReload.addEventListener('click', loadProducts);
-  el.prodSearch.addEventListener('input', renderProducts);
-
-  // inline pris-form (modal-ish)
-  function openPriceForm(productId){
-    const dlg = ce('div'); dlg.className='card'; dlg.style.cssText='position:fixed;inset:20% auto auto 50%;transform:translateX(-50%);max-width:480px;z-index:50';
-    dlg.innerHTML = `
-      <h3>Ny pris</h3>
-      <div class="grid" style="gap:8px">
-        <label>Valuta
-          <input type="text" id="prCur" value="nok" />
-        </label>
-        <label>Beløp (øre)
-          <input type="number" id="prAmt" value="9900" />
-        </label>
-        <label>Type
-          <select id="prType"><option value="one_time">one_time</option><option value="recurring">recurring</option></select>
-        </label>
-        <label>Intervall (ved abonnement)
-          <select id="prInterval"><option>month</option><option>year</option><option>week</option></select>
-        </label>
-      </div>
-      <div style="margin-top:8px;display:flex;gap:8px">
-        <button id="prSave" class="tab-btn">Lagre</button>
-        <button id="prClose" class="tab-btn">Lukk</button>
-        <span id="prMsg" class="muted"></span>
-      </div>`;
-    document.body.appendChild(dlg);
-    qs('#prClose', dlg).onclick = ()=> dlg.remove();
-    qs('#prSave', dlg).onclick = async ()=>{
-      const cur = qs('#prCur', dlg).value.trim() || 'nok';
-      const amt = Number(qs('#prAmt', dlg).value || 0);
-      const type = qs('#prType', dlg).value;
-      const interval = qs('#prInterval', dlg).value;
-      qs('#prMsg', dlg).textContent='Lagrer...';
-      try{
-        await post(API.prices, { product: productId, currency: cur, unit_amount: amt, type: type==='recurring'?'recurring':'one_time', interval });
-        qs('#prMsg', dlg).textContent='Lagret.';
-        await loadProducts();
-        setTimeout(()=> dlg.remove(), 400);
-      }catch(e){ qs('#prMsg', dlg).textContent='Feil ved lagring.'; }
-    };
-  }
-
-  // ----- Betalinger -----
-  function renderCharges(list){
-    const rows = (list||[]).map(c=>{
-      const tr = ce('tr');
-      const td=(n)=>{ const t=ce('td'); t.style.cssText='padding:8px;border-bottom:1px solid #1b2030;vertical-align:top'; t.append(n); return t; };
-      tr.appendChild(td(document.createTextNode(new Date(c.created).toLocaleString())));
-      tr.appendChild(td(document.createTextNode(`${(c.amount/100).toFixed(2)} ${c.currency}`)));
-      tr.appendChild(td(document.createTextNode(c.customer?.email || c.customer?.id || '')));
-      const actions = ce('div'); actions.style.display='flex'; actions.style.gap='6px';
-      const refund = ce('button'); refund.className='tab-btn'; refund.textContent='Refund';
-      refund.onclick = async ()=>{
-        el.chMsg.textContent='Refunderer...';
-        try{
-          await post(API.refund, { chargeId: c.id });
-          el.chMsg.textContent='Refundert.';
-          await loadCharges();
-        }catch(e){ el.chMsg.textContent='Refund feilet.'; }
-      };
-      actions.append(refund);
-      tr.appendChild(td(actions));
-      return tr;
-    });
-    el.chTable.replaceChildren(...rows);
-  }
-  async function loadCharges(){
-    el.chMsg.textContent='Laster...';
-    try{
-      const params = { status: el.chStatus.value || '', limit: 50 };
-      if(el.chFrom.value) params.from = el.chFrom.value;
-      if(el.chTo.value) params.to = el.chTo.value;
-      const d = await get(API.charges, params);
-      renderCharges(d.data||[]);
-      el.chMsg.textContent = `Rader: ${(d.data||[]).length}`;
-    }catch(e){ el.chMsg.textContent='Kunne ikke hente betalinger.'; }
-  }
-  el.chReload.addEventListener('click', loadCharges);
-
-  // ----- Kunder -----
-  function renderCustomers(list){
-    const rows = (list||[]).map(c=>{
-      const tr = ce('tr');
-      const td=(n)=>{ const t=ce('td'); t.style.cssText='padding:8px;border-bottom:1px solid #1b2030'; t.append(n); return t; };
-      tr.appendChild(td(document.createTextNode(c.name || '—')));
-      tr.appendChild(td(document.createTextNode(c.email || '—')));
-      return tr;
-    });
-    el.custTable.replaceChildren(...rows);
-  }
-  async function loadCustomers(){
-    el.custMsg.textContent='Laster...';
-    try{
-      const d = await get(API.customers, { email: (el.custEmail.value||'').trim() || undefined, limit: 50 });
-      renderCustomers(d.data||[]);
-      el.custMsg.textContent = `Kunder: ${(d.data||[]).length}`;
-    }catch(e){ el.custMsg.textContent='Kunne ikke hente kunder.'; }
-  }
-  async function createCustomer(){
-    const email = prompt('E-post for ny kunde:');
-    if(!email) return;
-    el.custMsg.textContent='Oppretter...';
-    try{
-      await post(API.customers, { email });
-      el.custMsg.textContent='Opprettet.';
-      await loadCustomers();
-    }catch(e){ el.custMsg.textContent='Feil ved opprettelse.'; }
-  }
-  el.custReload.addEventListener('click', loadCustomers);
-  el.custCreate.addEventListener('click', createCustomer);
-
-  // ----- Test-checkout -----
-  el.testStart.addEventListener('click', async ()=>{
-    const priceId = (el.testPrice.value||'').trim();
-    const qty = Math.max(1, Number(el.testQty.value||1));
-    if(!priceId){ el.testMsg.textContent='Sett Price ID.'; return; }
-    el.testMsg.textContent='Oppretter sesjon...';
-    try{
-      const d = await post(API.test, { priceId, quantity: qty, successUrl: location.origin + '/demo.html', cancelUrl: location.href });
-      if(d.checkoutUrl){ window.open(d.checkoutUrl, '_blank'); el.testMsg.textContent='Åpnet Stripe Checkout.'; }
-      else { el.testMsg.textContent='Fikk ikke URL.'; }
-    }catch(e){ el.testMsg.textContent='Feil ved opprettelse.'; }
-  });
-
-  // Autoload når Stripe-fanen åpnes
-  function onTabChange(){
-    const active = (location.hash||'#branding').replace('#','');
-    if(active==='stripe'){
-      loadCfg(); loadProducts(); loadCharges(); loadCustomers();
-    }
-  }
-  window.addEventListener('hashchange', onTabChange);
-  onTabChange();
-})();
-</script>
-<script>
-(function(){
-  const qs=(s,r=document)=>r.querySelector(s);
-  const ce=(t)=>document.createElement(t);
-  const API={
-    list:'/.netlify/functions/orders-list',
-    get: '/.netlify/functions/orders-get',
-    upd: '/.netlify/functions/orders-update',
-    inv: '/.netlify/functions/orders-invoice',
-    mail:'/.netlify/functions/orders-email',
-    refund:'/.netlify/functions/orders-refund'
-  };
-  async function token(){ return localStorage.getItem('nfcking.idToken') || ''; }
-  async function get(url, params={}){
-    const t = await token();
-    const q = new URLSearchParams(params).toString();
-    const res = await fetch(url+(q?`?${q}`:''), { headers:{ Authorization: t?`Bearer ${t}`:'' }});
-    if(!res.ok) throw new Error(await res.text());
-    return res.json();
-  }
-  async function post(url, body){
-    const t = await token();
-    const res = await fetch(url, { method:'POST', headers:{'Content-Type':'application/json', Authorization: t?`Bearer ${t}`:''}, body: JSON.stringify(body||{}) });
-    if(!res.ok) throw new Error(await res.text());
-    return res.json();
-  }
-
-  const el = {
-    msg: qs('#ordMsg'),
-    table: qs('#ordTable tbody'),
-    search: qs('#ordSearch'),
-    status: qs('#ordStatus'),
-    from: qs('#ordFrom'),
-    to: qs('#ordTo'),
-    reload: qs('#ordReload'),
-
-    drawer: qs('#ordDrawer'),
-    title: qs('#ordTitle'),
-    meta: qs('#ordMeta'),
-    items: qs('#ordItems'),
-    stripe: qs('#ordStripe'),
-    editStatus: qs('#ordEditStatus'),
-    editNotes: qs('#ordEditNotes'),
-    shipAddr: qs('#ordShipAddr'),
-    shipTrack: qs('#ordShipTrack'),
-    shipCarrier: qs('#ordShipCarrier'),
-    save: qs('#ordSave'),
-    invoice: qs('#ordInvoice'),
-    email: qs('#ordEmail'),
-    refund: qs('#ordRefund'),
-    close: qs('#ordClose'),
-    editMsg: qs('#ordEditMsg')
-  };
-
-  let cacheList = [];
-  let currentId = null;
-
-  function fmt(ts){ try{ return new Date(ts).toLocaleString(); }catch{ return '—'; } }
-  function money(n,c='NOK'){ return `${(n/100).toFixed(2)} ${String(c).toUpperCase()}`; }
-
-  function renderTable(){
-    const q=(el.search.value||'').toLowerCase();
-    const rows = [];
-    cacheList.forEach(o=>{
-      const searchable = [
-        o.customer?.name||'', o.customer?.email||'',
-        (o.items||[]).map(x=>x.name||x.sku||'').join(' ')
-      ].join(' ').toLowerCase();
-      if(q && !searchable.includes(q)) return;
-
-      const tr = ce('tr');
-      const td=(n)=>{ const t=ce('td'); t.style.cssText='padding:8px;border-bottom:1px solid #1b2030;vertical-align:top'; t.append(n); return t; };
-      tr.appendChild(td(document.createTextNode(fmt(o.createdAt || Date.now()))));
-      tr.appendChild(td(document.createTextNode(`${o.customer?.name||''} <${o.customer?.email||''}>`)));
-      tr.appendChild(td(document.createTextNode((o.items||[]).map(x=>`${x.name||x.sku} ×${x.qty}`).join(', '))));
-      tr.appendChild(td(document.createTextNode(money(o.amountTotal||0, o.items?.[0]?.currency||'NOK'))));
-      tr.appendChild(td(document.createTextNode(o.status||'new')));
-
-      const actions = ce('div'); actions.style.cssText='display:flex;gap:6px;flex-wrap:wrap';
-      const edit = ce('button'); edit.className='tab-btn'; edit.textContent='Åpne';
-      edit.onclick = ()=> openDrawer(o.id);
-      actions.append(edit);
-      tr.appendChild(td(actions));
-
-      rows.push(tr);
-    });
-    el.table.replaceChildren(...rows);
-  }
-
-  async function loadOrders(){
-    el.msg.textContent='Laster…';
-    try{
-      const d = await get(API.list, {
-        status: el.status.value || '',
-        limit: 100
-      });
-      cacheList = d.data || [];
-      // enkel dato-filter i frontend (API har createdAt-index? hvis ikke, filtrer her)
-      const from = el.from.value ? new Date(el.from.value).getTime() : null;
-      const to   = el.to.value ? new Date(el.to.value).getTime() + 24*3600*1000 - 1 : null;
-      if(from || to){
-        cacheList = cacheList.filter(o=>{
-          const t = o.createdAt || 0;
-          if(from && t < from) return false;
-          if(to && t > to) return false;
-          return true;
-        });
-      }
-      el.msg.textContent = `Rader: ${cacheList.length}`;
-      renderTable();
-    }catch(e){ el.msg.textContent='Kunne ikke hente ordrer.'; }
-  }
-
-  async function openDrawer(id){
-    el.editMsg.textContent='Laster…';
-    try{
-      const d = await get(API.get, { id });
-      currentId = id;
-      el.title.textContent = `Ordre #${id}`;
-      el.meta.textContent = `${fmt(d.createdAt)} — ${d.customer?.name||''} <${d.customer?.email||''}>`;
-      el.editStatus.value = d.status || 'new';
-      el.editNotes.value = d.notes || '';
-      el.shipAddr.value = d.shipping?.address || '';
-      el.shipTrack.value = d.shipping?.tracking || '';
-      el.shipCarrier.value = d.shipping?.carrier || '';
-
-      // Varer
-      const lis = (d.items||[]).map(x=>{
-        const li = ce('li');
-        li.textContent = `${x.name||x.sku} ×${x.qty} — ${money((x.unit||0)* (x.qty||1), x.currency||'NOK')}`;
-        return li;
-      });
-      el.items.replaceChildren(...lis);
-
-      // Stripe-info
-      const s = d.stripe||{};
-      el.stripe.textContent = `PI: ${s.paymentIntent||'—'}  â€¢  Charge: ${s.charge||'—'}  â€¢  Customer: ${s.customerId||'—'}`;
-
-      el.drawer.classList.remove('hidden');
-      el.editMsg.textContent='';
-    }catch(e){ el.editMsg.textContent='Kunne ikke åpne ordren.'; }
-  }
-
-  async function saveOrder(){
-    if(!currentId){ return; }
-    el.editMsg.textContent='Lagrer…';
-    try{
-      await post(API.upd, {
-        id: currentId,
-        status: el.editStatus.value,
-        notes: el.editNotes.value,
-        shipping: {
-          address: el.shipAddr.value || null,
-          tracking: el.shipTrack.value || null,
-          carrier: el.shipCarrier.value || null
-        }
-      });
-      el.editMsg.textContent='Lagret.';
-      await loadOrders();
-    }catch(e){ el.editMsg.textContent='Lagring feilet.'; }
-  }
-
-  async function makeInvoice(){
-    if(!currentId){ return; }
-    el.editMsg.textContent='Lager faktura…';
-    try{
-      const r = await post(API.inv, { id: currentId });
-      el.editMsg.innerHTML = `Faktura generert: <a href="${r.pdfUrl}" target="_blank">${r.pdfUrl}</a>`;
-    }catch(e){ el.editMsg.textContent='Fakturering feilet.'; }
-  }
-
-  async function sendEmail(){
-    if(!currentId){ return; }
-    const subject = prompt('Emne (valgfritt):','Ordrebekreftelse');
-    el.editMsg.textContent='Sender e-post…';
-    try{
-      const r = await post(API.mail, { id: currentId, subject, template: 'order-confirmation' });
-      el.editMsg.textContent = `Sendt til ${r.to || 'kunde'}  (msg: ${r.messageId||'—'})`;
-    }catch(e){ el.editMsg.textContent='E-post feilet.'; }
-  }
-
-  async function refund(){
-    if(!currentId){ return; }
-    if(!confirm('Refunder betalingen?')) return;
-    el.editMsg.textContent='Refunderer…';
-    try{
-      await post(API.refund, { id: currentId });
-      el.editMsg.textContent='Refundert.';
-      await loadOrders(); // status â†’ refunded
-    }catch(e){ el.editMsg.textContent='Refund feilet.'; }
-  }
-
-  // Events
-  el.reload.addEventListener('click', loadOrders);
-  el.search.addEventListener('input', renderTable);
-  el.status.addEventListener('change', loadOrders);
-  el.from.addEventListener('change', loadOrders);
-  el.to.addEventListener('change', loadOrders);
-
-  el.save.addEventListener('click', saveOrder);
-  el.invoice.addEventListener('click', makeInvoice);
-  el.email.addEventListener('click', sendEmail);
-  el.refund.addEventListener('click', refund);
-  el.close.addEventListener('click', ()=> el.drawer.classList.add('hidden'));
-
-  // Autoload når fanen åpnes
-  function onTabChange(){
-    const active = (location.hash||'#branding').replace('#','');
-    if(active==='orders'){ loadOrders(); }
-  }
-  window.addEventListener('hashchange', onTabChange);
-  onTabChange();
-})();
-</script>
-<script>
-(function(){
-  const qs=(s,r=document)=>r.querySelector(s);
-  const ce=(t)=>document.createElement(t);
-
-  const API={
-    list:'/.netlify/functions/nfc-batches-list',
-    create:'/.netlify/functions/nfc-batches-create',
-    get:'/.netlify/functions/nfc-batches-get',
-    start:'/.netlify/functions/nfc-batches-start',
-    stop:'/.netlify/functions/nfc-batches-stop',
-    files:'/.netlify/functions/nfc-batches-files',
-    encode:'/.netlify/functions/nfc-encode',
-    verify:'/.netlify/functions/nfc-batches-verify'
-  };
-
-  async function token(){ return localStorage.getItem('nfcking.idToken') || ''; }
-  async function get(url, params={}){
-    const t = await token();
-    const q = new URLSearchParams(params).toString();
-    const res = await fetch(url+(q?`?${q}`:''), { headers:{ Authorization: t?`Bearer ${t}`:'' }});
-    if(!res.ok) throw new Error(await res.text());
-    return res.json();
-  }
-  async function post(url, body){
-    const t = await token();
-    const res = await fetch(url, { method:'POST', headers:{'Content-Type':'application/json', Authorization: t?`Bearer ${t}`:''}, body: JSON.stringify(body||{}) });
-    if(!res.ok) throw new Error(await res.text());
-    return res.json();
-  }
-
-  const el = {
-    msg: qs('#nfcMsg'),
-    status: qs('#nfcStatus'),
-    reload: qs('#nfcReload'),
-    newOpen: qs('#nfcNewOpen'),
-    table: qs('#nfcTable tbody'),
-
-    // new
-    box: qs('#nfcNew'),
-    nbOrg: qs('#nbOrg'),
-    nbPreset: qs('#nbPreset'),
-    nbSource: qs('#nbSource'),
-    nbLock: qs('#nbLock'),
-    nbOrderIds: qs('#nbOrderIds'),
-    nbType: qs('#nbNdefType'),
-    nbVal: qs('#nbNdefVal'),
-    nbCreate: qs('#nbCreate'),
-    nbCancel: qs('#nbCancel'),
-    nbMsg: qs('#nbMsg'),
-
-    // drawer
-    drawer: qs('#nfcDrawer'),
-    title: qs('#ndTitle'),
-    meta: qs('#ndMeta'),
-    stEng: qs('#stEng'), stEnc: qs('#stEnc'), stVer: qs('#stVer'), stFail: qs('#stFail'),
-    start: qs('#ndStart'), stop: qs('#ndStop'), zip: qs('#ndZip'), close: qs('#ndClose'),
-    dMsg: qs('#ndMsg'),
-
-    // encode
-    eOrder: qs('#encOrder'),
-    eUID: qs('#encUID'),
-    ePayload: qs('#encPayload'),
-    eLock: qs('#encLock'),
-    eSave: qs('#encSave'),
-    eMsg: qs('#encMsg'),
-
-    // verify
-    vBatch: qs('#verBatch'),
-    vUID: qs('#verUID'),
-    vRes: qs('#verResult'),
-    vHash: qs('#verHash'),
-    vSave: qs('#verSave'),
-    vMsg: qs('#verMsg')
-  };
-
-  let cache = [];
-  let currentBatch = null;
-
-  function fmt(ts){ try{ return new Date(ts).toLocaleString(); }catch{ return '—'; } }
-
-  function renderTable(){
-    const rows = cache.map(b=>{
-      const tr = ce('tr');
-      const td=(n)=>{ const t=ce('td'); t.style.cssText='padding:8px;border-bottom:1px solid #1b2030;vertical-align:top'; t.append(n); return t; };
-      tr.appendChild(td(document.createTextNode(fmt(b.createdAt || 0))));
-      tr.appendChild(td(document.createTextNode(b.id)));
-      tr.appendChild(td(document.createTextNode(b.status || 'draft')));
-      tr.appendChild(td(document.createTextNode(String(b.count || 0))));
-
-      const actions = ce('div'); actions.style.cssText='display:flex;gap:6px;flex-wrap:wrap';
-      const open = ce('button'); open.className='tab-btn'; open.textContent='Åpne';
-      open.onclick = ()=> openDrawer(b.id);
-      actions.append(open);
-      tr.appendChild(td(actions));
-
-      return tr;
-    });
-    el.table.replaceChildren(...rows);
-  }
-
-  async function loadList(){
-    el.msg.textContent='Laster…';
-    try{
-      const d = await get(API.list, { status: el.status.value || '', limit: 100 });
-      cache = d.data || [];
-      el.msg.textContent = `Batcher: ${cache.length}`;
-      renderTable();
-    }catch(e){ el.msg.textContent='Kunne ikke hente batcher.'; }
-  }
-
-  function toggleNew(show){
-    el.box.classList.toggle('hidden', !show);
-    if(show) el.nbOrg.focus();
-  }
-
-  async function createBatch(){
-    el.nbMsg.textContent='Oppretter…';
-    try{
-      const ids = (el.nbOrderIds.value||'').split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
-      const payload = {
-        orgKey: (el.nbOrg.value||'').trim() || null,
-        presetId: (el.nbPreset.value||'').trim() || null,
-        source: el.nbSource.value,
-        ndef: { type: el.nbType.value, value: el.nbVal.value || 'https://nfcking.no/u/{orderId}', lock: el.nbLock.value==='true' },
-        orderIds: ids
-      };
-      const r = await post(API.create, payload);
-      el.nbMsg.textContent = `Batch opprettet: ${r.id}`;
-      toggleNew(false);
-      await loadList();
-      openDrawer(r.id);
-    }catch(e){ el.nbMsg.textContent='Opprettelse feilet.'; }
-  }
-
-  async function openDrawer(id){
-    el.dMsg.textContent='Laster…';
-    try{
-      const d = await get(API.get, { id });
-      currentBatch = id;
-      el.title.textContent = `Batch #${id}`;
-      el.meta.textContent = `${d.status} â€¢ ${d.count||d.orderIds?.length||0} kort â€¢ Opprettet ${fmt(d.createdAt)}`;
-      el.stEng.textContent = d.stats?.engrave ?? 0;
-      el.stEnc.textContent = d.stats?.encode ?? 0;
-      el.stVer.textContent = d.stats?.verify ?? 0;
-      el.stFail.textContent = d.stats?.failed ?? 0;
-      el.drawer.classList.remove('hidden');
-      el.vBatch.value = id;
-      el.dMsg.textContent='';
-    }catch(e){ el.dMsg.textContent='Kunne ikke åpne batch.'; }
-  }
-
-  async function startBatch(){
-    if(!currentBatch) return;
-    el.dMsg.textContent='Starter…';
-    try{ await post(API.start, { id: currentBatch }); el.dMsg.textContent='Startet.'; await openDrawer(currentBatch); }
-    catch(e){ el.dMsg.textContent='Start feilet.'; }
-  }
-  async function stopBatch(){
-    if(!currentBatch) return;
-    el.dMsg.textContent='Stopper…';
-    try{ await post(API.stop, { id: currentBatch }); el.dMsg.textContent='Stoppet.'; await openDrawer(currentBatch); }
-    catch(e){ el.dMsg.textContent='Stopp feilet.'; }
-  }
-  async function downloadZip(){
-    if(!currentBatch) return;
-    el.dMsg.textContent='Lager lenke…';
-    try{
-      const r = await get(API.files, { id: currentBatch, type: 'zip' });
-      window.open(r.downloadUrl, '_blank');
-      el.dMsg.textContent='Åpnet ZIP.';
-    }catch(e){ el.dMsg.textContent='Kunne ikke lage ZIP-lenke.'; }
-  }
-
-  async function saveEncode(){
-    el.eMsg.textContent='Registrerer…';
-    try{
-      const payload = JSON.parse(el.ePayload.value || '{}');
-      await post(API.encode, {
-        orderId: (el.eOrder.value||'').trim(),
-        chipUID: (el.eUID.value||'').trim(),
-        payload,
-        lock: el.eLock.value==='true'
-      });
-      el.eMsg.textContent='Registrert.';
-    }catch(e){ el.eMsg.textContent='Feil ved registrering (sjekk JSON).'; }
-  }
-
-  async function saveVerify(){
-    el.vMsg.textContent='Registrerer…';
-    try{
-      await post(API.verify, {
-        batchId: (el.vBatch.value||'').trim(),
-        chipUID: (el.vUID.value||'').trim(),
-        result: el.vRes.value,
-        payloadHash: (el.vHash.value||'').trim() || null
-      });
-      el.vMsg.textContent='Registrert.';
-      if(currentBatch) await openDrawer(currentBatch);
-    }catch(e){ el.vMsg.textContent='Feil ved verifisering.'; }
-  }
-
-  // Events
-  el.reload.addEventListener('click', loadList);
-  el.status.addEventListener('change', loadList);
-  el.newOpen.addEventListener('click', ()=> toggleNew(true));
-  el.nbCancel.addEventListener('click', ()=> toggleNew(false));
-  el.nbCreate.addEventListener('click', createBatch);
-
-  el.start.addEventListener('click', startBatch);
-  el.stop.addEventListener('click', stopBatch);
-  el.zip.addEventListener('click', downloadZip);
-  el.close.addEventListener('click', ()=> el.drawer.classList.add('hidden'));
-
-  el.eSave.addEventListener('click', saveEncode);
-  el.vSave.addEventListener('click', saveVerify);
-
-  // Auto-load når fanen åpnes
-  function onTabChange(){
-    const active = (location.hash||'#branding').replace('#','');
-    if(active==='nfc'){ loadList(); }
-  }
-  window.addEventListener('hashchange', onTabChange);
-  onTabChange();
-})();
-</script>
-
-  <script>
-    const auth = firebase.auth();
-
-    async function refreshIdToken(user) {
-      if (!user) { localStorage.removeItem("nfcking.idToken"); return null; }
-      const token = await user.getIdToken(true);
-      localStorage.setItem("nfcking.idToken", token);
-      return token;
-    }
-
-    
-    auth.onIdTokenChanged(async (user) => {
-      const status = document.getElementById("loginStatus");
-      const btnIn  = document.getElementById("btnLogin");
-      const btnOut = document.getElementById("btnLogout");
-      const ubText = document.getElementById("ubText");
-      const ubDot  = document.getElementById("ubDot");
-
-      if (user) {
-        const tok = await refreshIdToken(user);
-        let role = localStorage.getItem('nfcking.role') || 'owner';
-        if (status) status.textContent = `Innlogget: ${user.email || "ukjent"}`;
-        if (ubText) ubText.textContent = `${user.email || "ukjent"} (${role})`;
-        if (ubDot) ubDot.classList.add('ok');
-        if (btnIn) btnIn.classList.add("hidden");
-        if (btnOut) btnOut.classList.remove("hidden");
-      } else {
-        if (status) status.textContent = "Ikke innlogget";
-        if (ubText) ubText.textContent = "Ikke innlogget";
-        if (ubDot) ubDot.classList.remove('ok');
-        if (btnIn) btnIn.classList.remove("hidden");
-        if (btnOut) btnOut.classList.add("hidden");
-      }
-    });
-    const btnIn  = document.getElementById("btnLogin");
-      const btnOut = document.getElementById("btnLogout");
-      if (user) {
-        await refreshIdToken(user);
-        status.textContent = `Innlogget: ${user.email || "ukjent"}`;
-        btnIn.classList.add("hidden");
-        btnOut.classList.remove("hidden");
-      } else {
-        status.textContent = "Ikke innlogget";
-        btnIn.classList.remove("hidden");
-        btnOut.classList.add("hidden");
-      }
-    });
-
-    async async async function doLogin(){
-      const email = prompt("E-post:"); if (!email) return;
-      const password = prompt("Passord:"); if (!password) return;
-      try {
-        await auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
-        await auth.signInWithEmailAndPassword(email.trim(), password);
-        alert("Innlogget ✅");
-      } catch (err) { alert("Innlogging feilet: " + err.message); }
-    }
-
-    async async async function doLogout(){
-      try { await auth.signOut(); alert("Logget ut"); }
-      catch (err) { alert("Utlogging feilet: " + err.message); }
-    }
-
-    document.addEventListener("DOMContentLoaded", () => {
-      const li = document.getElementById("btnLogin");
-      const lo = document.getElementById("btnLogout");
-      if (li) li.addEventListener("click", doLogin);
-      if (lo) lo.addEventListener("click", doLogout);
-    });
-
-    // Eksponer globalt hvis noe i HTML bruker onclick
-    window.doLogin  = doLogin;
-    window.doLogout = doLogout;
-  </script>
-  <!-- auto auth header for Netlify Functions -->
-  <script>
-    (function(){
-      if (window.__nfckingFetchPatched) return; // idempotent
-      window.__nfckingFetchPatched = true;
-
-      const origFetch = window.fetch.bind(window);
-
-      window.fetch = async function(input, init){
-        try{
-          const url = (typeof input === "string") ? input : (input && input.url) || "";
-          const isFn = url.startsWith("/.netlify/functions/");
-
-          if (isFn) {
-            const t = localStorage.getItem("nfcking.idToken") || "";
-            init = init || {};
-            // Normaliser headers
-            const hdrs = new Headers(init.headers || (input && input.headers) || {});
-            if (t && !hdrs.has("Authorization")) hdrs.set("Authorization", "Bearer " + t);
-
-            // Sett Content-Type automatisk for ikke-GET (hvis ikke FormData)
-            const method = (init.method || (input && input.method) || "GET").toUpperCase();
-            const isForm = (init && init.body && typeof FormData !== "undefined" && init.body instanceof FormData);
-            if (method !== "GET" && !isForm && !hdrs.has("Content-Type")) {
-              hdrs.set("Content-Type", "application/json");
-            }
-            init.headers = hdrs;
-          }
-        }catch(e){ /* stille */ }
-        return origFetch(input, init);
-      };
-    })();
-  </script>
-  <style>
-  .invite-status{margin-top:8px;font-size:.9rem;opacity:.95}
-  .invite-status.ok{color:#21c36a}
-  .invite-status.err{color:#ff6b6b}
-</style>
-
-<!-- Wire "Send invitasjon" til serverless users-invite + visuell feedback -->
-<script>
-(function(){
-  const $ = (s,r=document)=>r.querySelector(s);
-
-  // Finn knappen enten via id/klasse eller ved tekst
-  function findInviteBtn(){
-    const byId = $('#umInvite');
-    if (byId) return byId;
-    const all = Array.from(document.querySelectorAll('button, [role="button"], a'));
-    return all.find(b => (b.textContent||'').trim().toLowerCase() === 'send invitasjon');
-  }
-
-  // Finn feltene i samme seksjon som knappen
-  function getFields(scope){
-    const email = scope.querySelector('#umNewEmail, input[type="email"], input[placeholder*="E-post" i]');
-    const name  = scope.querySelector('#umNewName, input[name*="name" i], input[id*="name" i]');
-    const role  = scope.querySelector('#umNewRole, select');
-    return { email, name, role };
-  }
-
-  // Lag/returnér en status-linje rett under knapperaden
-  function ensureStatus(container){
-    let s = container.querySelector('.invite-status');
-    if (!s) {
-      s = document.createElement('div');
-      s.className = 'invite-status';
-      container.appendChild(s);
-    }
-    s.classList.remove('ok','err');
-    return s;
-  }
-
-  async function sendInvite(payload){
-    const res = await fetch('/.netlify/functions/users-invite', {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify(payload)
-    });
-    const text = await res.text().catch(()=> '');
-    let data;
-    try { data = JSON.parse(text); } catch { data = { ok:false, error:text||res.statusText }; }
-    if (!res.ok || data.ok === false) {
-      const msg = (data && (data.error||data.message)) || text || ('HTTP '+res.status);
-      throw new Error(msg);
-    }
-    return data;
-  }
-
-  function wire(){
-    const btn = findInviteBtn();
-    if (!btn || btn.__wiredInvite) return;
-    btn.__wiredInvite = true;
-
-    btn.addEventListener('click', async (e)=>{
-      e.preventDefault();
-      const scope = btn.closest('section,form,div') || document;
-      const { email, name, role } = getFields(scope);
-      const s = ensureStatus(btn.parentElement || scope);
-
-      const vEmail = (email && email.value || '').trim();
-      const vName  = (name  && name.value  || '').trim();
-      const vRole  = (role  && role.value  || 'viewer').trim();
-
-      if (!vEmail){ s.textContent = 'Skriv inn e-post først.'; s.classList.add('err'); return; }
-
-      btn.disabled = true;
-      const prev = btn.textContent;
-      btn.textContent = 'Sender…';
-      s.textContent = 'Sender invitasjon…';
-
-      try{
-        const r = await sendInvite({ email: vEmail, displayName: vName, role: vRole });
-        s.textContent = r.emailSent ? '✅ Invitasjon sendt!' : '✅ Lenke generert (men e-post ikke bekreftet sendt).';
-        s.classList.add('ok');
-      }catch(err){
-        s.textContent = 'Feil: ' + (err.message || 'ukjent feil');
-        s.classList.add('err');
-      }finally{
-        btn.disabled = false;
-        btn.textContent = prev;
-      }
-    });
-  }
-
-  document.addEventListener('DOMContentLoaded', wire);
-})();
-</script>
-
-<style>
-  .invite-status{margin-top:8px;font-size:.9rem;opacity:.95}
-  .invite-status.ok{color:#21c36a}
-  .invite-status.err{color:#ff6b6b}
-</style>
-
-<!-- users-invite wiring (robust, anker på knappetekst) -->
-<script>
-(function(){
-  const $ = (s,r=document)=>r.querySelector(s);
-
-  function findInviteBtn(){
-    const byId = $('#umInvite');
-    if (byId) return byId;
-    const all = Array.from(document.querySelectorAll('button, [role="button"], a'));
-    return all.find(b => (b.textContent||'').trim().toLowerCase() === 'send invitasjon');
-  }
-
-  function getFields(scope){
-    const email = scope.querySelector('#umNewEmail, input[type="email"], input[placeholder*="E-post" i]');
-    const name  = scope.querySelector('#umNewName, input[name*="name" i], input[id*="name" i]');
-    const role  = scope.querySelector('#umNewRole, select');
-    return { email, name, role };
-  }
-
-  function ensureStatus(container){
-    let s = container.querySelector('.invite-status');
-    if (!s) {
-      s = document.createElement('div');
-      s.className = 'invite-status';
-      container.appendChild(s);
-    }
-    s.classList.remove('ok','err');
-    return s;
-  }
-
-  async function sendInvite(payload){
-    const res = await fetch('/.netlify/functions/users-invite', {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify(payload)
-    });
-    const text = await res.text().catch(()=> '');
-    let data;
-    try { data = JSON.parse(text); } catch { data = { ok:false, error:text||res.statusText }; }
-    if (!res.ok || data.ok === false) {
-      const msg = (data && (data.error||data.message)) || text || ('HTTP '+res.status);
-      throw new Error(msg);
-    }
-    return data;
-  }
-
-  function wire(){
-    const btn = findInviteBtn();
-    if (!btn || btn.__wiredInvite) return;
-    btn.__wiredInvite = true;
-
-    btn.addEventListener('click', async (e)=>{
-      e.preventDefault();
-      const scope = btn.closest('section,form,div') || document;
-      const { email, name, role } = getFields(scope);
-      const s = ensureStatus(btn.parentElement || scope);
-
-      const vEmail = (email && email.value || '').trim();
-      const vName  = (name  && name.value  || '').trim();
-      const vRole  = (role  && role.value  || 'viewer').trim();
-
-      if (!vEmail){ s.textContent = 'Skriv inn e-post først.'; s.classList.add('err'); return; }
-
-      btn.disabled = true;
-      const prev = btn.textContent;
-      btn.textContent = 'Sender…';
-      s.textContent = 'Sender invitasjon…';
-
-      try{
-        const r = await sendInvite({ email: vEmail, displayName: vName, role: vRole });
-        s.textContent = r.emailSent ? '✅ Invitasjon sendt!' : '✅ Lenke generert (men e-post ikke bekreftet sendt).';
-        s.classList.add('ok');
-      }catch(err){
-        s.textContent = 'Feil: ' + (err.message || 'ukjent feil');
-        s.classList.add('err');
-      }finally{
-        btn.disabled = false;
-        btn.textContent = prev;
-      }
-    });
-  }
-
-  document.addEventListener('DOMContentLoaded', wire);
-})();
-</script>
 </body>
 </html>
 
