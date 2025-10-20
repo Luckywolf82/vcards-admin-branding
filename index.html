@@ -442,42 +442,171 @@
       });
       updatePathPreview();
 
-      window._uploadedAttachments = [];   // f.eks. ["brosjyre.pdf", {name:"…", url:"https://…"}]
+      const HTML_ESCAPE = {
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        "\"": "&quot;",
+        "'": "&#39;",
+      };
+      const escapeHtml = (str='') => String(str).replace(/[&<>"']/g, c => HTML_ESCAPE[c] || c);
+      const escapeAttr = (str='') => escapeHtml(str);
+
+      function normalizeAttachment(entry){
+        if (!entry) return null;
+        if (typeof entry === 'string'){
+          return { kind:'file', file: entry, label:'', sourceUrl:'' };
+        }
+        if (typeof entry === 'object'){
+          if (entry.kind === 'file' || entry.type === 'file'){
+            const file = entry.file || entry.url || entry.name || '';
+            const label = entry.label || entry.name || '';
+            return file ? { kind:'file', file, label, sourceUrl: entry.sourceUrl || entry.rawUrl || '' } : null;
+          }
+          if (entry.kind === 'url' || entry.type === 'url'){
+            const url = entry.url || '';
+            if (!url) return null;
+            const label = entry.label || entry.name || '';
+            return { kind:'url', url, label };
+          }
+          const url = entry.url || '';
+          const label = entry.name || entry.label || '';
+          if (url){
+            if (/^https?:\/\//i.test(url)){
+              return { kind:'url', url, label };
+            }
+            return { kind:'file', file: url, label, sourceUrl: entry.sourceUrl || '' };
+          }
+          if (entry.name){
+            return { kind:'file', file: entry.name, label: entry.label || '' };
+          }
+        }
+        return null;
+      }
+
+      function computeAttachmentDisplay(item){
+        if (!item) return '';
+        if (item.kind === 'file'){
+          return (item.label && item.label.trim()) || item.file || '';
+        }
+        if (item.kind === 'url'){
+          return (item.label && item.label.trim()) || item.url || '';
+        }
+        return '';
+      }
+
+      function setAttachmentsFromData(list){
+        const normalized = (Array.isArray(list) ? list : []).map(normalizeAttachment).filter(Boolean);
+        window._uploadedAttachments = normalized;
+        renderAttachments();
+      }
+
+      window._uploadedAttachments = [];
 
       function renderAttachments(){
         const list = document.getElementById('attachmentsList');
+        if (!list) return;
         const ghUser = document.getElementById('ghUser').value.trim();
         const ghRepo = document.getElementById('ghRepo').value.trim();
         const basePath = (document.getElementById('basePath').value || 'Vcards').replace(/^\/+|\/+$/g,'');
         const orgKey = document.getElementById('orgKey').value.trim();
         const slug   = document.getElementById('slug').value.trim();
         const pagesBase = ghUser && ghRepo ? `https://${ghUser}.github.io/${ghRepo}${basePath?`/${basePath}`:''}/${orgKey}/${slug}/files/` : '';
-        list.innerHTML = (window._uploadedAttachments || []).map(a=>{
-          if (typeof a === 'string'){
-            const url = pagesBase ? (pagesBase + encodeURIComponent(a)) : a;
-            return `<li>📎 ${a} ${pagesBase ? `<a class="pill" href="${url}" target="_blank" rel="noopener">Åpne</a>`:''}</li>`;
-          } else {
-            const label = a.name || (a.url.split('/').pop());
-            const url = a.url;
-            return `<li>🔗 ${label} <a class="pill" href="${url}" target="_blank" rel="noopener">Åpne</a></li>`;
+        const attachments = window._uploadedAttachments || [];
+        if (!attachments.length){
+          list.innerHTML = '<li class="note">Ingen vedlegg lagt til enda.</li>';
+          return;
+        }
+        list.innerHTML = attachments.map((item, index)=>{
+          const isFile = item.kind === 'file';
+          const display = computeAttachmentDisplay(item) || '(uten navn)';
+          const fileName = isFile ? (item.file || '') : '';
+          const labelValue = item.label || '';
+          const urlValue = isFile ? '' : (item.url || '');
+          const openHref = isFile
+            ? (fileName ? (pagesBase ? pagesBase + encodeURIComponent(fileName) : item.sourceUrl || '') : '')
+            : (urlValue || '');
+          const actions = [];
+          if (openHref){
+            actions.push(`<a class="pill" href="${escapeAttr(openHref)}" target="_blank" rel="noopener">Åpne</a>`);
           }
+          actions.push('<button type="button" class="pill" data-act="remove">Fjern</button>');
+          const labelInput = `<label style="display:block;margin-top:6px">Visningsnavn<input data-field="label" value="${escapeAttr(labelValue)}" placeholder="${isFile?'Standard = filnavn':'F.eks. Produktark'}" style="width:100%"></label>`;
+          const urlInput = isFile ? '' : `<label style="display:block;margin-top:6px">URL<input data-field="url" value="${escapeAttr(urlValue)}" placeholder="https://…" style="width:100%"></label>`;
+          const note = isFile && fileName ? `<small class="note">Lagringsfil: ${escapeHtml(fileName)}</small>` : '';
+          return `<li data-ix="${index}" class="attachment-item" style="margin:8px 0;padding:8px;border:1px solid #283246;border-radius:8px">`
+            + `<div class="inline" style="gap:8px"><span>${isFile?'📎':'🔗'}</span><strong data-role="display">${escapeHtml(display)}</strong></div>`
+            + labelInput
+            + urlInput
+            + `<div class="inline" style="gap:6px;margin-top:8px">${actions.join(' ')}</div>`
+            + (note ? `<div style="margin-top:4px">${note}</div>` : '')
+            + `</li>`;
         }).join('');
       }
 
       function _collectAttachments(){
-        return (window._uploadedAttachments || []).slice();
+        const attachments = window._uploadedAttachments || [];
+        return attachments.map(item=>{
+          if (item.kind === 'file'){
+            const file = (item.file || '').trim();
+            if (!file) return null;
+            const label = (item.label || '').trim();
+            return label ? { name: label, url: file } : file;
+          }
+          if (item.kind === 'url'){
+            const url = (item.url || '').trim();
+            if (!url) return null;
+            const label = (item.label || '').trim();
+            return { name: label || url, url };
+          }
+          return null;
+        }).filter(Boolean);
       }
       window._collectAttachments = _collectAttachments;
+      window._setAttachmentsFromData = setAttachmentsFromData;
+
+      const attachmentsListEl = document.getElementById('attachmentsList');
+      attachmentsListEl?.addEventListener('click', (e)=>{
+        const btn = e.target.closest('button[data-act="remove"]');
+        if (!btn) return;
+        e.preventDefault();
+        const li = btn.closest('li[data-ix]');
+        if (!li) return;
+        const ix = Number(li.getAttribute('data-ix'));
+        if (Number.isNaN(ix)) return;
+        (window._uploadedAttachments || []).splice(ix, 1);
+        renderAttachments();
+      });
+
+      attachmentsListEl?.addEventListener('input', (e)=>{
+        const field = e.target?.dataset?.field;
+        if (!field) return;
+        const li = e.target.closest('li[data-ix]');
+        if (!li) return;
+        const ix = Number(li.getAttribute('data-ix'));
+        if (Number.isNaN(ix)) return;
+        const item = (window._uploadedAttachments || [])[ix];
+        if (!item) return;
+        item[field] = e.target.value;
+        const displayEl = li.querySelector('[data-role="display"]');
+        if (displayEl){
+          displayEl.textContent = computeAttachmentDisplay(item) || '(uten navn)';
+        }
+      });
 
       document.getElementById('addExtBtn')?.addEventListener('click', ()=>{
         const url = document.getElementById('extUrl').value.trim();
         const name= document.getElementById('extName').value.trim();
         if (!url) return;
-        window._uploadedAttachments.push({ name: name || url.split('/').pop(), url });
+        const entry = normalizeAttachment({ kind:'url', url, label: name || '' });
+        if (!entry) return;
+        window._uploadedAttachments.push(entry);
         document.getElementById('extUrl').value = '';
         document.getElementById('extName').value = '';
         renderAttachments();
       });
+
+      setAttachmentsFromData(window._latestAttachments || []);
 
       async function uploadOneFile(file, ctx){
         const arrBuf = await file.arrayBuffer();
@@ -519,8 +648,8 @@
         try{
           for (const f of files){
             const res = await uploadOneFile(f, ctx);
-            // Vi lagrer kun filnavnet – URL genereres på kortet & i listen
-            window._uploadedAttachments.push(res.name);
+            const entry = normalizeAttachment({ kind:'file', file: res.name, label:'', sourceUrl: res.url });
+            if (entry) window._uploadedAttachments.push(entry);
           }
           status.innerHTML = '<span class="ok">✅ Opplasting ferdig</span>';
           document.getElementById('attachmentsInput').value = '';
@@ -690,6 +819,9 @@ document.addEventListener("DOMContentLoaded", ()=>{
 
     // Vedlegg (hvis du bruker _collectAttachments i genereringen)
     window._latestAttachments = Array.isArray(d.attachments) ? d.attachments : [];
+    if (typeof window._setAttachmentsFromData === "function") {
+      window._setAttachmentsFromData(window._latestAttachments);
+    }
     if (typeof window.previewLogo === "function") { window.previewLogo(); }
   }
 
@@ -1523,6 +1655,9 @@ document.addEventListener("DOMContentLoaded", ()=>{
 
     // Vedlegg (hvis du bruker _collectAttachments i genereringen)
     window._latestAttachments = Array.isArray(d.attachments) ? d.attachments : [];
+    if (typeof window._setAttachmentsFromData === "function") {
+      window._setAttachmentsFromData(window._latestAttachments);
+    }
     if (typeof window.previewLogo === "function") { window.previewLogo(); }
   }
 
