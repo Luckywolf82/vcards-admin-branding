@@ -43,6 +43,8 @@
     @media (min-width:1000px){ .grid.cols-2{grid-template-columns:1fr 1fr} .grid.cols-3{grid-template-columns:2fr 1fr 1fr} }
     .muted{color:var(--sub)}
     .hidden{display:none !important}
+    .gate{max-width:1200px;margin:40px auto;padding:24px}
+    .gate .card{margin:0 auto;max-width:640px;text-align:center}
   
     .status-pill{display:inline-flex;align-items:center;gap:8px;padding:6px 10px;border-radius:999px;background:#1a1c25;border:1px solid #222736}
     .status-dot{width:8px;height:8px;border-radius:999px;background:#ff6b6b;box-shadow:0 0 0 2px rgba(0,0,0,.2)}
@@ -91,7 +93,15 @@
     </div>
   </header>
 
-  <main class="container">
+  <div id="accessGate" class="gate hidden" role="alert">
+    <div class="card">
+      <h2>Tilgang begrenset</h2>
+      <p class="muted">Denne siden er kun tilgjengelig for superadministratorer. Logg inn med en konto som har superadmin-rolle for å fortsette.</p>
+      <p class="muted">Gjeldende rolle: <strong id="accessRole">ingen</strong></p>
+    </div>
+  </div>
+
+  <main class="container hidden" id="superadminMain">
     <h1>Superadmin</h1>
     <p class="muted">Full kontroll over farger, språk, brukere, sider, Stripe, ordrer, NFC-batcher, SEO m.m.</p>
 
@@ -1081,9 +1091,48 @@ ord_456"></textarea>
         defaultLang:'nb',
         langs:['nb','en'],
         data:{
-          'app.title': { nb:'NFCKING', en:'NFCKING' },
+          'app.title': { nb:'NFCKING administrasjon', en:'NFCKING administration' },
           'nav.home':  { nb:'Hjem', en:'Home' },
-          'nav.order': { nb:'Bestill', en:'Order' }
+          'nav.order': { nb:'Bestill', en:'Order' },
+          'nav.demo':  { nb:'Demo', en:'Demo' },
+          'nav.superadmin': { nb:'Superadmin', en:'Superadmin' },
+          'nav.cards': { nb:'Kort', en:'Cards' },
+          'tab.branding': { nb:'Branding', en:'Branding' },
+          'tab.lang': { nb:'Språk', en:'Languages' },
+          'tab.users': { nb:'Brukere', en:'Users' },
+          'tab.pages': { nb:'Sider', en:'Pages' },
+          'tab.stripe': { nb:'Stripe', en:'Stripe' },
+          'tab.orders': { nb:'Ordrer', en:'Orders' },
+          'tab.nfc': { nb:'NFC-Batcher', en:'NFC batches' },
+          'tab.seo': { nb:'SEO', en:'SEO' },
+          'tab.settings': { nb:'System', en:'System' },
+          'cta.login': { nb:'Logg inn', en:'Log in' },
+          'cta.logout': { nb:'Logg ut', en:'Log out' },
+          'cta.invite': { nb:'Send invitasjon', en:'Send invite' },
+          'cta.save': { nb:'Lagre', en:'Save' },
+          'cta.cancel': { nb:'Avbryt', en:'Cancel' },
+          'cta.addLanguage': { nb:'Legg til språk', en:'Add language' },
+          'cta.addKey': { nb:'Legg til nøkkel', en:'Add key' },
+          'cta.export': { nb:'Eksporter', en:'Export' },
+          'cta.import': { nb:'Importer', en:'Import' },
+          'users.status.active': { nb:'Aktiv', en:'Active' },
+          'users.status.disabled': { nb:'Deaktivert', en:'Disabled' },
+          'users.role.viewer': { nb:'Leser', en:'Viewer' },
+          'users.role.support': { nb:'Support', en:'Support' },
+          'users.role.editor': { nb:'Redaktør', en:'Editor' },
+          'users.role.admin': { nb:'Administrator', en:'Administrator' },
+          'users.role.owner': { nb:'Eier', en:'Owner' },
+          'users.role.superadmin': { nb:'Superadministrator', en:'Super administrator' },
+          'lang.default': { nb:'Standardspråk', en:'Default language' },
+          'lang.available': { nb:'Tilgjengelige språk', en:'Available languages' },
+          'lang.key': { nb:'Nøkkel', en:'Key' },
+          'lang.value': { nb:'Verdi', en:'Value' },
+          'lang.search': { nb:'Søk i nøklene', en:'Search keys' },
+          'lang.reset': { nb:'Tilbakestill', en:'Reset' },
+          'lang.lastUpdated': { nb:'Sist oppdatert', en:'Last updated' },
+          'status.loading': { nb:'Laster …', en:'Loading…' },
+          'status.error': { nb:'Noe gikk galt', en:'Something went wrong' },
+          'status.success': { nb:'Fullført', en:'Completed' }
         }
       };
     }
@@ -1395,6 +1444,14 @@ ord_456"></textarea>
         if (el.prev) el.prev.disabled = true;
         if (el.next) el.next.disabled = true;
         setMsg('Logg inn for å administrere brukere.');
+        return false;
+      }
+      const role = (localStorage.getItem('nfcking.role') || '').toLowerCase();
+      if (role !== 'superadmin') {
+        clearTable();
+        if (el.prev) el.prev.disabled = true;
+        if (el.next) el.next.disabled = true;
+        setMsg('Kun superadministratorer kan administrere brukere.');
         return false;
       }
       return true;
@@ -2689,6 +2746,16 @@ ord_456"></textarea>
   (function(){
     const auth = firebase.auth();
     const SUPERADMIN_EMAILS = new Set(['trygve.waagen@gmail.com']);
+    const main = document.getElementById('superadminMain');
+    const gate = document.getElementById('accessGate');
+    const gateRole = document.getElementById('accessRole');
+
+    function enforceAccess(role){
+      const allowed = role === 'superadmin';
+      if (main) main.classList.toggle('hidden', !allowed);
+      if (gate) gate.classList.toggle('hidden', allowed);
+      if (gateRole) gateRole.textContent = role || 'ingen';
+    }
 
     (function patchFetch(){
       if (window.__nfckingFetchPatched) return;
@@ -2754,6 +2821,7 @@ ord_456"></textarea>
         localStorage.removeItem('nfcking.role');
         localStorage.removeItem('nfcking.userName');
         localStorage.removeItem('nfcking.idToken');
+        enforceAccess(null);
         return;
       }
 
@@ -2776,6 +2844,7 @@ ord_456"></textarea>
       updateBadge(user, role);
       btnLogin?.classList.add('hidden');
       btnLogout?.classList.remove('hidden');
+      enforceAccess(role);
     });
 
     async function doLogin(){
