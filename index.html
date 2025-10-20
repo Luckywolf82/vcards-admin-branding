@@ -94,9 +94,9 @@
         <div>
           <h3 style="margin:0 0 6px">Siste opplastede filer</h3>
           <p class="note" id="recentFilesSub" style="margin:0">
-            <span id="recentModeLabel">Viser vedlegg</span>
+            <span id="recentModeLabel">Viser kort</span>
             &nbsp;|&nbsp;
-            <a href="#" id="switchToCards" style="color:#8fd3ff;text-decoration:none;">Kort</a>
+            <a href="#" id="switchToCards" style="color:#8fd3ff;text-decoration:none;">Vedlegg</a>
           </p>
         </div>
         <div class="actions">
@@ -113,12 +113,12 @@
       <label>Velg organisasjon
         <select id="orgSelect"></select>
       </label>
+      <div class="inline" id="latestCardRow" style="gap:8px;margin-top:6px">
+        <button type="button" class="pill" id="btnFetchLatestCard">Hent siste kort</button>
+        <span class="note" id="latestCardStatus"></span>
+      </div>
 
-      
-<div class="inline" id="latestCardRow" style="gap:8px;margin-top:6px">
-  <button type="button" class="pill" id="btnFetchLatestCard">Hent siste kort</button>
-  <span class="note" id="latestCardStatus"></span>
-</div><div class="inline">
+      <div class="inline">
         <label style="flex:1">Org key (mappe – case sensitive)
           <input id="orgKey" placeholder="OrgKey" required oninput="applyBranding('force'); syncOrgSelectFromKey(); loadEmployees();">
         </label>
@@ -362,6 +362,9 @@
         tbody.appendChild(tr);
       }
 
+      window._addLinkRow = addRow;
+      window._clearLinkRows = () => { tbody.innerHTML = ''; };
+
       document.getElementById('addLink').addEventListener('click', () => {
         addRow(
           document.getElementById('newLabel').value,
@@ -442,42 +445,171 @@
       });
       updatePathPreview();
 
-      window._uploadedAttachments = [];   // f.eks. ["brosjyre.pdf", {name:"…", url:"https://…"}]
+      const HTML_ESCAPE = {
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        "\"": "&quot;",
+        "'": "&#39;",
+      };
+      const escapeHtml = (str='') => String(str).replace(/[&<>"']/g, c => HTML_ESCAPE[c] || c);
+      const escapeAttr = (str='') => escapeHtml(str);
+
+      function normalizeAttachment(entry){
+        if (!entry) return null;
+        if (typeof entry === 'string'){
+          return { kind:'file', file: entry, label:'', sourceUrl:'' };
+        }
+        if (typeof entry === 'object'){
+          if (entry.kind === 'file' || entry.type === 'file'){
+            const file = entry.file || entry.url || entry.name || '';
+            const label = entry.label || entry.name || '';
+            return file ? { kind:'file', file, label, sourceUrl: entry.sourceUrl || entry.rawUrl || '' } : null;
+          }
+          if (entry.kind === 'url' || entry.type === 'url'){
+            const url = entry.url || '';
+            if (!url) return null;
+            const label = entry.label || entry.name || '';
+            return { kind:'url', url, label };
+          }
+          const url = entry.url || '';
+          const label = entry.name || entry.label || '';
+          if (url){
+            if (/^https?:\/\//i.test(url)){
+              return { kind:'url', url, label };
+            }
+            return { kind:'file', file: url, label, sourceUrl: entry.sourceUrl || '' };
+          }
+          if (entry.name){
+            return { kind:'file', file: entry.name, label: entry.label || '' };
+          }
+        }
+        return null;
+      }
+
+      function computeAttachmentDisplay(item){
+        if (!item) return '';
+        if (item.kind === 'file'){
+          return (item.label && item.label.trim()) || item.file || '';
+        }
+        if (item.kind === 'url'){
+          return (item.label && item.label.trim()) || item.url || '';
+        }
+        return '';
+      }
+
+      function setAttachmentsFromData(list){
+        const normalized = (Array.isArray(list) ? list : []).map(normalizeAttachment).filter(Boolean);
+        window._uploadedAttachments = normalized;
+        renderAttachments();
+      }
+
+      window._uploadedAttachments = [];
 
       function renderAttachments(){
         const list = document.getElementById('attachmentsList');
+        if (!list) return;
         const ghUser = document.getElementById('ghUser').value.trim();
         const ghRepo = document.getElementById('ghRepo').value.trim();
         const basePath = (document.getElementById('basePath').value || 'Vcards').replace(/^\/+|\/+$/g,'');
         const orgKey = document.getElementById('orgKey').value.trim();
         const slug   = document.getElementById('slug').value.trim();
         const pagesBase = ghUser && ghRepo ? `https://${ghUser}.github.io/${ghRepo}${basePath?`/${basePath}`:''}/${orgKey}/${slug}/files/` : '';
-        list.innerHTML = (window._uploadedAttachments || []).map(a=>{
-          if (typeof a === 'string'){
-            const url = pagesBase ? (pagesBase + encodeURIComponent(a)) : a;
-            return `<li>📎 ${a} ${pagesBase ? `<a class="pill" href="${url}" target="_blank" rel="noopener">Åpne</a>`:''}</li>`;
-          } else {
-            const label = a.name || (a.url.split('/').pop());
-            const url = a.url;
-            return `<li>🔗 ${label} <a class="pill" href="${url}" target="_blank" rel="noopener">Åpne</a></li>`;
+        const attachments = window._uploadedAttachments || [];
+        if (!attachments.length){
+          list.innerHTML = '<li class="note">Ingen vedlegg lagt til enda.</li>';
+          return;
+        }
+        list.innerHTML = attachments.map((item, index)=>{
+          const isFile = item.kind === 'file';
+          const display = computeAttachmentDisplay(item) || '(uten navn)';
+          const fileName = isFile ? (item.file || '') : '';
+          const labelValue = item.label || '';
+          const urlValue = isFile ? '' : (item.url || '');
+          const openHref = isFile
+            ? (fileName ? (pagesBase ? pagesBase + encodeURIComponent(fileName) : item.sourceUrl || '') : '')
+            : (urlValue || '');
+          const actions = [];
+          if (openHref){
+            actions.push(`<a class="pill" href="${escapeAttr(openHref)}" target="_blank" rel="noopener">Åpne</a>`);
           }
+          actions.push('<button type="button" class="pill" data-act="remove">Fjern</button>');
+          const labelInput = `<label style="display:block;margin-top:6px">Visningsnavn<input data-field="label" value="${escapeAttr(labelValue)}" placeholder="${isFile?'Standard = filnavn':'F.eks. Produktark'}" style="width:100%"></label>`;
+          const urlInput = isFile ? '' : `<label style="display:block;margin-top:6px">URL<input data-field="url" value="${escapeAttr(urlValue)}" placeholder="https://…" style="width:100%"></label>`;
+          const note = isFile && fileName ? `<small class="note">Lagringsfil: ${escapeHtml(fileName)}</small>` : '';
+          return `<li data-ix="${index}" class="attachment-item" style="margin:8px 0;padding:8px;border:1px solid #283246;border-radius:8px">`
+            + `<div class="inline" style="gap:8px"><span>${isFile?'📎':'🔗'}</span><strong data-role="display">${escapeHtml(display)}</strong></div>`
+            + labelInput
+            + urlInput
+            + `<div class="inline" style="gap:6px;margin-top:8px">${actions.join(' ')}</div>`
+            + (note ? `<div style="margin-top:4px">${note}</div>` : '')
+            + `</li>`;
         }).join('');
       }
 
       function _collectAttachments(){
-        return (window._uploadedAttachments || []).slice();
+        const attachments = window._uploadedAttachments || [];
+        return attachments.map(item=>{
+          if (item.kind === 'file'){
+            const file = (item.file || '').trim();
+            if (!file) return null;
+            const label = (item.label || '').trim();
+            return label ? { name: label, url: file } : file;
+          }
+          if (item.kind === 'url'){
+            const url = (item.url || '').trim();
+            if (!url) return null;
+            const label = (item.label || '').trim();
+            return { name: label || url, url };
+          }
+          return null;
+        }).filter(Boolean);
       }
       window._collectAttachments = _collectAttachments;
+      window._setAttachmentsFromData = setAttachmentsFromData;
+
+      const attachmentsListEl = document.getElementById('attachmentsList');
+      attachmentsListEl?.addEventListener('click', (e)=>{
+        const btn = e.target.closest('button[data-act="remove"]');
+        if (!btn) return;
+        e.preventDefault();
+        const li = btn.closest('li[data-ix]');
+        if (!li) return;
+        const ix = Number(li.getAttribute('data-ix'));
+        if (Number.isNaN(ix)) return;
+        (window._uploadedAttachments || []).splice(ix, 1);
+        renderAttachments();
+      });
+
+      attachmentsListEl?.addEventListener('input', (e)=>{
+        const field = e.target?.dataset?.field;
+        if (!field) return;
+        const li = e.target.closest('li[data-ix]');
+        if (!li) return;
+        const ix = Number(li.getAttribute('data-ix'));
+        if (Number.isNaN(ix)) return;
+        const item = (window._uploadedAttachments || [])[ix];
+        if (!item) return;
+        item[field] = e.target.value;
+        const displayEl = li.querySelector('[data-role="display"]');
+        if (displayEl){
+          displayEl.textContent = computeAttachmentDisplay(item) || '(uten navn)';
+        }
+      });
 
       document.getElementById('addExtBtn')?.addEventListener('click', ()=>{
         const url = document.getElementById('extUrl').value.trim();
         const name= document.getElementById('extName').value.trim();
         if (!url) return;
-        window._uploadedAttachments.push({ name: name || url.split('/').pop(), url });
+        const entry = normalizeAttachment({ kind:'url', url, label: name || '' });
+        if (!entry) return;
+        window._uploadedAttachments.push(entry);
         document.getElementById('extUrl').value = '';
         document.getElementById('extName').value = '';
         renderAttachments();
       });
+
+      setAttachmentsFromData(window._latestAttachments || []);
 
       async function uploadOneFile(file, ctx){
         const arrBuf = await file.arrayBuffer();
@@ -519,8 +651,8 @@
         try{
           for (const f of files){
             const res = await uploadOneFile(f, ctx);
-            // Vi lagrer kun filnavnet – URL genereres på kortet & i listen
-            window._uploadedAttachments.push(res.name);
+            const entry = normalizeAttachment({ kind:'file', file: res.name, label:'', sourceUrl: res.url });
+            if (entry) window._uploadedAttachments.push(entry);
           }
           status.innerHTML = '<span class="ok">✅ Opplasting ferdig</span>';
           document.getElementById('attachmentsInput').value = '';
@@ -616,131 +748,6 @@ document.addEventListener("DOMContentLoaded", ()=>{
     const lab = el.closest("label");
     if (lab) lab.style.display = "none";
   });
-});
-</script>
-<script>
-(function(){
-  const $btn  = document.getElementById("btnFetchLatestCard");
-  const $stat = document.getElementById("latestCardStatus");
-  if (!$btn) return;
-
-  const getVal = (id)=> (document.getElementById(id)?.value || "").trim();
-  const setVal = (id, v)=>{ const el = document.getElementById(id); if (el) el.value = (v||""); };
-  const trimSlashes = (s)=> (s||"").replace(/^\/+|\/+$/g, "");
-
-  async function j(url){
-    const r = await fetch(url, { headers: { "Accept":"application/vnd.github+json" } });
-    if(!r.ok) throw new Error(r.status + " " + r.statusText);
-    return r.json();
-  }
-
-  async function fetchLatestSlug(owner, repo, basePath, orgKey){
-    const path = encodeURIComponent(trimSlashes(basePath) + "/" + orgKey);
-    const commits = await j(`https://api.github.com/repos/${owner}/${repo}/commits?path=${path}&per_page=20`);
-    const details = await Promise.all((commits||[]).slice(0,8).map(c => j(c.url).catch(()=>null)));
-    let latest = null;
-    for (const dc of details){
-      if(!dc || !Array.isArray(dc.files)) continue;
-      const when = dc.commit?.author?.date || dc.commit?.committer?.date || "";
-      for (const f of dc.files){
-        const p = f.filename || "";
-        if(!/\/index\.html$/.test(p)) continue;
-        if(!p.includes("/"+orgKey+"/")) continue;
-        const parts = p.split("/");
-        const slug = parts[parts.length-2] || "";
-        if(!slug) continue;
-        if(!latest || new Date(when) > new Date(latest.when)){
-          latest = { slug, when };
-        }
-      }
-    }
-    return latest?.slug || "";
-  }
-
-  function applyData(d){
-    setVal("slug", d.slug);
-    setVal("name", d.name);
-    setVal("title", d.title);
-    setVal("phone", d.phone);
-    setVal("email", d.email);
-    setVal("site", d.site);
-    setVal("address", d.address);
-    setVal("vcfFilename", d.vcfFilename);
-    setVal("orgName", d.orgName || d.orgKey);
-    setVal("accent", d.accent);
-    setVal("logoUrl", d.logoUrl);
-    setVal("logoBg", d.logoBg);
-
-    // Links-tabell
-    const tbody = document.querySelector("#linksTable tbody");
-    if (tbody) {
-      tbody.innerHTML = "";
-      (d.links||[]).forEach(l=>{
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-          <td><input value="${l.label||''}" class="lbl" /></td>
-          <td><input value="${l.url||''}"   class="lnk" style="width:100%"/></td>
-          <td><textarea class="pre" rows="2">${l.pre||''}</textarea></td>
-          <td><textarea class="post" rows="2">${l.post||''}</textarea></td>
-          <td><button type="button" class="remove">Fjern</button></td>`;
-        tr.querySelector(".remove").addEventListener("click", ()=> tr.remove());
-        tbody.appendChild(tr);
-      });
-    }
-
-    // Vedlegg (hvis du bruker _collectAttachments i genereringen)
-    window._latestAttachments = Array.isArray(d.attachments) ? d.attachments : [];
-    if (typeof window.previewLogo === "function") { window.previewLogo(); }
-  }
-
-  $btn.addEventListener("click", async ()=>{
-    const owner = (document.getElementById("ghUser")?.value || "Luckywolf82");
-    const repo  = (document.getElementById("ghRepo")?.value || "Vcards");
-    const basePath = trimSlashes(getVal("basePath") || "Vcards");
-    const orgKey   = getVal("orgKey");
-    if(!orgKey){ if($stat) $stat.textContent = "Angi Org key først."; return; }
-    try{
-      if($stat) $stat.textContent = "Leter etter siste kort…";
-      const slug = await fetchLatestSlug(owner, repo, basePath, orgKey);
-      if(!slug){ if($stat) $stat.textContent = "Fant ingen index.html for denne organisasjonen enda."; return; }
-      const raw = `https://raw.githubusercontent.com/${owner}/${repo}/HEAD/${basePath}/${orgKey}/${slug}/data.json`;
-      const r = await fetch(raw, { cache:"no-store" });
-      if(!r.ok){ if($stat) $stat.textContent = "Fant slug, men ikke data.json."; return; }
-      const d = await r.json();
-      d.slug = slug; // safety
-      applyData(d);
-      if($stat) $stat.textContent = "Fylte feltene fra: " + orgKey + "/" + slug;
-    }catch(e){
-      if($stat) $stat.textContent = "Feil: " + (e.message||e);
-    }
-  });
-})();
-</script>
-<script>
-document.addEventListener("DOMContentLoaded", ()=>{
-  const tbody = document.querySelector("#linksTable tbody");
-  const addBtn = document.getElementById("btnAddLink");
-  if (addBtn && tbody) {
-    addBtn.addEventListener("click", ()=>{
-      const tr = document.createElement("tr");
-      tr.innerHTML = `
-        <td><input class="lbl" placeholder="Etikett" /></td>
-        <td><input class="lnk" placeholder="https://..." style="width:100%" /></td>
-        <td><textarea class="pre" rows="2" placeholder="Tekst over"></textarea></td>
-        <td><textarea class="post" rows="2" placeholder="Tekst under"></textarea></td>
-        <td><button type="button" class="remove">Fjern</button></td>`;
-      tbody.appendChild(tr);
-    });
-  }
-  if (tbody) {
-    tbody.addEventListener("click", (e)=>{
-      const btn = e.target.closest(".remove");
-      if (!btn) return;
-      e.preventDefault();
-      const tr = btn.closest("tr");
-      if (tr) tr.remove();
-    });
-  }
 });
 </script>
 <script>
@@ -1043,7 +1050,7 @@ document.addEventListener("DOMContentLoaded", ()=>{
       const CACHE_TTL_MS        = 2 * 60 * 1000;
 
       let _recentAllItems = [];
-      let _recentMode = 'files'; // 'files' | 'cards'
+      let _recentMode = 'cards'; // 'files' | 'cards'
 
       function getField(id){ const el = document.getElementById(id); return (el?.value || '').trim(); }
       function pathJoin(){ return Array.from(arguments).filter(Boolean).join('/').replace(/\/+/g,'/'); }
@@ -1145,9 +1152,11 @@ document.addEventListener("DOMContentLoaded", ()=>{
         if (_recentMode === 'cards') {
           $recentModeLbl.textContent = 'Viser kort';
           $recentSub.innerHTML = 'Viser siste endringer i <code>/' + currentCardsPath() + '/(index.html)</code>';
+          if ($switchToCards) $switchToCards.textContent = 'Vedlegg';
         } else {
           $recentModeLbl.textContent = 'Viser vedlegg';
           $recentSub.innerHTML = 'Viser siste endringer i <code>/' + currentFilesPath() + '/</code>';
+          if ($switchToCards) $switchToCards.textContent = 'Kort';
         }
 
         if (useCache){
@@ -1441,142 +1450,6 @@ document.addEventListener("DOMContentLoaded", ()=>{
   </main>
 
 <script>
-document.addEventListener("DOMContentLoaded", ()=>{
-  ["ghUser","ghRepo"].forEach(id=>{
-    const el = document.getElementById(id);
-    if (!el) return;
-    el.style.display = "none";
-    const lab = el.closest("label");
-    if (lab) lab.style.display = "none";
-  });
-});
-</script>
-<script>
-(function(){
-  const $btn  = document.getElementById("btnFetchLatestCard");
-  const $stat = document.getElementById("latestCardStatus");
-  if (!$btn) return;
-
-  const getVal = (id)=> (document.getElementById(id)?.value || "").trim();
-  const setVal = (id, v)=>{ const el = document.getElementById(id); if (el) el.value = (v||""); };
-  const trimSlashes = (s)=> (s||"").replace(/^\/+|\/+$/g, "");
-
-  async function j(url){
-    const r = await fetch(url, { headers: { "Accept":"application/vnd.github+json" } });
-    if(!r.ok) throw new Error(r.status + " " + r.statusText);
-    return r.json();
-  }
-
-  async function fetchLatestSlug(owner, repo, basePath, orgKey){
-    const path = encodeURIComponent(trimSlashes(basePath) + "/" + orgKey);
-    const commits = await j(`https://api.github.com/repos/${owner}/${repo}/commits?path=${path}&per_page=20`);
-    const details = await Promise.all((commits||[]).slice(0,8).map(c => j(c.url).catch(()=>null)));
-    let latest = null;
-    for (const dc of details){
-      if(!dc || !Array.isArray(dc.files)) continue;
-      const when = dc.commit?.author?.date || dc.commit?.committer?.date || "";
-      for (const f of dc.files){
-        const p = f.filename || "";
-        if(!/\/index\.html$/.test(p)) continue;
-        if(!p.includes("/"+orgKey+"/")) continue;
-        const parts = p.split("/");
-        const slug = parts[parts.length-2] || "";
-        if(!slug) continue;
-        if(!latest || new Date(when) > new Date(latest.when)){
-          latest = { slug, when };
-        }
-      }
-    }
-    return latest?.slug || "";
-  }
-
-  function applyData(d){
-    setVal("slug", d.slug);
-    setVal("name", d.name);
-    setVal("title", d.title);
-    setVal("phone", d.phone);
-    setVal("email", d.email);
-    setVal("site", d.site);
-    setVal("address", d.address);
-    setVal("vcfFilename", d.vcfFilename);
-    setVal("orgName", d.orgName || d.orgKey);
-    setVal("accent", d.accent);
-    setVal("logoUrl", d.logoUrl);
-    setVal("logoBg", d.logoBg);
-
-    // Links-tabell
-    const tbody = document.querySelector("#linksTable tbody");
-    if (tbody) {
-      tbody.innerHTML = "";
-      (d.links||[]).forEach(l=>{
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-          <td><input value="${l.label||''}" class="lbl" /></td>
-          <td><input value="${l.url||''}"   class="lnk" style="width:100%"/></td>
-          <td><textarea class="pre" rows="2">${l.pre||''}</textarea></td>
-          <td><textarea class="post" rows="2">${l.post||''}</textarea></td>
-          <td><button type="button" class="remove">Fjern</button></td>`;
-        tr.querySelector(".remove").addEventListener("click", ()=> tr.remove());
-        tbody.appendChild(tr);
-      });
-    }
-
-    // Vedlegg (hvis du bruker _collectAttachments i genereringen)
-    window._latestAttachments = Array.isArray(d.attachments) ? d.attachments : [];
-    if (typeof window.previewLogo === "function") { window.previewLogo(); }
-  }
-
-  $btn.addEventListener("click", async ()=>{
-    const owner = (document.getElementById("ghUser")?.value || "Luckywolf82");
-    const repo  = (document.getElementById("ghRepo")?.value || "Vcards");
-    const basePath = trimSlashes(getVal("basePath") || "Vcards");
-    const orgKey   = getVal("orgKey");
-    if(!orgKey){ if($stat) $stat.textContent = "Angi Org key først."; return; }
-    try{
-      if($stat) $stat.textContent = "Leter etter siste kort…";
-      const slug = await fetchLatestSlug(owner, repo, basePath, orgKey);
-      if(!slug){ if($stat) $stat.textContent = "Fant ingen index.html for denne organisasjonen enda."; return; }
-      const raw = `https://raw.githubusercontent.com/${owner}/${repo}/HEAD/${basePath}/${orgKey}/${slug}/data.json`;
-      const r = await fetch(raw, { cache:"no-store" });
-      if(!r.ok){ if($stat) $stat.textContent = "Fant slug, men ikke data.json."; return; }
-      const d = await r.json();
-      d.slug = slug; // safety
-      applyData(d);
-      if($stat) $stat.textContent = "Fylte feltene fra: " + orgKey + "/" + slug;
-    }catch(e){
-      if($stat) $stat.textContent = "Feil: " + (e.message||e);
-    }
-  });
-})();
-</script>
-<script>
-document.addEventListener("DOMContentLoaded", ()=>{
-  const tbody = document.querySelector("#linksTable tbody");
-  const addBtn = document.getElementById("btnAddLink");
-  if (addBtn && tbody) {
-    addBtn.addEventListener("click", ()=>{
-      const tr = document.createElement("tr");
-      tr.innerHTML = `
-        <td><input class="lbl" placeholder="Etikett" /></td>
-        <td><input class="lnk" placeholder="https://..." style="width:100%" /></td>
-        <td><textarea class="pre" rows="2" placeholder="Tekst over"></textarea></td>
-        <td><textarea class="post" rows="2" placeholder="Tekst under"></textarea></td>
-        <td><button type="button" class="remove">Fjern</button></td>`;
-      tbody.appendChild(tr);
-    });
-  }
-  if (tbody) {
-    tbody.addEventListener("click", (e)=>{
-      const btn = e.target.closest(".remove");
-      if (!btn) return;
-      e.preventDefault();
-      const tr = btn.closest("tr");
-      if (tr) tr.remove();
-    });
-  }
-});
-</script>
-<script>
 (function(){
   // En liten "state" for sist opplastede sti'er i denne økta:
   const filesState = []; // {path, name}
@@ -1654,6 +1527,141 @@ document.addEventListener("DOMContentLoaded", ()=>{
     });
   }
 })();
+</script>
+<script id="hideGhInputs">
+document.addEventListener("DOMContentLoaded", ()=>{
+  ["ghUser","ghRepo"].forEach(id=>{
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.style.display = "none";
+    const lab = el.closest("label");
+    if (lab) lab.style.display = "none";
+  });
+});
+</script>
+<script id="latestCardScript">
+(function(){
+  const btn  = document.getElementById("btnFetchLatestCard");
+  const stat = document.getElementById("latestCardStatus");
+  if (!btn) return;
+
+  const gv=id=>(document.getElementById(id)?.value||"").trim();
+  const sv=(id,v)=>{ const el=document.getElementById(id); if(el) el.value=v||""; };
+  const ts=s=>(s||"").replace(/^\/+|\/+$/g,"");
+  const esc=s=>String(s||"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]||c));
+
+  async function j(u){
+    const r = await fetch(u,{ headers:{ Accept:"application/vnd.github+json" }});
+    if(!r.ok) throw new Error(r.status+" "+r.statusText);
+    return r.json();
+  }
+
+  // Finn siste slug for DIN bruker i /<basePath>/<orgKey>/*/index.html
+  async function latest(owner,repo,basePath,orgKey,author){
+    const path = encodeURIComponent(ts(basePath)+"/"+orgKey);
+    const commits = await j(`https://api.github.com/repos/${owner}/${repo}/commits?path=${path}&author=${encodeURIComponent(author)}&per_page=25`);
+    const details = await Promise.all((commits||[]).slice(0,10).map(c => j(c.url).catch(()=>null)));
+    let best=null;
+    for(const dc of details){
+      if(!dc || !Array.isArray(dc.files)) continue;
+      const when = dc.commit?.author?.date || dc.commit?.committer?.date || "";
+      for(const f of dc.files){
+        const p = f.filename||"";
+        if(!/\/index\.html$/.test(p)) continue;
+        if(!p.includes("/"+orgKey+"/")) continue;
+        const parts = p.split("/");
+        const slug  = parts[parts.length-2] || "";
+        if(!slug) continue;
+        if(!best || new Date(when) > new Date(best.when)) best = { slug, when };
+      }
+    }
+    return best?.slug || "";
+  }
+
+  function fill(d){
+    sv("slug", d.slug);
+    sv("name", d.name);
+    sv("title", d.title);
+    sv("phone", d.phone);
+    sv("email", d.email);
+    sv("site", d.site);
+    sv("address", d.address);
+    sv("vcfFilename", d.vcfFilename);
+    sv("orgName", d.orgName || d.orgKey);
+    sv("accent", d.accent);
+    sv("logoUrl", d.logoUrl);
+    sv("logoBg", d.logoBg);
+    sv("orgSite", d.orgSite || d.site || "");
+
+    const links = Array.isArray(d.links) ? d.links : [];
+    if (typeof window._clearLinkRows === "function") {
+      window._clearLinkRows();
+      if (typeof window._addLinkRow === "function") {
+        links.forEach(l => window._addLinkRow(l?.label || "", l?.url || "", l?.pre || "", l?.post || ""));
+      }
+    } else {
+      const tb=document.querySelector("#linksTable tbody");
+      if(tb){
+        tb.innerHTML="";
+        links.forEach(l=>{
+          const tr=document.createElement("tr");
+          tr.innerHTML=
+            `<td><input value="${esc(l?.label||"")}" class="lbl" /></td>`+
+            `<td><input value="${esc(l?.url||"")}"   class="lnk" style="width:100%"/></td>`+
+            `<td><textarea class="pre" rows="2">${esc(l?.pre||"")}</textarea></td>`+
+            `<td><textarea class="post" rows="2">${esc(l?.post||"")}</textarea></td>`+
+            `<td><button type="button" class="remove">Fjern</button></td>`;
+          tb.appendChild(tr);
+        });
+      }
+    }
+
+    window._latestAttachments = Array.isArray(d.attachments) ? d.attachments : [];
+    if (typeof window._setAttachmentsFromData === "function") {
+      window._setAttachmentsFromData(window._latestAttachments);
+    }
+    if (typeof window.previewLogo === "function") { window.previewLogo(); }
+  }
+
+  btn.addEventListener("click", async ()=>{
+    const owner  = (document.getElementById("ghUser")?.value || "Luckywolf82");
+    const repo   = (document.getElementById("ghRepo")?.value || "Vcards");
+    const base   = ts(gv("basePath") || "Vcards");
+    const orgKey = gv("orgKey");
+    const author = (document.getElementById("ghUser")?.value || "Luckywolf82");
+
+    if(!orgKey){ if(stat) stat.textContent="Angi Org key først."; return; }
+
+    try{
+      if(stat) stat.textContent="Henter siste kort…";
+      const slug = await latest(owner,repo,base,orgKey,author);
+      if(!slug){ if(stat) stat.textContent="Fant ingen kort nylig oppdatert av deg."; return; }
+
+      const raw = `https://raw.githubusercontent.com/${owner}/${repo}/HEAD/${base}/${orgKey}/${slug}/data.json`;
+      const r = await fetch(raw,{ cache:"no-store" });
+      if(!r.ok){ if(stat) stat.textContent="Fant slug, men ikke data.json."; return; }
+
+      const d = await r.json();
+      d.slug = slug;
+      fill(d);
+      if(stat) stat.textContent = `Fylte feltene fra: ${orgKey}/${slug}`;
+    }catch(e){
+      if(stat) stat.textContent = "Feil: " + (e.message||e);
+    }
+  });
+})();
+</script>
+<script id="linkDelegation">
+document.addEventListener("DOMContentLoaded", ()=>{
+  const tbody = document.querySelector("#linksTable tbody");
+  if(!tbody) return;
+  tbody.addEventListener("click", (e)=>{
+    const btn = e.target.closest("button.remove");
+    if(!btn) return;
+    const tr = btn.closest("tr");
+    if(tr) tr.remove();
+  });
+});
 </script>
 </body>
 </html>
