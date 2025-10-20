@@ -1804,6 +1804,7 @@
           });
 
           let visible = fetched;
+          let fallbackAll = false;
           if (orgAccessState.all) {
             if (Object.keys(visible).length === 0) {
               visible = { "DemoOrg": { name:"DemoOrg", accent:"#3ec6ff", logo:"", site:"https://eksempel.no", logoBg:"#ffffff" } };
@@ -1815,7 +1816,20 @@
             });
             visible = subset;
           } else {
-            visible = {};
+            visible = fetched;
+            fallbackAll = true;
+          }
+
+          window.ORG_PROFILES = visible;
+          if (fallbackAll) {
+            orgAccessState.set(Object.keys(visible), false);
+            setOrgAccessMessage(
+              Object.keys(visible).length
+                ? 'Ingen tildelte organisasjoner funnet – viser alle tilgjengelige for nå.'
+                : 'Ingen organisasjoner funnet.'
+            );
+          } else {
+            setOrgAccessMessage(describeAccess(visible));
           }
 
           window.ORG_PROFILES = visible;
