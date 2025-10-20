@@ -94,9 +94,9 @@
         <div>
           <h3 style="margin:0 0 6px">Siste opplastede filer</h3>
           <p class="note" id="recentFilesSub" style="margin:0">
-            <span id="recentModeLabel">Viser vedlegg</span>
+            <span id="recentModeLabel">Viser kort</span>
             &nbsp;|&nbsp;
-            <a href="#" id="switchToCards" style="color:#8fd3ff;text-decoration:none;">Kort</a>
+            <a href="#" id="switchToCards" style="color:#8fd3ff;text-decoration:none;">Vedlegg</a>
           </p>
         </div>
         <div class="actions">
@@ -361,6 +361,9 @@
         tr.querySelector('.remove').addEventListener('click', () => tr.remove());
         tbody.appendChild(tr);
       }
+
+      window._addLinkRow = addRow;
+      window._clearLinkRows = () => { tbody.innerHTML = ''; };
 
       document.getElementById('addLink').addEventListener('click', () => {
         addRow(
@@ -1175,7 +1178,7 @@ document.addEventListener("DOMContentLoaded", ()=>{
       const CACHE_TTL_MS        = 2 * 60 * 1000;
 
       let _recentAllItems = [];
-      let _recentMode = 'files'; // 'files' | 'cards'
+      let _recentMode = 'cards'; // 'files' | 'cards'
 
       function getField(id){ const el = document.getElementById(id); return (el?.value || '').trim(); }
       function pathJoin(){ return Array.from(arguments).filter(Boolean).join('/').replace(/\/+/g,'/'); }
@@ -1277,9 +1280,11 @@ document.addEventListener("DOMContentLoaded", ()=>{
         if (_recentMode === 'cards') {
           $recentModeLbl.textContent = 'Viser kort';
           $recentSub.innerHTML = 'Viser siste endringer i <code>/' + currentCardsPath() + '/(index.html)</code>';
+          if ($switchToCards) $switchToCards.textContent = 'Vedlegg';
         } else {
           $recentModeLbl.textContent = 'Viser vedlegg';
           $recentSub.innerHTML = 'Viser siste endringer i <code>/' + currentFilesPath() + '/</code>';
+          if ($switchToCards) $switchToCards.textContent = 'Kort';
         }
 
         if (useCache){
