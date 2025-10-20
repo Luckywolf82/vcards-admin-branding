@@ -32,7 +32,8 @@ function trimSlashes(s = "") {
 }
 
 async function githubGetContent(owner, repo, path, token) {
-  const url = `https://api.github.com/repos/${owner}/${repo}/contents/${encodeURIComponent(path)}`;
+  const encodedPath = path.split('/').map(encodeURIComponent).join('/');
+  const url = `https://api.github.com/repos/${owner}/${repo}/contents/${encodedPath}`;
   const r = await fetch(url, {
     headers: {
       "Accept": "application/vnd.github+json",
@@ -49,7 +50,8 @@ async function githubGetContent(owner, repo, path, token) {
 }
 
 async function githubPutContent(owner, repo, path, contentBase64, message, token, sha) {
-  const url = `https://api.github.com/repos/${owner}/${repo}/contents/${encodeURIComponent(path)}`;
+  const encodedPath = path.split('/').map(encodeURIComponent).join('/');
+  const url = `https://api.github.com/repos/${owner}/${repo}/contents/${encodedPath}`;
   const body = {
     message,
     content: contentBase64,
