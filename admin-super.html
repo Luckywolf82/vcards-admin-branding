@@ -2721,6 +2721,37 @@ ord_456"></textarea>
       };
     })();
 
+    (function patchFetch(){
+      if (window.__nfckingFetchPatched) return;
+      window.__nfckingFetchPatched = true;
+      const originalFetch = window.fetch.bind(window);
+      window.fetch = async (input, init = {}) => {
+        const url = typeof input === 'string' ? input : (input && input.url) || '';
+        const isFunctionCall = /^\/\.netlify\/functions\//.test(url);
+        if (isFunctionCall) {
+          try {
+            const user = auth.currentUser;
+            if (user) {
+              const token = await user.getIdToken(true);
+              const headers = new Headers(init.headers || (typeof Request !== 'undefined' && input instanceof Request ? input.headers : undefined) || {});
+              if (!headers.has('Authorization')) {
+                headers.set('Authorization', `Bearer ${token}`);
+              }
+              const body = init.body;
+              const isFormData = typeof FormData !== 'undefined' && body instanceof FormData;
+              if (body && !isFormData && !headers.has('Content-Type')) {
+                headers.set('Content-Type', 'application/json');
+              }
+              init.headers = headers;
+            }
+          } catch (err) {
+            console.warn('Kunne ikke hente ID-token for fetch', err);
+          }
+        }
+        return originalFetch(input, init);
+      };
+    })();
+
     async function refreshIdToken(user) {
       if (!user) {
         localStorage.removeItem('nfcking.idToken');
