@@ -1826,7 +1826,8 @@ ord_456"></textarea>
             await loadPages();
           }catch{ setMsg('Publisering feilet.'); }
         };
-        bPrev.onclick = ()=> window.open(`/${p.slug}`, '_blank');
+        const previewUrl = p.previewUrl || (p.slug === 'index' ? '/' : `/${p.slug.replace(/^\/+/, '')}`);
+        bPrev.onclick = ()=> window.open(previewUrl, '_blank');
         bDel.onclick = async ()=>{
           if(!confirm(`Slette side /${p.slug}?`)) return;
           setMsg('Sletter …');
@@ -1939,7 +1940,8 @@ ord_456"></textarea>
     el.preview.addEventListener('click', ()=>{
       const slug = (el.slug.value||'').trim();
       if(!slug) { setEditMsg('Sett slug først.'); return; }
-      window.open(`/${slug}`, '_blank');
+      const url = slug === 'index' ? '/' : `/${slug.replace(/^\/+/, '')}`;
+      window.open(url, '_blank');
     });
     el.close.addEventListener('click', ()=> el.editor.classList.add('hidden'));
 

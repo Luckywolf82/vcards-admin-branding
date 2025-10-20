@@ -73,4 +73,32 @@ async function deleteFile({ path, message }) {
   return resp;
 }
 
-module.exports = { commitFile, deleteFile, getFileSha, OWNER, REPO, BRANCH, encodePath };
+async function readFile(path) {
+  try {
+    const encoded = encodePath(path);
+    const data = await ghFetch(`/repos/${OWNER}/${REPO}/contents/${encoded}?ref=${encodeURIComponent(BRANCH)}`);
+    if (!data || !data.content) return null;
+    const buff = Buffer.from(data.content, data.encoding || 'base64');
+    return buff.toString('utf8');
+  } catch (err) {
+    if (/GitHub 404/.test(err.message)) return null;
+    throw err;
+  }
+}
+
+async function getRepoTree() {
+  const tree = await ghFetch(`/repos/${OWNER}/${REPO}/git/trees/${encodeURIComponent(BRANCH)}?recursive=1`);
+  return Array.isArray(tree.tree) ? tree.tree : [];
+}
+
+module.exports = {
+  commitFile,
+  deleteFile,
+  getFileSha,
+  readFile,
+  getRepoTree,
+  OWNER,
+  REPO,
+  BRANCH,
+  encodePath
+};
