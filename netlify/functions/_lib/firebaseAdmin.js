@@ -1,12 +1,12 @@
 // _lib/firebaseAdmin.js
-const admin = require('firebase-admin');
+const firebaseAdmin = require('firebase-admin');
 
 let app;
 try {
-  app = admin.app();
+  app = firebaseAdmin.app();
 } catch {
-  app = admin.initializeApp({
-    credential: admin.credential.cert({
+  app = firebaseAdmin.initializeApp({
+    credential: firebaseAdmin.credential.cert({
       projectId: process.env.FIREBASE_PROJECT_ID,
       clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
       // NB: Netlify env-vars lagrer ofte \n som bokstaver — konverter:
@@ -15,8 +15,8 @@ try {
   });
 }
 
-const db = admin.firestore();
-const auth = admin.auth();
-const FieldValue = admin.firestore.FieldValue;
+const db = firebaseAdmin.firestore();
+const auth = firebaseAdmin.auth();
+const FieldValue = firebaseAdmin.firestore.FieldValue;
 
-module.exports = { admin, db, auth, FieldValue };
+module.exports = { admin: firebaseAdmin, db, auth, FieldValue };
