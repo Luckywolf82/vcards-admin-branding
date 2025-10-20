@@ -709,254 +709,55 @@
         const downloads = makeDownloadsHTML(d.attachments||[]);
         return `<!doctype html>
 <html lang="no">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Kontaktkort – ${esc(d.name)}</title>
-<style>
-:root{--accent:${accent};}
-body{font-family:system-ui,-apple-system,Roboto,Arial;background:#0b0b10;color:#eee;padding:20px}
-.container{max-width:760px;margin:0 auto;background:#12121a;padding:24px;border-radius:12px}
-.btn{display:inline-block;padding:12px 14px;background:var(--accent);color:#03101a;border-radius:10px;text-decoration:none;font-weight:700}
-.links{margin-top:12px;display:flex;gap:8px;flex-wrap:wrap}
-.card p{color:#bfc8d6}
-.brand-logo{max-height:56px;max-width:280px;object-fit:contain;margin:0 0 12px 0;display:block}
-</style>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Kontaktkort – ${esc(d.name)}</title>
+  <style>
+    :root{--accent:${accent};}
+    body{font-family:system-ui,-apple-system,Roboto,Arial;background:#0b0b10;color:#eee;padding:20px;margin:0}
+    .container{max-width:760px;margin:0 auto;background:#12121a;padding:24px;border-radius:12px;box-shadow:0 8px 28px rgba(0,0,0,0.45)}
+    .btn{display:inline-block;padding:12px 14px;background:var(--accent);color:#03101a;border-radius:10px;text-decoration:none;font-weight:700}
+    .links{margin-top:12px;display:flex;gap:8px;flex-wrap:wrap}
+    p{color:#bfc8d6;margin:8px 0}
+    h1{margin:0 0 6px;font-size:2rem}
+    .brand-logo{max-height:56px;max-width:280px;object-fit:contain;margin:0 0 12px 0;display:block}
+    .note{font-size:0.95rem;color:#9aa6b2}
+    ul{list-style:disc;padding-left:20px;margin:10px 0 0}
+    li{margin:4px 0}
+  </style>
 </head>
 <body>
-<main class="container card">
-  ${logoTag}
-  <h1>Kontaktkort – ${esc(d.name)}</h1>
-  <p class="muted">${esc(d.title||'')} · ${esc(d.orgName||d.orgKey)}</p>
-  <p><a class="btn" href="./${vcfFile}" download>Last ned vCard (.vcf)</a></p>
-  <div class="links">
-    <a href="tel:${esc(d.phone||'')}" class="btn">Ring</a>
-    <a href="mailto:${esc(d.email||'')}" class="btn">E-post</a>
-    <a href="${esc(d.site||'#')}" class="btn" target="_blank">Besøk nettside</a>
-    <a href="../index.html" class="btn">← Tilbake</a>
-  </div>
-  ${extras}
-
-  ${downloads}
-
-  <p style="margin-top:14px">Adresse: ${esc(d.address||'')}</p>
-  <p style="margin-top:8px;font-size:0.9rem;color:#9aa6b2">NFC-URL: <code id="nfcInline"></code></p>
-</main>
-<script>
-document.addEventListener("DOMContentLoaded", ()=>{
-  ["ghUser","ghRepo"].forEach(id=>{
-    const el = document.getElementById(id);
-    if (!el) return;
-    el.style.display = "none";
-    const lab = el.closest("label");
-    if (lab) lab.style.display = "none";
-  });
-});
-</script>
-<script>
-(function(){
-  const $btn  = document.getElementById("btnFetchLatestCard");
-  const $stat = document.getElementById("latestCardStatus");
-  if (!$btn) return;
-
-  const getVal = (id)=> (document.getElementById(id)?.value || "").trim();
-  const setVal = (id, v)=>{ const el = document.getElementById(id); if (el) el.value = (v||""); };
-  const trimSlashes = (s)=> (s||"").replace(/^\/+|\/+$/g, "");
-
-  async function j(url){
-    const r = await fetch(url, { headers: { "Accept":"application/vnd.github+json" } });
-    if(!r.ok) throw new Error(r.status + " " + r.statusText);
-    return r.json();
-  }
-
-  async function fetchLatestSlug(owner, repo, basePath, orgKey){
-    const path = encodeURIComponent(trimSlashes(basePath) + "/" + orgKey);
-    const commits = await j(`https://api.github.com/repos/${owner}/${repo}/commits?path=${path}&per_page=20`);
-    const details = await Promise.all((commits||[]).slice(0,8).map(c => j(c.url).catch(()=>null)));
-    let latest = null;
-    for (const dc of details){
-      if(!dc || !Array.isArray(dc.files)) continue;
-      const when = dc.commit?.author?.date || dc.commit?.committer?.date || "";
-      for (const f of dc.files){
-        const p = f.filename || "";
-        if(!/\/index\.html$/.test(p)) continue;
-        if(!p.includes("/"+orgKey+"/")) continue;
-        const parts = p.split("/");
-        const slug = parts[parts.length-2] || "";
-        if(!slug) continue;
-        if(!latest || new Date(when) > new Date(latest.when)){
-          latest = { slug, when };
-        }
+  <main class="container card">
+    ${logoTag}
+    <h1>Kontaktkort – ${esc(d.name)}</h1>
+    <p class="note">${esc(d.title||'')} · ${esc(d.orgName||d.orgKey)}</p>
+    <p><a class="btn" href="./${vcfFile}" download>Last ned vCard (.vcf)</a></p>
+    <div class="links">
+      <a href="tel:${esc(d.phone||'')}" class="btn">Ring</a>
+      <a href="mailto:${esc(d.email||'')}" class="btn">E-post</a>
+      <a href="${esc(d.site||'#')}" class="btn" target="_blank" rel="noopener">Besøk nettside</a>
+      <a href="../index.html" class="btn">← Tilbake</a>
+    </div>
+    ${extras}
+    ${downloads}
+    <p>Adresse: ${esc(d.address||'')}</p>
+    <p class="note">NFC-URL: <code id="nfcInline"></code></p>
+  </main>
+  <script>
+    (function(){
+      const code = document.getElementById('nfcInline');
+      if (!code) return;
+      const file = ${JSON.stringify(vcfFile)};
+      try {
+        const href = window.location.href;
+        const base = href.replace(/index\.html?$/i, '');
+        code.textContent = base + file;
+      } catch {
+        code.textContent = './' + file;
       }
-    }
-    return latest?.slug || "";
-  }
-
-  function applyData(d){
-    setVal("slug", d.slug);
-    setVal("name", d.name);
-    setVal("title", d.title);
-    setVal("phone", d.phone);
-    setVal("email", d.email);
-    setVal("site", d.site);
-    setVal("address", d.address);
-    setVal("vcfFilename", d.vcfFilename);
-    setVal("orgName", d.orgName || d.orgKey);
-    setVal("accent", d.accent);
-    setVal("logoUrl", d.logoUrl);
-    setVal("logoBg", d.logoBg);
-
-    // Links-tabell
-    const tbody = document.querySelector("#linksTable tbody");
-    if (tbody) {
-      tbody.innerHTML = "";
-      (d.links||[]).forEach(l=>{
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-          <td><input value="${l.label||''}" class="lbl" /></td>
-          <td><input value="${l.url||''}"   class="lnk" style="width:100%"/></td>
-          <td><textarea class="pre" rows="2">${l.pre||''}</textarea></td>
-          <td><textarea class="post" rows="2">${l.post||''}</textarea></td>
-          <td><button type="button" class="remove">Fjern</button></td>`;
-        tr.querySelector(".remove").addEventListener("click", ()=> tr.remove());
-        tbody.appendChild(tr);
-      });
-    }
-
-    // Vedlegg (hvis du bruker _collectAttachments i genereringen)
-    window._latestAttachments = Array.isArray(d.attachments) ? d.attachments : [];
-    if (typeof window._setAttachmentsFromData === "function") {
-      window._setAttachmentsFromData(window._latestAttachments);
-    }
-    if (typeof window.previewLogo === "function") { window.previewLogo(); }
-  }
-
-  $btn.addEventListener("click", async ()=>{
-    const owner = (document.getElementById("ghUser")?.value || "Luckywolf82");
-    const repo  = (document.getElementById("ghRepo")?.value || "Vcards");
-    const basePath = trimSlashes(getVal("basePath") || "Vcards");
-    const orgKey   = getVal("orgKey");
-    if(!orgKey){ if($stat) $stat.textContent = "Angi Org key først."; return; }
-    try{
-      if($stat) $stat.textContent = "Leter etter siste kort…";
-      const slug = await fetchLatestSlug(owner, repo, basePath, orgKey);
-      if(!slug){ if($stat) $stat.textContent = "Fant ingen index.html for denne organisasjonen enda."; return; }
-      const raw = `https://raw.githubusercontent.com/${owner}/${repo}/HEAD/${basePath}/${orgKey}/${slug}/data.json`;
-      const r = await fetch(raw, { cache:"no-store" });
-      if(!r.ok){ if($stat) $stat.textContent = "Fant slug, men ikke data.json."; return; }
-      const d = await r.json();
-      d.slug = slug; // safety
-      applyData(d);
-      if($stat) $stat.textContent = "Fylte feltene fra: " + orgKey + "/" + slug;
-    }catch(e){
-      if($stat) $stat.textContent = "Feil: " + (e.message||e);
-    }
-  });
-})();
-</script>
-<script>
-document.addEventListener("DOMContentLoaded", ()=>{
-  const tbody = document.querySelector("#linksTable tbody");
-  const addBtn = document.getElementById("btnAddLink");
-  if (addBtn && tbody) {
-    addBtn.addEventListener("click", ()=>{
-      const tr = document.createElement("tr");
-      tr.innerHTML = `
-        <td><input class="lbl" placeholder="Etikett" /></td>
-        <td><input class="lnk" placeholder="https://..." style="width:100%" /></td>
-        <td><textarea class="pre" rows="2" placeholder="Tekst over"></textarea></td>
-        <td><textarea class="post" rows="2" placeholder="Tekst under"></textarea></td>
-        <td><button type="button" class="remove">Fjern</button></td>`;
-      tbody.appendChild(tr);
-    });
-  }
-  if (tbody) {
-    tbody.addEventListener("click", (e)=>{
-      const btn = e.target.closest(".remove");
-      if (!btn) return;
-      e.preventDefault();
-      const tr = btn.closest("tr");
-      if (tr) tr.remove();
-    });
-  }
-});
-</script>
-<script>
-(function(){
-  // En liten "state" for sist opplastede sti'er i denne økta:
-  const filesState = []; // {path, name}
-  const $list = document.getElementById("uploadedList");
-
-  function renderList(){
-    if (!$list) return;
-    if (filesState.length === 0) { $list.innerHTML = ""; return; }
-    $list.innerHTML = `
-      <h4 style="margin:8px 0 6px">Opplastede filer (denne økten)</h4>
-      <ul style="margin:0;padding-left:18px">
-        ${filesState.map(f => `
-          <li>
-            <a href="${f.viewUrl}" target="_blank" rel="noopener">${f.name}</a>
-            <button type="button" class="pill" data-del="${encodeURIComponent(f.path)}" style="margin-left:6px">Slett</button>
-          </li>
-        `).join("")}
-      </ul>`;
-  }
-
-  async function deleteFile(owner, repo, path, basePath){
-    const res = await fetch('/api/deleteFile', {
-      method: 'POST',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ owner, repo, path, message: 'Delete attachment from admin' })
-    });
-    if (!res.ok) throw new Error(await res.text());
-    // fjern fra state
-    const ix = filesState.findIndex(x => x.path === path);
-    if (ix >= 0) filesState.splice(ix,1);
-    renderList();
-  }
-
-  // Hook inn i eksisterende opplasting (etter vellykket opplasting, legg til i state)
-  const fileInput = document.getElementById('fileInput');
-  if (fileInput) {
-    fileInput.addEventListener('change', ()=>{
-      // Vi "patcher" global upload-flyt via fetch-override dersom din opplasting bruker /api/uploadFile
-      const owner   = (document.getElementById("ghUser")?.value || "Luckywolf82").trim();
-      const repo    = (document.getElementById("ghRepo")?.value || "Vcards").trim();
-      const baseDir = (document.getElementById("basePath")?.value || "Vcards").replace(/^\/+|\/+$/g,'');
-      const orgKey  = (document.getElementById("orgKey")?.value || "Common").trim();
-      const slug    = (document.getElementById("slug")?.value || "").trim();
-      // Når serverless uploaden returnerer 200, regn ut path og listelenke
-      // Vi lytter på en "customEvent" hvis du allerede har en; ellers fallback: liten timeout og gjenbruk av felt
-      setTimeout(()=>{
-        const f = fileInput.files?.[0];
-        if (!f || !slug) return;
-        const relPath = `${baseDir}/${orgKey}/${slug}/files/${encodeURIComponent(f.name)}`;
-        const viewUrl = `https://${owner}.github.io/${repo}/${relPath}`;
-        filesState.push({ path: `${baseDir}/${orgKey}/${slug}/files/${f.name}`, name: f.name, viewUrl });
-        renderList();
-      }, 800);
-    });
-  }
-
-  // Delegert klikk på Slett-knapper
-  if ($list) {
-    $list.addEventListener('click', async (e)=>{
-      const btn = e.target.closest('button[data-del]');
-      if (!btn) return;
-      e.preventDefault();
-      const encoded = btn.getAttribute('data-del');
-      const path = decodeURIComponent(encoded);
-      const owner   = (document.getElementById("ghUser")?.value || "Luckywolf82").trim();
-      const repo    = (document.getElementById("ghRepo")?.value || "Vcards").trim();
-      try{
-        btn.disabled = true; btn.textContent = 'Sletter...';
-        await deleteFile(owner, repo, path);
-        btn.textContent = 'Slettet';
-      }catch(err){
-        alert('Sletting feilet: ' + (err?.message || err));
-        btn.disabled = false; btn.textContent = 'Slett';
-      }
-    });
-  }
-})();
-</script>
+    })();
+  </script>
 </body>
 </html>`;
       }
@@ -1509,63 +1310,6 @@ document.addEventListener("DOMContentLoaded", ()=>{
         }
       }
 
-      function populateOrgSelect(){
-        const orgSelect = document.getElementById('orgSelect');
-        if (!orgSelect) return;
-        orgSelect.innerHTML = '';
-        const orgs = window.ORG_PROFILES || {};
-        Object.keys(orgs).forEach(key=>{
-          const opt = document.createElement('option');
-          opt.value = key;
-          opt.textContent = orgs[key].name || key;
-          orgSelect.appendChild(opt);
-        });
-      }
-
-      function previewLogo(){
-        const url = document.getElementById('logoUrl')?.value?.trim();
-        const img = document.getElementById('logoPreview');
-        const bg  = document.getElementById('logoBg')?.value?.trim();
-        if(!img) return;
-        if(!url){ img.style.display='none'; return; }
-        img.src = url; img.style.display='block';
-        img.style.borderRadius='8px'; img.style.padding='6px';
-        img.style.background = bg || '#ffffff';
-      }
-
-      function applyBranding(mode = 'auto'){
-        const key  = document.getElementById('orgKey')?.value?.trim();
-        const prof = (window.ORG_PROFILES || {})[key];
-        if (!prof) return;
-        const set = (id, val) => {
-          const el=document.getElementById(id);
-          if (!el) return;
-          if (mode==='force' || !el.value) el.value = val || '';
-        };
-        set('orgName', prof.name || key);
-        set('accent' , prof.accent || '#8fd3ff');
-        set('orgSite', prof.site || '');
-        set('logoUrl', prof.logo || '');
-        set('logoBg' , prof.logoBg || '#ffffff');
-        previewLogo();
-      }
-
-      function syncOrgKeyFromSelect(){
-        const sel = document.getElementById('orgSelect');
-        const key = sel?.value || '';
-        const elKey = document.getElementById('orgKey');
-        if (elKey) elKey.value = key;
-        applyBranding('force');
-      }
-
-      function syncOrgSelectFromKey(){
-        const key = document.getElementById('orgKey')?.value?.trim();
-        const orgSelect = document.getElementById('orgSelect');
-        if (!orgSelect) return;
-        const idx = Array.from(orgSelect.options).findIndex(o => o.value === key);
-        if (idx >= 0) orgSelect.selectedIndex = idx;
-      }
-
       onAuthStateChanged(auth, async (user) => {
         if (!user) {
           authSec?.classList?.remove('hide');
@@ -1573,10 +1317,14 @@ document.addEventListener("DOMContentLoaded", ()=>{
           return;
         }
         await loadOrgsFromFirestore();
-        populateOrgSelect();
+        window.populateOrgSelect?.();
         if (!document.getElementById('orgKey')?.value && document.getElementById('orgSelect')?.options.length){
-          document.getElementById('orgSelect').selectedIndex = 0; syncOrgKeyFromSelect();
-        } else { syncOrgSelectFromKey(); applyBranding('auto'); }
+          document.getElementById('orgSelect').selectedIndex = 0;
+          window.syncOrgKeyFromSelect?.();
+        } else {
+          window.syncOrgSelectFromKey?.();
+          window.applyBranding?.('auto');
+        }
         authSec?.classList?.add('hide');
         appSec?.classList?.remove('hide');
       });
@@ -1585,29 +1333,7 @@ document.addEventListener("DOMContentLoaded", ()=>{
         try { await signInWithPopup(auth, new GoogleAuthProvider()); }
         catch (e) { alert('Innlogging feilet: '+e.message); }
       });
-
-      // Eksponer globalt det vi trenger
       window._firebase = { auth, db };
-
-      // Små UX: debounce + url-kontroller
-      const deb = (fn, ms=250)=>{ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a),ms); } };
-      document.getElementById('logoUrl')?.addEventListener('input', deb(previewLogo, 150));
-      document.getElementById('logoBg') ?.addEventListener('input', deb(previewLogo, 150));
-      document.getElementById('orgKey') ?.addEventListener('input', deb(()=>{ applyBranding('auto'); syncOrgSelectFromKey(); }, 150));
-      function ensureUrlControls(id,label){
-        const input = document.getElementById(id); if(!input) return;
-        if (input.nextSibling?.classList?.contains('url-actions')) return;
-        const wrap = document.createElement('span'); wrap.className = 'url-actions';
-        wrap.innerHTML = `<button type="button" class="pill" data-act="copy">Kopier ${label}</button><button type="button" class="pill" data-act="open">Åpne</button>`;
-        input.after(wrap);
-        wrap.addEventListener('click',(e)=>{
-          const btn=e.target.closest('button[data-act]'); if(!btn) return;
-          const val=input.value.trim(); if(!val) return;
-          if(btn.dataset.act==='copy') navigator.clipboard.writeText(val);
-          if(btn.dataset.act==='open') window.open(val,'_blank','noopener');
-        });
-      }
-      window.ensureUrlControls = window.ensureUrlControls || ensureUrlControls;
     </script>
 
     <!-- =========================
@@ -1633,145 +1359,6 @@ document.addEventListener("DOMContentLoaded", ()=>{
 
   </main>
 
-<script>
-document.addEventListener("DOMContentLoaded", ()=>{
-  ["ghUser","ghRepo"].forEach(id=>{
-    const el = document.getElementById(id);
-    if (!el) return;
-    el.style.display = "none";
-    const lab = el.closest("label");
-    if (lab) lab.style.display = "none";
-  });
-});
-</script>
-<script>
-(function(){
-  const $btn  = document.getElementById("btnFetchLatestCard");
-  const $stat = document.getElementById("latestCardStatus");
-  if (!$btn) return;
-
-  const getVal = (id)=> (document.getElementById(id)?.value || "").trim();
-  const setVal = (id, v)=>{ const el = document.getElementById(id); if (el) el.value = (v||""); };
-  const trimSlashes = (s)=> (s||"").replace(/^\/+|\/+$/g, "");
-
-  async function j(url){
-    const r = await fetch(url, { headers: { "Accept":"application/vnd.github+json" } });
-    if(!r.ok) throw new Error(r.status + " " + r.statusText);
-    return r.json();
-  }
-
-  async function fetchLatestSlug(owner, repo, basePath, orgKey){
-    const path = encodeURIComponent(trimSlashes(basePath) + "/" + orgKey);
-    const commits = await j(`https://api.github.com/repos/${owner}/${repo}/commits?path=${path}&per_page=20`);
-    const details = await Promise.all((commits||[]).slice(0,8).map(c => j(c.url).catch(()=>null)));
-    let latest = null;
-    for (const dc of details){
-      if(!dc || !Array.isArray(dc.files)) continue;
-      const when = dc.commit?.author?.date || dc.commit?.committer?.date || "";
-      for (const f of dc.files){
-        const p = f.filename || "";
-        if(!/\/index\.html$/.test(p)) continue;
-        if(!p.includes("/"+orgKey+"/")) continue;
-        const parts = p.split("/");
-        const slug = parts[parts.length-2] || "";
-        if(!slug) continue;
-        if(!latest || new Date(when) > new Date(latest.when)){
-          latest = { slug, when };
-        }
-      }
-    }
-    return latest?.slug || "";
-  }
-
-  function applyData(d){
-    setVal("slug", d.slug);
-    setVal("name", d.name);
-    setVal("title", d.title);
-    setVal("phone", d.phone);
-    setVal("email", d.email);
-    setVal("site", d.site);
-    setVal("address", d.address);
-    setVal("vcfFilename", d.vcfFilename);
-    setVal("orgName", d.orgName || d.orgKey);
-    setVal("accent", d.accent);
-    setVal("logoUrl", d.logoUrl);
-    setVal("logoBg", d.logoBg);
-
-    // Links-tabell
-    const tbody = document.querySelector("#linksTable tbody");
-    if (tbody) {
-      tbody.innerHTML = "";
-      (d.links||[]).forEach(l=>{
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-          <td><input value="${l.label||''}" class="lbl" /></td>
-          <td><input value="${l.url||''}"   class="lnk" style="width:100%"/></td>
-          <td><textarea class="pre" rows="2">${l.pre||''}</textarea></td>
-          <td><textarea class="post" rows="2">${l.post||''}</textarea></td>
-          <td><button type="button" class="remove">Fjern</button></td>`;
-        tr.querySelector(".remove").addEventListener("click", ()=> tr.remove());
-        tbody.appendChild(tr);
-      });
-    }
-
-    // Vedlegg (hvis du bruker _collectAttachments i genereringen)
-    window._latestAttachments = Array.isArray(d.attachments) ? d.attachments : [];
-    if (typeof window._setAttachmentsFromData === "function") {
-      window._setAttachmentsFromData(window._latestAttachments);
-    }
-    if (typeof window.previewLogo === "function") { window.previewLogo(); }
-  }
-
-  $btn.addEventListener("click", async ()=>{
-    const owner = (document.getElementById("ghUser")?.value || "Luckywolf82");
-    const repo  = (document.getElementById("ghRepo")?.value || "Vcards");
-    const basePath = trimSlashes(getVal("basePath") || "Vcards");
-    const orgKey   = getVal("orgKey");
-    if(!orgKey){ if($stat) $stat.textContent = "Angi Org key først."; return; }
-    try{
-      if($stat) $stat.textContent = "Leter etter siste kort…";
-      const slug = await fetchLatestSlug(owner, repo, basePath, orgKey);
-      if(!slug){ if($stat) $stat.textContent = "Fant ingen index.html for denne organisasjonen enda."; return; }
-      const raw = `https://raw.githubusercontent.com/${owner}/${repo}/HEAD/${basePath}/${orgKey}/${slug}/data.json`;
-      const r = await fetch(raw, { cache:"no-store" });
-      if(!r.ok){ if($stat) $stat.textContent = "Fant slug, men ikke data.json."; return; }
-      const d = await r.json();
-      d.slug = slug; // safety
-      applyData(d);
-      if($stat) $stat.textContent = "Fylte feltene fra: " + orgKey + "/" + slug;
-    }catch(e){
-      if($stat) $stat.textContent = "Feil: " + (e.message||e);
-    }
-  });
-})();
-</script>
-<script>
-document.addEventListener("DOMContentLoaded", ()=>{
-  const tbody = document.querySelector("#linksTable tbody");
-  const addBtn = document.getElementById("btnAddLink");
-  if (addBtn && tbody) {
-    addBtn.addEventListener("click", ()=>{
-      const tr = document.createElement("tr");
-      tr.innerHTML = `
-        <td><input class="lbl" placeholder="Etikett" /></td>
-        <td><input class="lnk" placeholder="https://..." style="width:100%" /></td>
-        <td><textarea class="pre" rows="2" placeholder="Tekst over"></textarea></td>
-        <td><textarea class="post" rows="2" placeholder="Tekst under"></textarea></td>
-        <td><button type="button" class="remove">Fjern</button></td>`;
-      tbody.appendChild(tr);
-    });
-  }
-  if (tbody) {
-    tbody.addEventListener("click", (e)=>{
-      const btn = e.target.closest(".remove");
-      if (!btn) return;
-      e.preventDefault();
-      const tr = btn.closest("tr");
-      if (tr) tr.remove();
-    });
-  }
-});
-</script>
 <script>
 (function(){
   // En liten "state" for sist opplastede sti'er i denne økta:
@@ -1924,33 +1511,19 @@ document.addEventListener("DOMContentLoaded", ()=>{
       }
     } else {
       const tb=document.querySelector("#linksTable tbody");
-      if(tb){
-        tb.innerHTML="";
-        links.forEach(l=>{
-          const tr=document.createElement("tr");
-          tr.innerHTML=
-            `<td><input value="${esc(l?.label||"")}" class="lbl" /></td>`+
-            `<td><input value="${esc(l?.url||"")}"   class="lnk" style="width:100%"/></td>`+
-            `<td><textarea class="pre" rows="2">${esc(l?.pre||"")}</textarea></td>`+
-            `<td><textarea class="post" rows="2">${esc(l?.post||"")}</textarea></td>`+
-            `<td><button type="button" class="remove">Fjern</button></td>`;
-          tb.appendChild(tr);
-        });
-      }
-
-    const tb=document.querySelector("#linksTable tbody");
-    if(tb){
-      tb.innerHTML="";
-      (d.links||[]).forEach(l=>{
-        const tr=document.createElement("tr");
-        tr.innerHTML=
-          `<td><input value="${esc(l.label||"")}" class="lbl" /></td>`+
-          `<td><input value="${esc(l.url||"")}"   class="lnk" style="width:100%"/></td>`+
-          `<td><textarea class="pre" rows="2">${esc(l.pre||"")}</textarea></td>`+
-          `<td><textarea class="post" rows="2">${esc(l.post||"")}</textarea></td>`+
-          `<td><button type="button" class="remove">Fjern</button></td>`;
-        tb.appendChild(tr);
-      });
+        if(tb){
+          tb.innerHTML="";
+          links.forEach(l=>{
+            const tr=document.createElement("tr");
+            tr.innerHTML=
+              `<td><input value="${esc(l?.label||"")}" class="lbl" /></td>`+
+              `<td><input value="${esc(l?.url||"")}"   class="lnk" style="width:100%"/></td>`+
+              `<td><textarea class="pre" rows="2">${esc(l?.pre||"")}</textarea></td>`+
+              `<td><textarea class="post" rows="2">${esc(l?.post||"")}</textarea></td>`+
+              `<td><button type="button" class="remove">Fjern</button></td>`;
+            tb.appendChild(tr);
+          });
+        }
     }
 
     window._latestAttachments = Array.isArray(d.attachments) ? d.attachments : [];
