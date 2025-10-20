@@ -1302,16 +1302,16 @@ ord_456"></textarea>
   </script>
 
   <!-- Del 6 – del 5/6: Brukere script -->
+  
   <script>
   (function(){
-    const qs=(s,r=document)=>r.querySelector(s);
-    const qsa=(s,r=document)=>[...r.querySelectorAll(s)];
+    const qs = (sel, root=document) => root.querySelector(sel);
     const el = {
       msg: qs('#usrMsg'),
       table: qs('#usrTable tbody'),
       search: qs('#usrSearch'),
-      roleF: qs('#usrRoleFilter'),
-      statF: qs('#usrStatusFilter'),
+      role: qs('#usrRoleFilter'),
+      status: qs('#usrStatusFilter'),
       refresh: qs('#usrRefresh'),
       inviteOpen: qs('#usrInviteOpen'),
       inviteBox: qs('#usrInvite'),
@@ -1330,163 +1330,331 @@ ord_456"></textarea>
       create: '/.netlify/functions/users-invite',
       role:   '/.netlify/functions/users-role',
       status: '/.netlify/functions/users-status',
-      imp:    '/.netlify/functions/users-impersonate'
+      imp:    '/.netlify/functions/users-impersonate',
     };
 
-    let pageToken = null;
-    let lastQuery = {};
+    const state = {
+      pageTokens: [null],
+      index: 0,
+      nextToken: null,
+      loading: false,
+      loadedOnce: false,
+    };
 
-    function setMsg(t){ el.msg.textContent = t || ''; }
+    const roleOptions = ['superadmin','owner','admin','editor','support','viewer'];
 
-    async function idToken(){
-      return localStorage.getItem('nfcking.idToken') || '';
+    function clearTable(){
+      if (el.table) {
+        el.table.textContent = '';
+      }
     }
 
-    async function apiGet(url, params={}){
-      const token = await idToken();
-      const qs = new URLSearchParams(params).toString();
-      const res = await fetch(url + (qs ? `?${qs}` : ''), { headers:{ Authorization: token ? `Bearer ${token}` : '' }});
-      if(!res.ok) throw new Error(`GET ${url} ${res.status}`);
-      return res.json();
+    function setMsg(text, opts={}){
+      if (!el.msg) return;
+      el.msg.textContent = '';
+      el.msg.classList.remove('ok','err');
+      el.msg.style.color = '';
+      if (!text) return;
+      if (opts.type === 'ok') {
+        el.msg.classList.add('ok');
+        el.msg.style.color = '#21c36a';
+      }
+      if (opts.type === 'err') {
+        el.msg.classList.add('err');
+        el.msg.style.color = '#ff6b6b';
+      }
+      el.msg.append(document.createTextNode(text));
+      if (opts.link) {
+        const a = document.createElement('a');
+        a.href = opts.link;
+        a.target = '_blank';
+        a.rel = 'noopener';
+        a.textContent = ' Åpne lenke';
+        el.msg.append(' ');
+        el.msg.append(a);
+      }
+      if (opts.extra) {
+        el.msg.append(' ');
+        el.msg.append(opts.extra);
+      }
     }
-    async function apiPost(url, body){
-      const token = await idToken();
-      const res = await fetch(url, {
-        method:'POST',
-        headers:{ 'Content-Type':'application/json', Authorization: token ? `Bearer ${token}` : '' },
-        body: JSON.stringify(body||{})
-      });
-      if(!res.ok) throw new Error(`POST ${url} ${res.status}`);
-      return res.json();
+
+    function ensureLoggedIn(){
+      const user = firebase.auth().currentUser;
+      if (!user) {
+        clearTable();
+        if (el.prev) el.prev.disabled = true;
+        if (el.next) el.next.disabled = true;
+        setMsg('Logg inn for å administrere brukere.');
+        return false;
+      }
+      return true;
     }
 
     function renderRows(users){
-      const rows = users.map(u=>{
+      if (!el.table) return;
+      if (!Array.isArray(users) || users.length === 0){
+        el.table.innerHTML = '<tr><td colspan="6" style="padding:12px;text-align:center;color:var(--sub)">Ingen brukere funnet.</td></tr>';
+        return;
+      }
+
+      const rows = users.map((user) => {
+        const data = { ...user };
         const tr = document.createElement('tr');
-        const td = (...nodes)=>{ const t=document.createElement('td'); t.style.cssText='padding:8px;border-bottom:1px solid #1b2030;vertical-align:top'; nodes.forEach(n=>t.append(n)); return t; };
+        const cell = () => {
+          const td = document.createElement('td');
+          td.style.cssText = 'padding:8px;border-bottom:1px solid #1b2030;vertical-align:top';
+          return td;
+        };
 
-        tr.appendChild(td(document.createTextNode(u.name || '—')));
+        const nameTd = cell();
+        nameTd.textContent = data.displayName || '—';
+        tr.appendChild(nameTd);
 
-        const aMail = document.createElement('a'); aMail.href = `mailto:${u.email}`; aMail.textContent = u.email||'—';
-        tr.appendChild(td(aMail));
+        const mailTd = cell();
+        if (data.email) {
+          const link = document.createElement('a');
+          link.href = `mailto:${data.email}`;
+          link.textContent = data.email;
+          mailTd.appendChild(link);
+        } else {
+          mailTd.textContent = '—';
+        }
+        tr.appendChild(mailTd);
 
+        const roleTd = cell();
         const roleSel = document.createElement('select');
-        ['superadmin','admin','editor','viewer'].forEach(r=>{
-          const opt=document.createElement('option'); opt.value=r; opt.textContent=r;
-          if((u.roles||[]).includes(r)) opt.selected = true;
+        roleOptions.forEach((role) => {
+          const opt = document.createElement('option');
+          opt.value = role;
+          opt.textContent = role;
+          if ((data.role || 'viewer') === role) opt.selected = true;
           roleSel.appendChild(opt);
         });
-        roleSel.addEventListener('change', async ()=>{
-          try{
-            await apiPost(API.role, { uid:u.uid, roles:[roleSel.value], orgKey:u.orgKey||null });
-            setMsg(`Oppdatert rolle for ${u.email} â†’ ${roleSel.value}`);
-          }catch{ setMsg('Kunne ikke oppdatere rolle.'); }
+        roleSel.addEventListener('change', async () => {
+          const nextRole = roleSel.value;
+          try {
+            await request(API.role, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ uid: data.uid, roles: [nextRole], orgKey: data.orgKey ?? undefined }),
+            });
+            data.role = nextRole;
+            setMsg(`Oppdatert rolle for ${data.email || data.uid} → ${nextRole}`, { type: 'ok' });
+          } catch (err) {
+            roleSel.value = data.role || 'viewer';
+            setMsg(`Kunne ikke endre rolle: ${err.message}`, { type: 'err' });
+          }
         });
-        tr.appendChild(td(roleSel));
+        roleTd.appendChild(roleSel);
+        tr.appendChild(roleTd);
 
-        tr.appendChild(td(document.createTextNode(u.orgKey || '—')));
+        const orgTd = cell();
+        orgTd.textContent = data.orgKey || '—';
+        tr.appendChild(orgTd);
 
-        const statusBadge = document.createElement('span');
-        statusBadge.textContent = u.status || 'active';
-        statusBadge.className = 'muted';
-        tr.appendChild(td(statusBadge));
+        const statusTd = cell();
+        statusTd.textContent = data.status || (data.disabled ? 'disabled' : 'active');
+        tr.appendChild(statusTd);
 
+        const actionsTd = cell();
         const actions = document.createElement('div');
-        actions.style.display='flex'; actions.style.gap='6px'; actions.style.flexWrap='wrap';
+        actions.style.display = 'flex';
+        actions.style.gap = '6px';
+        actions.style.flexWrap = 'wrap';
 
-        const btnToggle = document.createElement('button');
-        btnToggle.className='tab-btn';
-        btnToggle.textContent = (u.status==='disabled') ? 'Aktiver' : 'Deaktiver';
-        btnToggle.addEventListener('click', async ()=>{
-          try{
-            const to = (u.status==='disabled') ? 'active' : 'disabled';
-            await apiPost(API.status, { uid:u.uid, status:to });
-            u.status = to; statusBadge.textContent = to;
-            btnToggle.textContent = (to==='disabled') ? 'Aktiver' : 'Deaktiver';
-            setMsg(`Status oppdatert for ${u.email} â†’ ${to}`);
-          }catch{ setMsg('Kunne ikke endre status.'); }
+        const toggleBtn = document.createElement('button');
+        toggleBtn.className = 'tab-btn';
+        const setToggleLabel = () => {
+          toggleBtn.textContent = data.status === 'disabled' ? 'Aktiver' : 'Deaktiver';
+        };
+        setToggleLabel();
+        toggleBtn.addEventListener('click', async () => {
+          const targetStatus = data.status === 'disabled' ? 'active' : 'disabled';
+          try {
+            const res = await request(API.status, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ uid: data.uid, status: targetStatus }),
+            });
+            data.status = res.status;
+            data.disabled = res.disabled;
+            statusTd.textContent = res.status;
+            setToggleLabel();
+            setMsg(`Status oppdatert for ${data.email || data.uid} → ${res.status}`, { type: 'ok' });
+          } catch (err) {
+            setMsg(`Kunne ikke endre status: ${err.message}`, { type: 'err' });
+          }
         });
-        actions.appendChild(btnToggle);
+        actions.appendChild(toggleBtn);
 
-        const btnImpersonate = document.createElement('button');
-        btnImpersonate.className='tab-btn'; btnImpersonate.textContent='Impersonate (lese)';
-        btnImpersonate.addEventListener('click', async ()=>{
-          try{
-            await apiPost(API.imp, { uid:u.uid });
-            setMsg(`Impersonate-token generert for ${u.email} (lese-modus).`);
-          }catch{ setMsg('Kunne ikke impersonate.'); }
+        const impBtn = document.createElement('button');
+        impBtn.className = 'tab-btn';
+        impBtn.textContent = 'Impersonate';
+        impBtn.addEventListener('click', async () => {
+          try {
+            const res = await request(API.imp, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ uid: data.uid }),
+            });
+            if (navigator.clipboard?.writeText) {
+              await navigator.clipboard.writeText(res.customToken);
+              setMsg(`Impersonate-token kopiert til utklippstavlen for ${data.email || data.uid}.`, { type: 'ok' });
+            } else {
+              const code = document.createElement('code');
+              code.textContent = res.customToken;
+              setMsg('Impersonate-token generert.', { type: 'ok', extra: code });
+            }
+          } catch (err) {
+            setMsg(`Kunne ikke impersonere: ${err.message}`, { type: 'err' });
+          }
         });
-        actions.appendChild(btnImpersonate);
+        actions.appendChild(impBtn);
 
-        tr.appendChild(td(actions));
+        actionsTd.appendChild(actions);
+        tr.appendChild(actionsTd);
+
         return tr;
       });
 
       el.table.replaceChildren(...rows);
     }
 
-    async function loadUsers(opts={}){
-      const params = {
-        q: el.search.value || '',
-        role: el.roleF.value || '',
-        status: el.statF.value || '',
-        pageToken: opts.pageToken || null,
-        limit: 20
-      };
-      lastQuery = params;
-      setMsg('Laster brukere …');
-      try{
-        const data = await apiGet(API.list, params);
+    async function request(url, options) {
+      const res = await fetch(url, options);
+      const text = await res.text();
+      let data;
+      try { data = JSON.parse(text); }
+      catch { data = { ok: false, error: text || `HTTP ${res.status}` }; }
+      if (!res.ok || data.ok === false) {
+        const msg = data && (data.error || data.message) ? (data.error || data.message) : text || `HTTP ${res.status}`;
+        throw new Error(msg);
+      }
+      return data;
+    }
+
+    async function loadUsers({ token, reset } = {}) {
+      if (state.loading) return;
+      if (!ensureLoggedIn()) return;
+      state.loading = true;
+      try {
+        if (reset) {
+          state.pageTokens = [null];
+          state.index = 0;
+        }
+        const currentToken = token !== undefined ? token : state.pageTokens[state.index] || null;
+        const params = new URLSearchParams();
+        const q = (el.search?.value || '').trim();
+        const roleVal = el.role?.value || '';
+        const statusVal = el.status?.value || '';
+        if (q) params.set('q', q);
+        if (roleVal) params.set('role', roleVal);
+        if (statusVal) params.set('status', statusVal);
+        params.set('limit', '20');
+        if (currentToken) params.set('pageToken', currentToken);
+
+        setMsg('Laster brukere …');
+        const url = params.toString() ? `${API.list}?${params}` : API.list;
+        const data = await request(url);
         renderRows(data.users || []);
-        pageToken = { next: data.nextPageToken || null, prev: data.prevPageToken || null };
-        el.prev.disabled = !pageToken.prev;
-        el.next.disabled = !pageToken.next;
-        setMsg(`Fant ${data.count ?? (data.users||[]).length} brukere.`);
-      }catch{
-        setMsg('Kunne ikke hente brukere.');
+        state.nextToken = data.nextPageToken || null;
+        if (token !== undefined) {
+          state.pageTokens[state.index] = currentToken || null;
+        }
+        if (el.prev) el.prev.disabled = state.index === 0;
+        if (el.next) el.next.disabled = !state.nextToken;
+        setMsg(`Fant ${data.count ?? (data.users || []).length} brukere.`);
+        state.loadedOnce = true;
+      } catch (err) {
+        clearTable();
+        setMsg(`Kunne ikke hente brukere: ${err.message}`, { type: 'err' });
+      } finally {
+        state.loading = false;
       }
     }
 
-    function toggleInvite(show){
+    function toggleInvite(show) {
+      if (!el.inviteBox) return;
       el.inviteBox.classList.toggle('hidden', !show);
-      if(show){ el.invName.focus(); }
+      if (show) {
+        el.invName?.focus();
+      }
     }
 
-    el.inviteOpen.addEventListener('click', ()=> toggleInvite(true));
-    el.invCancel.addEventListener('click', ()=> toggleInvite(false));
-    el.invSend.addEventListener('click', async ()=>{
-      const name = el.invName.value.trim();
-      const email = el.invEmail.value.trim();
-      const role = el.invRole.value;
-      const org  = el.invOrg.value.trim() || null;
-      if(!email){ setMsg('E-post er påkrevd.'); return; }
-      setMsg('Sender invitasjon …');
-      try{
-        const res = await apiPost(API.create, { name, email, role, orgKey: org });
-        setMsg(`Invitasjon sendt til ${email}. UID: ${res.uid || '—'}`);
-        toggleInvite(false); el.invName.value=''; el.invEmail.value='';
-        await loadUsers();
-      }catch{
-        setMsg('Kunne ikke sende invitasjon.');
+    async function sendInvite() {
+      const email = (el.invEmail?.value || '').trim();
+      const displayName = (el.invName?.value || '').trim();
+      const role = el.invRole?.value || 'viewer';
+      const orgKey = (el.invOrg?.value || '').trim();
+      if (!email) {
+        setMsg('E-post er påkrevd.', { type: 'err' });
+        return;
       }
+      try {
+        setMsg('Sender invitasjon …');
+        const payload = { email, displayName, role, orgKey: orgKey || undefined };
+        const data = await request(API.create, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        el.invName.value = '';
+        el.invEmail.value = '';
+        el.invOrg.value = '';
+        toggleInvite(false);
+        if (data.emailSent) {
+          setMsg(`Invitasjon sendt til ${email}.`, { type: 'ok' });
+        } else if (data.inviteLink) {
+          const link = document.createElement('a');
+          link.href = data.inviteLink;
+          link.target = '_blank';
+          link.rel = 'noopener';
+          link.textContent = 'Åpne invitasjonslenke';
+          setMsg('Invitasjon generert (lenke er kopierbar).', { type: 'ok', extra: link });
+        } else if (data.note) {
+          setMsg(data.note, { type: 'ok' });
+        } else {
+          setMsg('Invitasjon opprettet.', { type: 'ok' });
+        }
+        await loadUsers({ token: state.pageTokens[state.index] || null });
+      } catch (err) {
+        setMsg(`Kunne ikke sende invitasjon: ${err.message}`, { type: 'err' });
+      }
+    }
+
+    if (el.inviteOpen) el.inviteOpen.addEventListener('click', () => toggleInvite(true));
+    if (el.invCancel) el.invCancel.addEventListener('click', () => toggleInvite(false));
+    if (el.invSend) el.invSend.addEventListener('click', sendInvite);
+    if (el.refresh) el.refresh.addEventListener('click', () => loadUsers({ token: state.pageTokens[state.index] || null }));
+    if (el.search) el.search.addEventListener('input', () => loadUsers({ token: null, reset: true }));
+    if (el.role) el.role.addEventListener('change', () => loadUsers({ token: null, reset: true }));
+    if (el.status) el.status.addEventListener('change', () => loadUsers({ token: null, reset: true }));
+    if (el.prev) el.prev.addEventListener('click', () => {
+      if (state.index === 0) return;
+      state.index -= 1;
+      loadUsers({ token: state.pageTokens[state.index] || null });
+    });
+    if (el.next) el.next.addEventListener('click', () => {
+      if (!state.nextToken) return;
+      state.index += 1;
+      state.pageTokens[state.index] = state.nextToken;
+      loadUsers({ token: state.pageTokens[state.index] });
     });
 
-    el.refresh.addEventListener('click', ()=> loadUsers());
-    el.search.addEventListener('input', ()=> loadUsers());
-    el.roleF.addEventListener('change', ()=> loadUsers());
-    el.statF.addEventListener('change', ()=> loadUsers());
-
-    el.prev.addEventListener('click', ()=> pageToken?.prev && loadUsers({ pageToken: pageToken.prev }));
-    el.next.addEventListener('click', ()=> pageToken?.next && loadUsers({ pageToken: pageToken.next }));
-
     function onTabChange(){
-      const active = (location.hash||'#branding').replace('#','');
-      if(active==='users'){ loadUsers(); }
+      const active = (location.hash || '#branding').replace('#','');
+      if (active === 'users' && !state.loading) {
+        const initialToken = state.pageTokens[state.index] || null;
+        loadUsers({ token: initialToken, reset: !state.loadedOnce });
+      }
     }
+
     window.addEventListener('hashchange', onTabChange);
     onTabChange();
   })();
   </script>
+
 
   <!-- Del 6 – del 6/6: Sider script -->
   <script>
@@ -2507,299 +2675,132 @@ ord_456"></textarea>
 })();
 </script>
 
+
   <script>
+  (function(){
     const auth = firebase.auth();
 
+    (function patchFetch(){
+      if (window.__nfckingFetchPatched) return;
+      window.__nfckingFetchPatched = true;
+      const originalFetch = window.fetch.bind(window);
+      window.fetch = async (input, init = {}) => {
+        const url = typeof input === 'string' ? input : (input && input.url) || '';
+        const isFunctionCall = /^\/\.netlify\/functions\//.test(url);
+        if (isFunctionCall) {
+          try {
+            const user = auth.currentUser;
+            if (user) {
+              const token = await user.getIdToken(true);
+              const headers = new Headers(init.headers || (typeof Request !== 'undefined' && input instanceof Request ? input.headers : undefined) || {});
+              if (!headers.has('Authorization')) {
+                headers.set('Authorization', `Bearer ${token}`);
+              }
+              const body = init.body;
+              const isFormData = typeof FormData !== 'undefined' && body instanceof FormData;
+              if (body && !isFormData && !headers.has('Content-Type')) {
+                headers.set('Content-Type', 'application/json');
+              }
+              init.headers = headers;
+            }
+          } catch (err) {
+            console.warn('Kunne ikke hente ID-token for fetch', err);
+          }
+        }
+        return originalFetch(input, init);
+      };
+    })();
+
     async function refreshIdToken(user) {
-      if (!user) { localStorage.removeItem("nfcking.idToken"); return null; }
+      if (!user) {
+        localStorage.removeItem('nfcking.idToken');
+        return null;
+      }
       const token = await user.getIdToken(true);
-      localStorage.setItem("nfcking.idToken", token);
+      localStorage.setItem('nfcking.idToken', token);
       return token;
     }
 
-    
-    auth.onIdTokenChanged(async (user) => {
-      const status = document.getElementById("loginStatus");
-      const btnIn  = document.getElementById("btnLogin");
-      const btnOut = document.getElementById("btnLogout");
-      const ubText = document.getElementById("ubText");
-      const ubDot  = document.getElementById("ubDot");
-
-      if (user) {
-        const tok = await refreshIdToken(user);
-        let role = localStorage.getItem('nfcking.role') || 'owner';
-        if (status) status.textContent = `Innlogget: ${user.email || "ukjent"}`;
-        if (ubText) ubText.textContent = `${user.email || "ukjent"} (${role})`;
-        if (ubDot) ubDot.classList.add('ok');
-        if (btnIn) btnIn.classList.add("hidden");
-        if (btnOut) btnOut.classList.remove("hidden");
-      } else {
-        if (status) status.textContent = "Ikke innlogget";
-        if (ubText) ubText.textContent = "Ikke innlogget";
-        if (ubDot) ubDot.classList.remove('ok');
-        if (btnIn) btnIn.classList.remove("hidden");
-        if (btnOut) btnOut.classList.add("hidden");
+    function updateBadge(user, role = 'viewer') {
+      const badgeText = document.getElementById('ubText');
+      const badgeDot = document.getElementById('ubDot');
+      if (badgeText) {
+        badgeText.textContent = user ? `${user.email || 'ukjent'} (${role})` : 'Ikke innlogget';
       }
-    });
-    const btnIn  = document.getElementById("btnLogin");
-      const btnOut = document.getElementById("btnLogout");
-      if (user) {
-        await refreshIdToken(user);
-        status.textContent = `Innlogget: ${user.email || "ukjent"}`;
-        btnIn.classList.add("hidden");
-        btnOut.classList.remove("hidden");
-      } else {
-        status.textContent = "Ikke innlogget";
-        btnIn.classList.remove("hidden");
-        btnOut.classList.add("hidden");
+      if (badgeDot) {
+        if (user) badgeDot.classList.add('ok');
+        else badgeDot.classList.remove('ok');
       }
-    });
+    }
 
-    async async async function doLogin(){
-      const email = prompt("E-post:"); if (!email) return;
-      const password = prompt("Passord:"); if (!password) return;
+    auth.onAuthStateChanged(async (user) => {
+      const status = document.getElementById('loginStatus');
+      const btnLogin = document.getElementById('btnLogin');
+      const btnLogout = document.getElementById('btnLogout');
+
+      if (!user) {
+        if (status) status.textContent = 'Ikke innlogget';
+        updateBadge(null);
+        btnLogin?.classList.remove('hidden');
+        btnLogout?.classList.add('hidden');
+        localStorage.removeItem('nfcking.role');
+        localStorage.removeItem('nfcking.userName');
+        localStorage.removeItem('nfcking.idToken');
+        return;
+      }
+
+      await refreshIdToken(user);
+      let role = 'viewer';
       try {
+        const result = await user.getIdTokenResult(true);
+        role = result.claims?.role || 'viewer';
+        localStorage.setItem('nfcking.role', role);
+      } catch (err) {
+        console.warn('Kunne ikke lese rolle-claim', err);
+      }
+      localStorage.setItem('nfcking.userName', user.email || user.displayName || '');
+
+      if (status) status.textContent = `Innlogget: ${user.email || 'ukjent'} (${role})`;
+      updateBadge(user, role);
+      btnLogin?.classList.add('hidden');
+      btnLogout?.classList.remove('hidden');
+    });
+
+    async function doLogin(){
+      try {
+        const email = prompt('E-post:');
+        if (!email) return;
+        const password = prompt('Passord:');
+        if (!password) return;
         await auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
         await auth.signInWithEmailAndPassword(email.trim(), password);
-        alert("Innlogget ✅");
-      } catch (err) { alert("Innlogging feilet: " + err.message); }
+        alert('Innlogget ✅');
+      } catch (err) {
+        alert('Innlogging feilet: ' + (err?.message || err));
+      }
     }
 
-    async async async function doLogout(){
-      try { await auth.signOut(); alert("Logget ut"); }
-      catch (err) { alert("Utlogging feilet: " + err.message); }
+    async function doLogout(){
+      try {
+        await auth.signOut();
+        alert('Logget ut');
+      } catch (err) {
+        alert('Utlogging feilet: ' + (err?.message || err));
+      }
     }
 
-    document.addEventListener("DOMContentLoaded", () => {
-      const li = document.getElementById("btnLogin");
-      const lo = document.getElementById("btnLogout");
-      if (li) li.addEventListener("click", doLogin);
-      if (lo) lo.addEventListener("click", doLogout);
+    document.addEventListener('DOMContentLoaded', () => {
+      const btnLogin = document.getElementById('btnLogin');
+      const btnLogout = document.getElementById('btnLogout');
+      btnLogin?.addEventListener('click', (ev) => { ev.preventDefault(); doLogin(); });
+      btnLogout?.addEventListener('click', (ev) => { ev.preventDefault(); doLogout(); });
     });
 
-    // Eksponer globalt hvis noe i HTML bruker onclick
-    window.doLogin  = doLogin;
+    window.doLogin = doLogin;
     window.doLogout = doLogout;
+  })();
   </script>
-  <!-- auto auth header for Netlify Functions -->
-  <script>
-    (function(){
-      if (window.__nfckingFetchPatched) return; // idempotent
-      window.__nfckingFetchPatched = true;
 
-      const origFetch = window.fetch.bind(window);
-
-      window.fetch = async function(input, init){
-        try{
-          const url = (typeof input === "string") ? input : (input && input.url) || "";
-          const isFn = url.startsWith("/.netlify/functions/");
-
-          if (isFn) {
-            const t = localStorage.getItem("nfcking.idToken") || "";
-            init = init || {};
-            // Normaliser headers
-            const hdrs = new Headers(init.headers || (input && input.headers) || {});
-            if (t && !hdrs.has("Authorization")) hdrs.set("Authorization", "Bearer " + t);
-
-            // Sett Content-Type automatisk for ikke-GET (hvis ikke FormData)
-            const method = (init.method || (input && input.method) || "GET").toUpperCase();
-            const isForm = (init && init.body && typeof FormData !== "undefined" && init.body instanceof FormData);
-            if (method !== "GET" && !isForm && !hdrs.has("Content-Type")) {
-              hdrs.set("Content-Type", "application/json");
-            }
-            init.headers = hdrs;
-          }
-        }catch(e){ /* stille */ }
-        return origFetch(input, init);
-      };
-    })();
-  </script>
-  <style>
-  .invite-status{margin-top:8px;font-size:.9rem;opacity:.95}
-  .invite-status.ok{color:#21c36a}
-  .invite-status.err{color:#ff6b6b}
-</style>
-
-<!-- Wire "Send invitasjon" til serverless users-invite + visuell feedback -->
-<script>
-(function(){
-  const $ = (s,r=document)=>r.querySelector(s);
-
-  // Finn knappen enten via id/klasse eller ved tekst
-  function findInviteBtn(){
-    const byId = $('#umInvite');
-    if (byId) return byId;
-    const all = Array.from(document.querySelectorAll('button, [role="button"], a'));
-    return all.find(b => (b.textContent||'').trim().toLowerCase() === 'send invitasjon');
-  }
-
-  // Finn feltene i samme seksjon som knappen
-  function getFields(scope){
-    const email = scope.querySelector('#umNewEmail, input[type="email"], input[placeholder*="E-post" i]');
-    const name  = scope.querySelector('#umNewName, input[name*="name" i], input[id*="name" i]');
-    const role  = scope.querySelector('#umNewRole, select');
-    return { email, name, role };
-  }
-
-  // Lag/returnér en status-linje rett under knapperaden
-  function ensureStatus(container){
-    let s = container.querySelector('.invite-status');
-    if (!s) {
-      s = document.createElement('div');
-      s.className = 'invite-status';
-      container.appendChild(s);
-    }
-    s.classList.remove('ok','err');
-    return s;
-  }
-
-  async function sendInvite(payload){
-    const res = await fetch('/.netlify/functions/users-invite', {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify(payload)
-    });
-    const text = await res.text().catch(()=> '');
-    let data;
-    try { data = JSON.parse(text); } catch { data = { ok:false, error:text||res.statusText }; }
-    if (!res.ok || data.ok === false) {
-      const msg = (data && (data.error||data.message)) || text || ('HTTP '+res.status);
-      throw new Error(msg);
-    }
-    return data;
-  }
-
-  function wire(){
-    const btn = findInviteBtn();
-    if (!btn || btn.__wiredInvite) return;
-    btn.__wiredInvite = true;
-
-    btn.addEventListener('click', async (e)=>{
-      e.preventDefault();
-      const scope = btn.closest('section,form,div') || document;
-      const { email, name, role } = getFields(scope);
-      const s = ensureStatus(btn.parentElement || scope);
-
-      const vEmail = (email && email.value || '').trim();
-      const vName  = (name  && name.value  || '').trim();
-      const vRole  = (role  && role.value  || 'viewer').trim();
-
-      if (!vEmail){ s.textContent = 'Skriv inn e-post først.'; s.classList.add('err'); return; }
-
-      btn.disabled = true;
-      const prev = btn.textContent;
-      btn.textContent = 'Sender…';
-      s.textContent = 'Sender invitasjon…';
-
-      try{
-        const r = await sendInvite({ email: vEmail, displayName: vName, role: vRole });
-        s.textContent = r.emailSent ? '✅ Invitasjon sendt!' : '✅ Lenke generert (men e-post ikke bekreftet sendt).';
-        s.classList.add('ok');
-      }catch(err){
-        s.textContent = 'Feil: ' + (err.message || 'ukjent feil');
-        s.classList.add('err');
-      }finally{
-        btn.disabled = false;
-        btn.textContent = prev;
-      }
-    });
-  }
-
-  document.addEventListener('DOMContentLoaded', wire);
-})();
-</script>
-
-<style>
-  .invite-status{margin-top:8px;font-size:.9rem;opacity:.95}
-  .invite-status.ok{color:#21c36a}
-  .invite-status.err{color:#ff6b6b}
-</style>
-
-<!-- users-invite wiring (robust, anker på knappetekst) -->
-<script>
-(function(){
-  const $ = (s,r=document)=>r.querySelector(s);
-
-  function findInviteBtn(){
-    const byId = $('#umInvite');
-    if (byId) return byId;
-    const all = Array.from(document.querySelectorAll('button, [role="button"], a'));
-    return all.find(b => (b.textContent||'').trim().toLowerCase() === 'send invitasjon');
-  }
-
-  function getFields(scope){
-    const email = scope.querySelector('#umNewEmail, input[type="email"], input[placeholder*="E-post" i]');
-    const name  = scope.querySelector('#umNewName, input[name*="name" i], input[id*="name" i]');
-    const role  = scope.querySelector('#umNewRole, select');
-    return { email, name, role };
-  }
-
-  function ensureStatus(container){
-    let s = container.querySelector('.invite-status');
-    if (!s) {
-      s = document.createElement('div');
-      s.className = 'invite-status';
-      container.appendChild(s);
-    }
-    s.classList.remove('ok','err');
-    return s;
-  }
-
-  async function sendInvite(payload){
-    const res = await fetch('/.netlify/functions/users-invite', {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify(payload)
-    });
-    const text = await res.text().catch(()=> '');
-    let data;
-    try { data = JSON.parse(text); } catch { data = { ok:false, error:text||res.statusText }; }
-    if (!res.ok || data.ok === false) {
-      const msg = (data && (data.error||data.message)) || text || ('HTTP '+res.status);
-      throw new Error(msg);
-    }
-    return data;
-  }
-
-  function wire(){
-    const btn = findInviteBtn();
-    if (!btn || btn.__wiredInvite) return;
-    btn.__wiredInvite = true;
-
-    btn.addEventListener('click', async (e)=>{
-      e.preventDefault();
-      const scope = btn.closest('section,form,div') || document;
-      const { email, name, role } = getFields(scope);
-      const s = ensureStatus(btn.parentElement || scope);
-
-      const vEmail = (email && email.value || '').trim();
-      const vName  = (name  && name.value  || '').trim();
-      const vRole  = (role  && role.value  || 'viewer').trim();
-
-      if (!vEmail){ s.textContent = 'Skriv inn e-post først.'; s.classList.add('err'); return; }
-
-      btn.disabled = true;
-      const prev = btn.textContent;
-      btn.textContent = 'Sender…';
-      s.textContent = 'Sender invitasjon…';
-
-      try{
-        const r = await sendInvite({ email: vEmail, displayName: vName, role: vRole });
-        s.textContent = r.emailSent ? '✅ Invitasjon sendt!' : '✅ Lenke generert (men e-post ikke bekreftet sendt).';
-        s.classList.add('ok');
-      }catch(err){
-        s.textContent = 'Feil: ' + (err.message || 'ukjent feil');
-        s.classList.add('err');
-      }finally{
-        btn.disabled = false;
-        btn.textContent = prev;
-      }
-    });
-  }
-
-  document.addEventListener('DOMContentLoaded', wire);
-})();
-</script>
 </body>
 </html>
 
