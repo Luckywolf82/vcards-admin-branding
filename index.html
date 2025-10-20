@@ -349,6 +349,7 @@
         if (idx >= 0) orgSelect.selectedIndex = idx;
         const desc = window.describeAccess ? window.describeAccess(window.ORG_PROFILES || {}) : '';
         window.setOrgAccessMessage?.(desc);
+
         updateEmployeeLimitStatus(key);
         return true;
       }
