@@ -1,4 +1,11 @@
-const { admin, requireRole, json, CORS_HEADERS, SUPERADMIN_EMAILS } = require("./_lib/auth");
+const {
+  admin,
+  requireRole,
+  json,
+  CORS_HEADERS,
+  SUPERADMIN_EMAILS,
+  collectOrgSet,
+} = require("./_lib/auth");
 
 exports.handler = async (event) => {
   if (event.httpMethod === "OPTIONS") {
@@ -9,7 +16,10 @@ exports.handler = async (event) => {
   }
 
   try {
-    await requireRole(event, "admin");
+    const actor = await requireRole(event, "admin");
+    const actorRole = (actor.role || actor.customClaims?.role || "").toLowerCase();
+    const actorOrgSet = new Set(Array.isArray(actor.orgs) ? actor.orgs : collectOrgSet(actor));
+    const actorIsSuper = actorRole === "superadmin";
 
     const params = event.queryStringParameters || {};
     const q = (params.q || "").trim().toLowerCase();
@@ -26,6 +36,7 @@ exports.handler = async (event) => {
       if (email && SUPERADMIN_EMAILS.has(email)) {
         role = "superadmin";
       }
+      const userOrgSet = collectOrgSet(claims);
       return {
         uid: u.uid,
         email: u.email || null,
@@ -33,10 +44,26 @@ exports.handler = async (event) => {
         disabled: !!u.disabled,
         role,
         orgKey: claims.orgKey || null,
+        orgs: Array.from(userOrgSet),
         createdAt: u.metadata?.creationTime || null,
         status: u.disabled ? "disabled" : "active",
       };
     });
+
+    if (!actorIsSuper) {
+      const filterSet = actorOrgSet.size ? actorOrgSet : collectOrgSet(actor);
+      const orgs = new Set(filterSet);
+      users = users.filter((u) => {
+        if (u.uid === actor.uid) return true;
+        if (!orgs.size) return false;
+        const userOrgs = new Set(u.orgs || (u.orgKey ? [u.orgKey] : []));
+        if (!userOrgs.size) return false;
+        for (const key of userOrgs) {
+          if (orgs.has(key)) return true;
+        }
+        return false;
+      });
+    }
 
     if (q) {
       users = users.filter((u) => {

@@ -113,6 +113,7 @@
       <label>Velg organisasjon
         <select id="orgSelect"></select>
       </label>
+      <p class="note" id="orgAccessStatus" style="margin:6px 0 0"></p>
       <div class="inline" id="latestCardRow" style="gap:8px;margin-top:6px">
         <button type="button" class="pill" id="btnFetchLatestCard">Hent siste kort</button>
         <span class="note" id="latestCardStatus"></span>
@@ -120,7 +121,7 @@
 
       <div class="inline">
         <label style="flex:1">Org key (mappe – case sensitive)
-          <input id="orgKey" placeholder="OrgKey" required oninput="applyBranding('force'); syncOrgSelectFromKey(); loadEmployees();">
+          <input id="orgKey" placeholder="OrgKey" required oninput="applyBranding('force'); if (syncOrgSelectFromKey() !== false) loadEmployees();">
         </label>
         <div style="display:flex;align-items:center;justify-content:flex-start;min-width:200px">
           <img id="logoPreview" class="logo-prev" alt="logo" />
@@ -306,20 +307,38 @@
           opt.textContent = orgs[key].name || key;
           orgSelect.appendChild(opt);
         });
+        enforceOrgSelection();
       }
 
       function syncOrgKeyFromSelect(){
-        const key = document.getElementById('orgSelect').value;
+        const select = document.getElementById('orgSelect');
+        if (!select) return;
+        const key = select.value;
+        if (!hasOrgAccess(key)) {
+          setOrgAccessMessage(`Ingen tilgang til ${key}.`);
+          enforceOrgSelection();
+          return false;
+        }
         document.getElementById('orgKey').value = key;
+        setOrgAccessMessage(describeAccess(window.ORG_PROFILES || {}));
         applyBranding('force');
         loadEmployees();
+        return true;
       }
 
       function syncOrgSelectFromKey(){
         const key = document.getElementById('orgKey').value.trim();
         const orgSelect = document.getElementById('orgSelect');
+        if (!orgSelect) return;
+        if (!hasOrgAccess(key)) {
+          if (key) setOrgAccessMessage(`Ingen tilgang til ${key}.`);
+          enforceOrgSelection();
+          return false;
+        }
         const idx = Array.from(orgSelect.options).findIndex(o => o.value === key);
         if (idx >= 0) orgSelect.selectedIndex = idx;
+        setOrgAccessMessage(describeAccess(window.ORG_PROFILES || {}));
+        return true;
       }
 
       const EMPLOYEE_CACHE_TTL = 60 * 1000;
@@ -1671,15 +1690,111 @@
       const authSec = $('auth');
       const appSec  = $('app');
       const btnGoogle = $('btnGoogle');
+      const orgAccessStatus = $('orgAccessStatus');
+
+      const SUPERADMIN_EMAILS = new Set(['trygve.waagen@gmail.com']);
+      const ORG_KEY_PATTERN = /^[A-Za-z0-9_-]+$/;
+      const orgAccessState = {
+        all: false,
+        values: [],
+        set(list = [], all = false) {
+          const unique = Array.from(new Set((Array.isArray(list) ? list : []).filter(Boolean)));
+          this.values = unique;
+          this.all = !!all;
+        },
+        has(key) {
+          if (this.all) return true;
+          if (!key) return false;
+          return this.values.includes(key);
+        },
+      };
+
+      function setOrgAccessMessage(message){
+        if (!orgAccessStatus) return;
+        orgAccessStatus.textContent = message || '';
+      }
+
+      function parseOrgList(input){
+        const raw = Array.isArray(input) ? input : String(input || '').split(/[,\s]+/);
+        const set = new Set();
+        raw.forEach((entry) => {
+          if (entry === null || entry === undefined) return;
+          const value = String(entry).trim();
+          if (!value) return;
+          if (!ORG_KEY_PATTERN.test(value)) return;
+          set.add(value);
+        });
+        return Array.from(set);
+      }
+
+      function collectOrgClaims(claims = {}){
+        const bag = [];
+        if (Array.isArray(claims.orgs)) bag.push(...claims.orgs);
+        else if (typeof claims.orgs === 'string') bag.push(claims.orgs);
+        if (Array.isArray(claims.orgKeys)) bag.push(...claims.orgKeys);
+        if (Array.isArray(claims.orgAccess)) bag.push(...claims.orgAccess);
+        if (typeof claims.orgKey === 'string') bag.push(claims.orgKey);
+        if (typeof claims.org === 'string') bag.push(claims.org);
+        return parseOrgList(bag);
+      }
+
+      function hasOrgAccess(key){
+        return orgAccessState.has(key);
+      }
+
+      function describeAccess(map){
+        const keys = Object.keys(map || {});
+        if (orgAccessState.all) {
+          return keys.length ? `Tilgang til alle (${keys.length}) organisasjoner.` : 'Ingen organisasjoner funnet.';
+        }
+        if (orgAccessState.values.length) {
+          return keys.length ? `Tilgang til: ${keys.join(', ')}` : 'Ingen av dine tildelte organisasjoner ble funnet.';
+        }
+        return 'Du har ikke tildelte organisasjoner. Kontakt administrator.';
+      }
+
+      function enforceOrgSelection(){
+        const orgInput = $('orgKey');
+        const orgSelect = $('orgSelect');
+        if (!orgInput) return;
+        const current = (orgInput.value || '').trim();
+        if (current && hasOrgAccess(current)) {
+          if (orgSelect) {
+            const idx = Array.from(orgSelect.options).findIndex((opt) => opt.value === current);
+            if (idx >= 0) orgSelect.selectedIndex = idx;
+          }
+          setOrgAccessMessage(describeAccess(window.ORG_PROFILES || {}));
+          return;
+        }
+        let fallback = '';
+        if (orgAccessState.all) {
+          fallback = orgSelect?.options?.length ? orgSelect.options[0].value : '';
+        } else if (orgAccessState.values.length) {
+          fallback = orgAccessState.values[0];
+        }
+        if (fallback && hasOrgAccess(fallback)) {
+          orgInput.value = fallback;
+          if (orgSelect) {
+            const idx = Array.from(orgSelect.options).findIndex((opt) => opt.value === fallback);
+            if (idx >= 0) orgSelect.selectedIndex = idx;
+          }
+          applyBranding('force');
+          loadEmployees();
+        } else {
+          if (orgSelect) orgSelect.selectedIndex = -1;
+          orgInput.value = '';
+        }
+        setOrgAccessMessage(describeAccess(window.ORG_PROFILES || {}));
+      }
 
       async function loadOrgsFromFirestore(){
         try {
           const snap = await getDocs(collection(db, 'orgs'));
-          const orgs = {};
+          const fetched = {};
           snap.forEach(d => {
             const key  = d.id;
             const data = d.data() || {};
-            orgs[key] = {
+            fetched[key] = {
               name:   data.name   || key,
               accent: data.accent || '#8fd3ff',
               logo:   data.logo   || '',
@@ -1687,16 +1802,34 @@
               logoBg: data.logoBg || '#ffffff'
             };
           });
-          if (Object.keys(orgs).length === 0) {
-            window.ORG_PROFILES = { "DemoOrg": { name:"DemoOrg", accent:"#3ec6ff", logo:"", site:"https://eksempel.no", logoBg:"#ffffff" } };
+
+          let visible = fetched;
+          if (orgAccessState.all) {
+            if (Object.keys(visible).length === 0) {
+              visible = { "DemoOrg": { name:"DemoOrg", accent:"#3ec6ff", logo:"", site:"https://eksempel.no", logoBg:"#ffffff" } };
+            }
+          } else if (orgAccessState.values.length) {
+            const subset = {};
+            orgAccessState.values.forEach((key) => {
+              if (fetched[key]) subset[key] = fetched[key];
+            });
+            visible = subset;
           } else {
-            window.ORG_PROFILES = orgs;
+            visible = {};
           }
+
+          window.ORG_PROFILES = visible;
+          setOrgAccessMessage(describeAccess(visible));
         } catch (e) {
           console.warn('Klarte ikke hente orgs fra Firestore:', e);
           if (!window.ORG_PROFILES || Object.keys(window.ORG_PROFILES).length===0){
-            window.ORG_PROFILES = { "DemoOrg": { name:"DemoOrg", accent:"#3ec6ff", logo:"", site:"https://eksempel.no", logoBg:"#ffffff" } };
+            if (orgAccessState.all) {
+              window.ORG_PROFILES = { "DemoOrg": { name:"DemoOrg", accent:"#3ec6ff", logo:"", site:"https://eksempel.no", logoBg:"#ffffff" } };
+            } else {
+              window.ORG_PROFILES = {};
+            }
           }
+          setOrgAccessMessage(describeAccess(window.ORG_PROFILES || {}));
         }
       }
 
@@ -1704,13 +1837,33 @@
         if (!user) {
           authSec?.classList?.remove('hide');
           appSec?.classList?.add('hide');
+          orgAccessState.set([], false);
+          setOrgAccessMessage('');
+          window.ALLOWED_ORGS = { all: false, values: [] };
           return;
         }
+        let role = 'viewer';
+        let claimedOrgs = [];
+        try {
+          const result = await user.getIdTokenResult(true);
+          role = result.claims?.role || 'viewer';
+          claimedOrgs = collectOrgClaims(result.claims);
+        } catch (err) {
+          console.warn('Kunne ikke lese org-claims', err);
+        }
+        const emailLower = (user.email || '').toLowerCase();
+        if (emailLower && SUPERADMIN_EMAILS.has(emailLower)) {
+          role = 'superadmin';
+        }
+        const allowAll = role === 'superadmin';
+        orgAccessState.set(claimedOrgs, allowAll);
+        window.ALLOWED_ORGS = { all: orgAccessState.all, values: [...orgAccessState.values] };
+
         await loadOrgsFromFirestore();
         window.populateOrgSelect?.();
-        if (!document.getElementById('orgKey')?.value && document.getElementById('orgSelect')?.options.length){
-          document.getElementById('orgSelect').selectedIndex = 0;
-          window.syncOrgKeyFromSelect?.();
+        const currentKey = document.getElementById('orgKey')?.value?.trim() || '';
+        if (!currentKey || !hasOrgAccess(currentKey)) {
+          enforceOrgSelection();
         } else {
           window.syncOrgSelectFromKey?.();
           window.applyBranding?.('auto');

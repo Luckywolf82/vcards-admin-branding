@@ -3,7 +3,7 @@
 // Sjekk roller / orgKey fra custom claims
 const { auth } = require('./firebaseAdmin');
 const { unauthorized, forbidden } = require('./http');
-const { SUPERADMIN_EMAILS } = require('./auth');
+const { SUPERADMIN_EMAILS, collectOrgSet } = require('./auth');
 
 function collectRoles(claims = {}) {
   const roles = new Set();
@@ -42,6 +42,12 @@ async function getUserFromEvent(event) {
     } else if (!decoded.role && decoded.roles.length) {
       decoded.role = decoded.roles[0];
     }
+    const orgSet = collectOrgSet(decoded);
+    decoded.orgs = Array.from(orgSet);
+    if (!decoded.orgKey && decoded.orgs.length) {
+      decoded.orgKey = decoded.orgs[0];
+    }
+    decoded.orgsAll = decoded.role === 'superadmin';
     return { uid: decoded.uid, claims: decoded };
   } catch (e) {
     console.warn('verifyIdToken failed', e);

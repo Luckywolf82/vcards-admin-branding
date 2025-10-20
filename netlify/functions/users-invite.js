@@ -1,4 +1,38 @@
-const { admin, requireRole, json, CORS_HEADERS } = require("./_lib/auth");
+const {
+  admin,
+  requireRole,
+  json,
+  CORS_HEADERS,
+  normaliseOrgKey,
+} = require("./_lib/auth");
+
+function parseOrgKeys(body = {}) {
+  const set = new Set();
+  const add = (input) => {
+    if (Array.isArray(input)) {
+      input.forEach((entry) => add(entry));
+      return;
+    }
+    if (typeof input === "string") {
+      input
+        .split(/[,\s]+/)
+        .map((part) => normaliseOrgKey(part))
+        .filter(Boolean)
+        .forEach((key) => set.add(key));
+      return;
+    }
+    const clean = normaliseOrgKey(input);
+    if (clean) set.add(clean);
+  };
+
+  add(body.orgs);
+  add(body.orgKeys);
+  add(body.orgAccess);
+  add(body.orgKey);
+  add(body.org);
+
+  return Array.from(set);
+}
 
 async function upsertUser(email, displayName) {
   let record;
@@ -38,13 +72,26 @@ exports.handler = async (event) => {
   }
 
   try {
-    await requireRole(event, "admin");
+    const actor = await requireRole(event, "admin");
+    const actorRole = (actor.role || actor.customClaims?.role || "").toLowerCase();
+    const actorOrgs = new Set(Array.isArray(actor.orgs) ? actor.orgs : []);
 
     const body = JSON.parse(event.body || "{}");
     const email = (body.email || "").trim().toLowerCase();
     const displayName = (body.displayName || "").trim();
     const role = normaliseRole(body.role);
-    const orgKey = (body.orgKey || "").trim() || null;
+    const orgs = parseOrgKeys(body);
+    const primaryOrg = orgs[0] || null;
+
+    if (actorRole !== "superadmin" && orgs.length) {
+      if (!actorOrgs.size) {
+        return json({ ok: false, error: "Du har ikke tilgang til disse organisasjonene" }, 403);
+      }
+      const denied = orgs.filter((key) => !actorOrgs.has(key));
+      if (denied.length) {
+        return json({ ok: false, error: `Ingen tilgang til: ${denied.join(", ")}` }, 403);
+      }
+    }
 
     if (!email) {
       return json({ ok: false, error: "Missing email" }, 400);
@@ -54,9 +101,11 @@ exports.handler = async (event) => {
     const prevClaims = user.customClaims || {};
     const nextClaims = { ...prevClaims };
     nextClaims.role = role;
-    if (orgKey) {
-      nextClaims.orgKey = orgKey;
+    if (orgs.length) {
+      nextClaims.orgs = orgs;
+      nextClaims.orgKey = primaryOrg;
     } else {
+      delete nextClaims.orgs;
       delete nextClaims.orgKey;
     }
 
@@ -78,7 +127,8 @@ exports.handler = async (event) => {
         ok: true,
         uid: user.uid,
         role,
-        orgKey,
+        orgKey: primaryOrg,
+        orgs,
         inviteLink: null,
         emailSent: false,
         note:
@@ -116,7 +166,8 @@ exports.handler = async (event) => {
           ok: true,
           uid: user.uid,
           role,
-          orgKey,
+          orgKey: primaryOrg,
+          orgs,
           inviteLink,
           emailSent: false,
           note:
@@ -129,7 +180,8 @@ exports.handler = async (event) => {
       ok: true,
       uid: user.uid,
       role,
-      orgKey,
+      orgKey: primaryOrg,
+      orgs,
       inviteLink,
       emailSent,
     });

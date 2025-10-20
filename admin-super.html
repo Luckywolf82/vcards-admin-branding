@@ -312,7 +312,7 @@
                 <th style="text-align:left;padding:8px;border-bottom:1px solid #222736">Navn</th>
                 <th style="text-align:left;padding:8px;border-bottom:1px solid #222736">E-post</th>
                 <th style="text-align:left;padding:8px;border-bottom:1px solid #222736">Rolle</th>
-                <th style="text-align:left;padding:8px;border-bottom:1px solid #222736">Org</th>
+                <th style="text-align:left;padding:8px;border-bottom:1px solid #222736">Org(er)</th>
                 <th style="text-align:left;padding:8px;border-bottom:1px solid #222736">Status</th>
                 <th style="text-align:left;padding:8px;border-bottom:1px solid #222736;width:260px">Handling</th>
               </tr>
@@ -343,8 +343,8 @@
               <option value="superadmin">superadmin</option>
             </select>
           </label>
-          <label>Org-nøkkel
-            <input id="invOrg" type="text" placeholder="Wayback" />
+          <label>Org-nøkkel(er)
+            <input id="invOrg" type="text" placeholder="Wayback, Eksempel" />
           </label>
         </div>
         <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
@@ -1457,6 +1457,26 @@ ord_456"></textarea>
     };
 
     const roleOptions = ['superadmin','owner','admin','editor','support','viewer'];
+    const ORG_KEY_PATTERN = /^[A-Za-z0-9_-]+$/;
+
+    function parseOrgList(input){
+      const raw = Array.isArray(input) ? input : String(input || '')
+        .split(/[,\s]+/);
+      const set = new Set();
+      raw.forEach((entry) => {
+        if (entry === null || entry === undefined) return;
+        const value = String(entry).trim();
+        if (!value) return;
+        if (!ORG_KEY_PATTERN.test(value)) return;
+        set.add(value);
+      });
+      return Array.from(set);
+    }
+
+    function formatOrgList(list){
+      if (!Array.isArray(list) || list.length === 0) return '';
+      return list.join(', ');
+    }
 
     function clearTable(){
       if (el.table) {
@@ -1523,6 +1543,14 @@ ord_456"></textarea>
 
       const rows = users.map((user) => {
         const data = { ...user };
+        let orgList = [];
+        if (Array.isArray(data.orgs) && data.orgs.length) {
+          orgList = parseOrgList(data.orgs);
+        } else if (data.orgKey) {
+          orgList = parseOrgList([data.orgKey]);
+        }
+        data.orgs = orgList;
+        data.orgKey = data.orgs.length ? data.orgs[0] : (data.orgKey || null);
         const tr = document.createElement('tr');
         const cell = () => {
           const td = document.createElement('td');
@@ -1557,12 +1585,21 @@ ord_456"></textarea>
         roleSel.addEventListener('change', async () => {
           const nextRole = roleSel.value;
           try {
-            await request(API.role, {
+            const res = await request(API.role, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ uid: data.uid, roles: [nextRole], orgKey: data.orgKey ?? undefined }),
+              body: JSON.stringify({
+                uid: data.uid,
+                roles: [nextRole],
+                orgs: data.orgs,
+              }),
             });
             data.role = nextRole;
+            if (res && Array.isArray(res.orgs)) {
+              data.orgs = parseOrgList(res.orgs);
+              data.orgKey = res.orgKey || (data.orgs[0] || null);
+              orgInput.value = formatOrgList(data.orgs);
+            }
             setMsg(`Oppdatert rolle for ${data.email || data.uid} → ${nextRole}`, { type: 'ok' });
           } catch (err) {
             roleSel.value = data.role || 'viewer';
@@ -1573,7 +1610,13 @@ ord_456"></textarea>
         tr.appendChild(roleTd);
 
         const orgTd = cell();
-        orgTd.textContent = data.orgKey || '—';
+        const orgInput = document.createElement('input');
+        orgInput.type = 'text';
+        orgInput.value = formatOrgList(data.orgs);
+        orgInput.placeholder = 'Wayback, Eksempel';
+        orgInput.style.minWidth = '200px';
+        orgInput.className = 'org-input';
+        orgTd.appendChild(orgInput);
         tr.appendChild(orgTd);
 
         const statusTd = cell();
@@ -1585,6 +1628,33 @@ ord_456"></textarea>
         actions.style.display = 'flex';
         actions.style.gap = '6px';
         actions.style.flexWrap = 'wrap';
+
+        const orgBtn = document.createElement('button');
+        orgBtn.type = 'button';
+        orgBtn.className = 'tab-btn';
+        orgBtn.textContent = 'Oppdater org';
+        orgBtn.addEventListener('click', async () => {
+          const list = parseOrgList(orgInput.value);
+          try {
+            const res = await request(API.role, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                uid: data.uid,
+                roles: [data.role || 'viewer'],
+                orgs: list,
+              }),
+            });
+            const nextOrgs = res && Array.isArray(res.orgs) ? parseOrgList(res.orgs) : list;
+            data.orgs = nextOrgs;
+            data.orgKey = (res && res.orgKey) || (nextOrgs[0] || null);
+            orgInput.value = formatOrgList(nextOrgs);
+            setMsg(`Org-tilgang oppdatert for ${data.email || data.uid}.`, { type: 'ok' });
+          } catch (err) {
+            setMsg(`Kunne ikke oppdatere org-tilgang: ${err.message}`, { type: 'err' });
+          }
+        });
+        actions.appendChild(orgBtn);
 
         const toggleBtn = document.createElement('button');
         toggleBtn.className = 'tab-btn';
@@ -1709,14 +1779,18 @@ ord_456"></textarea>
       const email = (el.invEmail?.value || '').trim();
       const displayName = (el.invName?.value || '').trim();
       const role = el.invRole?.value || 'viewer';
-      const orgKey = (el.invOrg?.value || '').trim();
+      const orgs = parseOrgList(el.invOrg?.value || '');
       if (!email) {
         setMsg('E-post er påkrevd.', { type: 'err' });
         return;
       }
       try {
         setMsg('Sender invitasjon …');
-        const payload = { email, displayName, role, orgKey: orgKey || undefined };
+        const payload = { email, displayName, role };
+        if (orgs.length) {
+          payload.orgs = orgs;
+          payload.orgKey = orgs[0];
+        }
         const data = await request(API.create, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
