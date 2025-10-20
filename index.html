@@ -88,6 +88,12 @@
       window.EMPLOYEES    = {};   // { key: [ {slug, name, ...} ] } – valgfritt, tom som default
     </script>
 
+    <script>
+      window.trimSlashes = window.trimSlashes || function (s = '') {
+        return String(s || '').replace(/^\/+|\/+$/g, '');
+      };
+    </script>
+
     <!-- Banner: Siste opplastede filer -->
     <section class="banner" style="margin:0 0 16px">
       <div class="inline" style="justify-content:space-between;align-items:flex-end;gap:8px">
@@ -347,8 +353,7 @@
       let employeeLoadTimer = null;
       let employeeRequestId = 0;
 
-      const trimSlashes = (s) => (s || '').replace(/^\/+|\/+$/g, '');
-      const pathToSegments = (s) => trimSlashes(s).split('/').filter(Boolean);
+      const pathToSegments = (s) => window.trimSlashes(s).split('/').filter(Boolean);
 
       function renderEmployeeOptions(sel, orgKey, preferredSlug){
         const store = window.EMPLOYEES || (window.EMPLOYEES = {});
@@ -892,7 +897,7 @@
         const HTML_ESCAPE = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
         const escapeHtml = (str = '') => String(str).replace(/[&<>"']/g, c => HTML_ESCAPE[c] || c);
 
-        const trimSlashes = (s = '') => s.replace(/^\/+|\/+$/g, '');
+        const trimSlashes = window.trimSlashes;
         const getVal = (id) => (document.getElementById(id)?.value || '').trim();
         const setVal = (id, value) => { const el = document.getElementById(id); if (el) el.value = value; };
 
@@ -1392,18 +1397,18 @@
 
       function getField(id){ const el = document.getElementById(id); return (el?.value || '').trim(); }
       function pathJoin(){ return Array.from(arguments).filter(Boolean).join('/').replace(/\/+/g,'/'); }
-      function trimSlashes(s){ return (s||'').replace(/^\/+|\/+$/g,''); }
+      const recentTrim = window.trimSlashes;
       function escHtml(s){ return String(s||'').replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]||c)); }
       function escAttr(s){ return String(s||'').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]||c)); }
-      function splitSegments(str){ return trimSlashes(str).split('/').filter(Boolean); }
+      function splitSegments(str){ return recentTrim(str).split('/').filter(Boolean); }
 
       function currentFilesPath(){
-        const basePath = trimSlashes(getField('basePath') || 'Vcards');
+        const basePath = recentTrim(getField('basePath') || 'Vcards');
         const orgKey = getField('orgKey'); const slug = getField('slug');
         return pathJoin(basePath, orgKey, slug, 'files');
       }
       function currentCardsPath(){
-        const basePath = trimSlashes(getField('basePath') || 'Vcards');
+        const basePath = recentTrim(getField('basePath') || 'Vcards');
         const orgKey = getField('orgKey');
         return pathJoin(basePath, orgKey);
       }
@@ -1411,15 +1416,15 @@
         return { owner:getField('ghUser'), repo:getField('ghRepo') };
       }
       function pagesFileUrl(owner, repo, basePath, orgKey, slug, file){
-        const bp = trimSlashes(basePath || 'Vcards');
+        const bp = recentTrim(basePath || 'Vcards');
         return 'https://'+owner+'.github.io/'+repo+(bp?'/'+bp:'')+'/'+orgKey+'/'+slug+'/files/'+file;
       }
       function pagesCardUrl(owner, repo, basePath, orgKey, slug){
-        const bp = trimSlashes(basePath || 'Vcards');
+        const bp = recentTrim(basePath || 'Vcards');
         return 'https://'+owner+'.github.io/'+repo+(bp?'/'+bp:'')+'/'+orgKey+'/'+slug+'/index.html';
       }
       function githubDirUrl(owner, repo, basePath, orgKey, slug){
-        const bp = trimSlashes(basePath || 'Vcards');
+        const bp = recentTrim(basePath || 'Vcards');
         const dir = bp+'/'+orgKey+'/'+slug+'/files';
         return 'https://github.com/'+owner+'/'+repo+'/tree/HEAD/'+encodeURIComponent(dir);
       }
@@ -1431,7 +1436,7 @@
 
       function cacheKey(){
         const { owner, repo } = currentRepoInfo();
-        const basePath = trimSlashes(getField('basePath') || 'Vcards');
+        const basePath = recentTrim(getField('basePath') || 'Vcards');
         const orgKey = getField('orgKey');
         const slug = getField('slug');
         return 'rf:'+owner+':'+repo+':'+basePath+':'+orgKey+':'+(slug||'')+':'+_recentMode;
@@ -1485,7 +1490,7 @@
         setRecentStatus('', 'Laster…');
 
         const { owner, repo } = currentRepoInfo();
-        const basePath = trimSlashes(getField('basePath') || 'Vcards');
+        const basePath = recentTrim(getField('basePath') || 'Vcards');
         const orgKey = getField('orgKey');
         const slug   = getField('slug');
 
@@ -1598,7 +1603,7 @@
         const repoInfo = currentRepoInfo();
         const owner = (repoInfo.owner || 'Luckywolf82').trim();
         const repo  = (repoInfo.repo  || 'Vcards').trim();
-        const basePath = trimSlashes(getField('basePath') || 'Vcards');
+        const basePath = recentTrim(getField('basePath') || 'Vcards');
         const orgKey  = getField('orgKey');
 
         if (!owner || !repo) {
@@ -1722,6 +1727,31 @@
         loginStatusMessage.classList.remove('ok', 'err');
         if (tone === 'ok') loginStatusMessage.classList.add('ok');
         else if (tone === 'err') loginStatusMessage.classList.add('err');
+      }
+      function toggleAppSections(showApp){
+        if (showApp) {
+          authSec?.classList?.add('hide');
+          if (authSec) {
+            authSec.setAttribute('hidden', 'hidden');
+            authSec.style.display = 'none';
+          }
+          appSec?.classList?.remove('hide');
+          if (appSec) {
+            appSec.removeAttribute('hidden');
+            appSec.style.display = '';
+          }
+        } else {
+          appSec?.classList?.add('hide');
+          if (appSec) {
+            appSec.setAttribute('hidden', 'hidden');
+            appSec.style.display = 'none';
+          }
+          authSec?.classList?.remove('hide');
+          if (authSec) {
+            authSec.removeAttribute('hidden');
+            authSec.style.display = '';
+          }
+        }
       }
       const ORG_KEY_PATTERN = /^[A-Za-z0-9_-]+$/;
       const orgAccessState = {
@@ -1885,14 +1915,14 @@
 
       onAuthStateChanged(auth, async (user) => {
         if (!user) {
-          authSec?.classList?.remove('hide');
-          appSec?.classList?.add('hide');
+          toggleAppSections(false);
           orgAccessState.set([], false);
           setOrgAccessMessage('');
           window.ALLOWED_ORGS = { all: false, values: [] };
           setLoginStatus('Logg inn for å bruke adminpanelet.');
           return;
         }
+        toggleAppSections(true);
         let role = 'viewer';
         let claimedOrgs = [];
         try {
@@ -1919,9 +1949,8 @@
           window.syncOrgSelectFromKey?.();
           window.applyBranding?.('auto');
         }
-        authSec?.classList?.add('hide');
-        appSec?.classList?.remove('hide');
         setLoginStatus(`Innlogget som ${user.email || 'ukjent bruker'}`, 'ok');
+        toggleAppSections(true);
       });
 
       async function finalizeRedirectLogin(){
