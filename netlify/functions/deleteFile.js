@@ -1,3 +1,5 @@
+const { encodePath } = require('./_lib/github');
+
 exports.handler = async (event) => {
   try {
     if (event.httpMethod !== "POST") {
@@ -7,15 +9,18 @@ exports.handler = async (event) => {
     if (!token) return { statusCode: 500, body: "Missing GITHUB_TOKEN" };
 
     const body = JSON.parse(event.body || "{}");
-    const { owner, repo, path, message = "Delete via admin" , branch = "HEAD"} = body;
+    const { owner, repo, path, message = "Delete via admin", branch = "HEAD" } = body;
     if (!owner || !repo || !path) {
       return { statusCode: 400, body: "owner, repo, path required" };
     }
 
     // 1) Hent sha for fila
-    const getRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${encodeURIComponent(path)}?ref=${branch}`, {
-      headers: { "Authorization": `Bearer ${token}`, "Accept": "application/vnd.github+json" }
-    });
+    const getRes = await fetch(
+      `https://api.github.com/repos/${owner}/${repo}/contents/${encodePath(path)}?ref=${branch}`,
+      {
+        headers: { "Authorization": `Bearer ${token}`, "Accept": "application/vnd.github+json" },
+      }
+    );
     if (!getRes.ok) {
       const t = await getRes.text();
       return { statusCode: getRes.status, body: `Lookup failed: ${t}` };
@@ -24,11 +29,13 @@ exports.handler = async (event) => {
     const sha = getJson.sha;
 
     // 2) Slett fila
-    const delRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${encodeURIComponent(path)}`, {
-      method: "DELETE",
-      headers: { "Authorization": `Bearer ${token}`, "Accept": "application/vnd.github+json" },
-      body: JSON.stringify({ message, sha, branch })
-    });
+    const delRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${encodePath(path)}`,
+      {
+        method: "DELETE",
+        headers: { "Authorization": `Bearer ${token}`, "Accept": "application/vnd.github+json" },
+        body: JSON.stringify({ message, sha, branch }),
+      }
+    );
 
     if (!delRes.ok) {
       const t = await delRes.text();
