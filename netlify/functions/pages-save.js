@@ -14,6 +14,11 @@ exports.handler = async (event) => {
     const slug = (body.slug || '').trim();
     if (!slug) return badRequest('slug is required');
 
+    const builder = body.builder && Array.isArray(body.builder.blocks)
+      ? { version: body.builder.version || 1, blocks: body.builder.blocks }
+      : { version: 1, blocks: [] };
+    const source = body.source || null;
+
     const doc = {
       slug,
       status: body.status || 'draft', // draft|published|scheduled
@@ -23,6 +28,8 @@ exports.handler = async (event) => {
       body: body.body || {},
       seo: body.seo || {},
       menu: body.menu || { show: true, order: 10 },
+      builder,
+      source,
       updatedAt: Date.now(),
       updatedBy: guard.uid
     };
