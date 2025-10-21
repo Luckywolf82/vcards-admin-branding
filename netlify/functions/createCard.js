@@ -1,4 +1,4 @@
-// netlify/functions/createCard.js
+﻿// netlify/functions/createCard.js
 // Skyver vCard/HTML/data til GitHub Pages repo. Ingen Firebase kreves.
 
 exports.handler = async (event) => {
@@ -24,7 +24,7 @@ exports.handler = async (event) => {
     const owner = repoOwner || process.env.GITHUB_OWNER;
     const repo  = repoName  || process.env.GITHUB_REPO;
     if (!owner || !repo) throw new Error("repoOwner/repoName mangler (eller sett GITHUB_OWNER/GITHUB_REPO).");
-    if (!orgKey || !slug) throw new Error("orgKey og slug er påkrevd.");
+    if (!orgKey || !slug) throw new Error("orgKey og slug er pÃ¥krevd.");
     if (!files.length) throw new Error("Ingen filer mottatt.");
 
     // Hent default branch
@@ -81,3 +81,4 @@ exports.handler = async (event) => {
     return { statusCode: 500, body: JSON.stringify({ error: e.message }) };
   }
 };
+
