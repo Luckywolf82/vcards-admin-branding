@@ -1,0 +1,54 @@
+{
+  "name": "NFCKING Codex Config",
+  "description": "Automatisert konfigurasjon for Codex-PR, Firebase-admin og Netlify deploy",
+  "version": "1.0.0",
+  "repository": {
+    "owner": "Luckywolf82",
+    "name": "vcards-admin-branding",
+    "branch": "main"
+  },
+  "permissions": {
+    "github": {
+      "token_var": "GITHUB_TOKEN",
+      "scopes": ["contents:write", "pull_requests:write", "metadata:read"]
+    },
+    "netlify": {
+      "token_var": "NETLIFY_AUTH_TOKEN",
+      "site_id_var": "NETLIFY_SITE_ID",
+      "allow_deploy": true
+    },
+    "firebase": {
+      "enable_admin": true,
+      "project_id_var": "FIREBASE_PROJECT_ID",
+      "secret_var": "SUPERADMIN_SECRET",
+      "functions": {
+        "promote_user": "/.netlify/functions/setSuperAdmin"
+      }
+    }
+  },
+  "workflows": {
+    "default_branch": "main",
+    "pr": {
+      "auto_merge": true,
+      "labels": ["codex", "auto-pr"],
+      "title_prefix": "🤖 Codex:",
+      "commit_message": "chore(codex): auto-update via Codex"
+    },
+    "deploy": {
+      "run_after_merge": true,
+      "command": "netlify deploy --prod --site $NETLIFY_SITE_ID --auth $NETLIFY_AUTH_TOKEN"
+    }
+  },
+  "files": {
+    "allowed_patterns": [
+      "index.html",
+      "admin-super.html",
+      "bestill-kort.html",
+      "demo.html",
+      "netlify/functions/*",
+      "package.json",
+      "netlify.toml",
+      "README.md"
+    ]
+  }
+}
