@@ -1,30 +1,20 @@
-const {
-  admin,
-  requireRole,
-  json,
-  CORS_HEADERS,
-  normaliseOrgKey,
-} = require("./_lib/auth");
-const { loadSmtpConfig, sendSmtpMail } = require("./_lib/settings");
+﻿// NFCKING: repo-vars start
+const adminOwner = process.env.GITHUB_OWNER;
+const adminRepo  = process.env.GITHUB_REPO;
+const cardsOwner = process.env.CARDS_OWNER || adminOwner;
+const cardsRepo  = process.env.CARDS_REPO  || "vcards";
+const basePath   = process.env.BASE_PATH   || "Vcards";
+console.log("[env] repos", { adminOwner, adminRepo, cardsOwner, cardsRepo, basePath });
+// NFCKING: repo-vars end
+// netlify/functions/users-invite.js
+const admin = require("firebase-admin");
 
-function parseOrgKeys(body = {}) {
-  const set = new Set();
-  const add = (input) => {
-    if (Array.isArray(input)) {
-      input.forEach((entry) => add(entry));
-      return;
-    }
-    if (typeof input === "string") {
-      input
-        .split(/[,\s]+/)
-        .map((part) => normaliseOrgKey(part))
-        .filter(Boolean)
-        .forEach((key) => set.add(key));
-      return;
-    }
-    const clean = normaliseOrgKey(input);
-    if (clean) set.add(clean);
-  };
+// âš ï¸ Viktig: IKKE require('nodemailer') i toppen.
+// Vi importerer den dynamisk bare hvis SMTP-variabler finnes.
+// const nodemailer = require("nodemailer"); // <-- fjernet
+
+// Init Firebase Admin kun Ã©n gang
+if (!admin.apps.length) admin.initializeApp();
 
   add(body.orgs);
   add(body.orgKeys);
@@ -114,6 +104,7 @@ exports.handler = async (event) => {
       await admin.auth().setCustomUserClaims(user.uid, nextClaims);
     }
 
+    // Lag passordlÃ¸s sign-in link (krever â€œEmail link (passwordless)â€ aktivert i Firebase)
     const continueUrl =
       process.env.INVITE_CONTINUE_URL || "https://nfcking.netlify.app/index.html";
 
@@ -124,6 +115,7 @@ exports.handler = async (event) => {
         handleCodeInApp: true,
       });
     } else {
+      // Eldre Admin SDK â€“ gi tydelig beskjed, men ikke fail hardt
       return json({
         ok: true,
         uid: user.uid,
@@ -133,42 +125,62 @@ exports.handler = async (event) => {
         inviteLink: null,
         emailSent: false,
         note:
-          "firebase-admin mangler generateSignInWithEmailLink(). Oppgrader SDK eller send lenke fra klient.",
+          "Admin SDK mangler generateSignInWithEmailLink(). Oppgrader firebase-admin eller bruk klient-SDK for Ã¥ sende e-postlenke.",
       });
     }
 
     let emailSent = false;
-    let note = null;
-    try {
-      const smtpConfig = await loadSmtpConfig();
-      if (smtpConfig) {
-        await sendSmtpMail(smtpConfig, {
-          to: email,
-          subject: "NFCKING – invitasjon",
-          text: [
-            `Hei${displayName ? ` ${displayName}` : ""}!`,
-            "",
-            "Du er invitert til NFCKING administrasjon. Åpne lenken for å logge inn:",
-            inviteLink,
-          ].join("\n"),
-          html: `
-            <p>Hei${displayName ? ` ${displayName}` : ""}!</p>
-            <p>Du er invitert til NFCKING administrasjon. Klikk lenken under for å logge inn:</p>
-            <p><a href="${inviteLink}">Fullfør innlogging</a></p>
-            <p>Hvis knappen ikke fungerer, kopier denne URLen inn i nettleseren:</p>
-            <p style="word-break:break-all">${inviteLink}</p>
-          `,
+    const { SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM } = process.env;
+
+    if (SMTP_HOST && SMTP_PORT && SMTP_USER && SMTP_PASS && SMTP_FROM) {
+      let nodemailer;
+      try {
+        // Dynamisk import for Ã¥ unngÃ¥ hard bundling nÃ¥r pakken ikke er installert
+        nodemailer = await import("nodemailer").then((m) => m.default || m);
+      } catch (e) {
+        // Hvis ikke installert, returnÃ©r lenke men informer om at e-post ikke ble sendt
+        return json({
+          ok: true,
+          uid: userRecord.uid,
+          role: newClaims.role || null,
+          orgKey: newClaims.orgKey || null,
+          inviteLink,
+          emailSent: false,
+          note:
+            "SMTP konfigurert, men 'nodemailer' er ikke installert. Legg til 'nodemailer' i package.json for Ã¥ sende e-post.",
         });
         emailSent = true;
       } else {
         note =
           "SMTP er ikke konfigurert. Lenken vises her slik at du kan sende invitasjonen manuelt.";
       }
-    } catch (err) {
-      note = `E-post kunne ikke sendes automatisk: ${err.message || err}`;
+
+      const transporter = nodemailer.createTransport({
+        host: SMTP_HOST,
+        port: Number(SMTP_PORT) || 587,
+        secure: false,
+        auth: { user: SMTP_USER, pass: SMTP_PASS },
+      });
+
+      const html = `
+        <p>Hei${displayName ? " " + displayName : ""}!</p>
+        <p>Du er invitert til NFCKING. Klikk lenken under for Ã¥ logge inn:</p>
+        <p><a href="${inviteLink}">FullfÃ¸r innlogging</a></p>
+        <p>Hvis knappen ikke virker, kopier denne URLen inn i nettleseren:</p>
+        <p style="word-break:break-all">${inviteLink}</p>
+      `;
+
+      await transporter.sendMail({
+        from: SMTP_FROM,
+        to: email,
+        subject: "NFCKING â€“ invitasjon",
+        html,
+      });
+      emailSent = true;
     }
 
-    const response = {
+    // Alltid returnÃ©r inviteLink, sÃ¥ du kan sende den manuelt ved behov
+    return json({
       ok: true,
       uid: user.uid,
       role,
@@ -185,3 +197,6 @@ exports.handler = async (event) => {
     return json({ ok: false, error: err.message || "Internal error" }, err.statusCode || 500);
   }
 };
+
+
+
