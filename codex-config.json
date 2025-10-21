@@ -1,0 +1,95 @@
+{
+     "owner": "Luckywolf82",
+     "name": "vcards-admin-branding",
+     "branch": "main"
+   },
+   "permissions": {
+     "github": {
+       "token_var": "GITHUB_TOKEN",
+       "scopes": ["contents:write", "pull_requests:write", "metadata:read"]
+     },
+     "netlify": {
+       "token_var": "NETLIFY_AUTH_TOKEN",
+       "site_id_var": "NETLIFY_SITE_ID",
+       "allow_deploy": true
+     },
+     "firebase": {
+       "enable_admin": true,
+       "project_id_var": "FIREBASE_PROJECT_ID",
+       "secret_var": "SUPERADMIN_SECRET",
+       "functions": {
+         "promote_user": "/.netlify/functions/setSuperAdmin"
+       }
+     }
+   },
++  "environment": {
++    "core": [
++      "APP_ENV",
++      "LOG_LEVEL"
++    ],
++    "admin_bootstrap": [
++      "ADMIN_EMAIL",
++      "ADMIN_SEED_EMAIL",
++      "ADMIN_SEED_SECRET",
++      "INVITE_CONTINUE_URL",
++      "SUPERADMIN_SECRET"
++    ],
++    "firebase": {
++      "admin": [
++        "FIREBASE_PROJECT_ID",
++        "FIREBASE_CLIENT_EMAIL",
++        "FIREBASE_PRIVATE_KEY"
++      ],
++      "client": [
++        "FIREBASE_WEB_API_KEY"
++      ]
++    },
++    "github": {
++      "admin_repo": {
++        "owner_var": "GITHUB_OWNER",
++        "repo_var": "GITHUB_REPO"
++      },
++      "cards_repo": {
++        "owner_var": "CARDS_OWNER",
++        "repo_var": "CARDS_REPO",
++        "base_path_var": "BASE_PATH"
++      },
++      "branch_var": "GITHUB_BRANCH",
++      "token_var": "GITHUB_TOKEN"
++    },
++    "netlify": [
++      "NETLIFY_AUTH_TOKEN",
++      "NETLIFY_SITE_ID",
++      "NODE_VERSION"
++    ],
++    "stripe": {
++      "mode_var": "STRIPE_MODE",
++      "secret_var": "STRIPE_SECRET_KEY",
++      "publishable_var": "STRIPE_PUBLISHABLE_KEY"
++    }
++  },
+   "workflows": {
+     "default_branch": "main",
+     "pr": {
+       "auto_merge": true,
+       "labels": ["codex", "auto-pr"],
+       "title_prefix": "🤖 Codex:",
+       "commit_message": "chore(codex): auto-update via Codex"
+     },
+     "deploy": {
+       "run_after_merge": true,
+       "command": "netlify deploy --prod --site $NETLIFY_SITE_ID --auth $NETLIFY_AUTH_TOKEN"
+     }
+   },
+   "files": {
+     "allowed_patterns": [
+       "index.html",
+       "admin-super.html",
+       "bestill-kort.html",
+       "demo.html",
+       "netlify/functions/*",
+       "package.json",
+       "netlify.toml",
+       "README.md"
+     ]
+   }
