@@ -1,6 +1,8 @@
 // netlify/functions/uploadLogo.js
 // Laster opp logo til <BASE_PATH>/assets/<orgKey>/<filename> i GitHub.
 
+const { encodePath } = require('./_lib/github');
+
 exports.handler = async (event) => {
   try {
     if (event.httpMethod !== "POST") {
@@ -45,7 +47,7 @@ exports.handler = async (event) => {
     const path     = `${safeBase}/assets/${safeOrg}/${safeFile}`;
 
     async function getSha(p) {
-      const u = `https://api.github.com/repos/${owner}/${repo}/contents/${encodeURIComponent(p)}?ref=${branch}`;
+      const u = `https://api.github.com/repos/${owner}/${repo}/contents/${encodePath(p)}?ref=${branch}`;
       const r = await fetch(u, {
         headers: { Authorization: `token ${token}`, Accept: "application/vnd.github+json" },
       });
@@ -56,7 +58,7 @@ exports.handler = async (event) => {
     const sha = await getSha(path);
 
     const putRes = await fetch(
-      `https://api.github.com/repos/${owner}/${repo}/contents/${encodeURIComponent(path)}`,
+      `https://api.github.com/repos/${owner}/${repo}/contents/${encodePath(path)}`,
       {
         method: "PUT",
         headers: {

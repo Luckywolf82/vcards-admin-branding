@@ -1,0 +1,60 @@
+export default [
+  {
+    ignores: ['node_modules/**'],
+  },
+  {
+    files: ['**/*.js'],
+    languageOptions: {
+      ecmaVersion: 2021,
+      sourceType: 'module',
+      globals: {
+        window: 'readonly',
+        document: 'readonly',
+        firebase: 'readonly',
+        localStorage: 'readonly',
+        FormData: 'readonly',
+        fetch: 'readonly',
+        Headers: 'readonly',
+        URL: 'readonly',
+        URLSearchParams: 'readonly',
+        history: 'readonly',
+        location: 'readonly',
+        navigator: 'readonly',
+        alert: 'readonly',
+        confirm: 'readonly',
+        prompt: 'readonly',
+        console: 'readonly',
+        setTimeout: 'readonly',
+        setInterval: 'readonly',
+        clearTimeout: 'readonly',
+        clearInterval: 'readonly',
+      },
+    },
+    rules: {
+      'eqeqeq': 'error',
+      'no-implied-eval': 'error',
+      'no-proto': 'error',
+      'no-redeclare': ['error', { builtinGlobals: false }],
+      'no-unsafe-negation': 'error',
+      'no-unused-vars': ['warn', { args: 'none', ignoreRestSiblings: true }],
+      'no-undef': 'off',
+      'no-console': 'off',
+    },
+  },
+  {
+    files: ['netlify/functions/**/*.js'],
+    languageOptions: {
+      ecmaVersion: 2021,
+      sourceType: 'script',
+      globals: {
+        module: 'readonly',
+        require: 'readonly',
+        exports: 'readonly',
+        process: 'readonly',
+      },
+    },
+    rules: {
+      'no-console': 'off',
+    },
+  },
+];
