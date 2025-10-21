@@ -5,6 +5,9 @@
   command   = ""
 
 [build.environment]
+  GITHUB_OWNER = "Luckywolf82"
+  GITHUB_REPO  = "vcards-admin-branding"
+  BASE_PATH    = "Vcards"
   NODE_VERSION = "20"
 
 [[redirects]]
