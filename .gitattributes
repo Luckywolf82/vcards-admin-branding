@@ -1,4 +1,4 @@
-* text=auto
+﻿* text=auto
 *.html text eol=lf
 *.md text eol=lf
 *.json text eol=lf
@@ -12,4 +12,3 @@
 *.env text eol=lf
 *.template text eol=lf
 *.config text eol=lf
-
