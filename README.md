@@ -27,3 +27,7 @@ https://<owner>.github.io/<repo>/Vcards/<OrgKey>/<slug>/<vcf>
 ## Sikkerhet
 - PAT holdes kun som Netlify-secret. UI sender aldri token i nettleser.
 - PR-strategi anbefales (review før merge).
+
+## Codex tilgangstest
+- Denne commiten bekrefter at Codex har skrive- og commit-tilgang til repoet.
+- Endringen fungerer som en røyk-test for at automatiske PR-er kan genereres fra agenten.
