@@ -16,120 +16,119 @@ const admin = require("firebase-admin");
 // Init Firebase Admin kun Ã©n gang
 if (!admin.apps.length) admin.initializeApp();
 
-// CORS
-const CORS = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, content-type",
-  "Access-Control-Allow-Methods": "OPTIONS, POST",
-};
+  add(body.orgs);
+  add(body.orgKeys);
+  add(body.orgAccess);
+  add(body.orgKey);
+  add(body.org);
 
-function json(body, statusCode = 200, extraHeaders = {}) {
-  return {
-    statusCode,
-    headers: { "Content-Type": "application/json", ...CORS, ...extraHeaders },
-    body: JSON.stringify(body),
-  };
+  return Array.from(set);
 }
 
-// Enkel rolle-sjekk via ID-token custom claims
-async function requireAdmin(event) {
-  const authz =
-    (event.headers?.authorization || event.headers?.Authorization || "").trim();
-  if (!authz.startsWith("Bearer ")) {
-    const e = new Error("Missing Authorization Bearer token");
-    e.statusCode = 401;
-    throw e;
+async function upsertUser(email, displayName) {
+  let record;
+  try {
+    record = await admin.auth().getUserByEmail(email);
+    if (displayName && record.displayName !== displayName) {
+      await admin.auth().updateUser(record.uid, { displayName });
+      record = await admin.auth().getUser(record.uid);
+    }
+  } catch (err) {
+    if (err.code === "auth/user-not-found") {
+      record = await admin.auth().createUser({
+        email,
+        emailVerified: false,
+        displayName: displayName || undefined,
+        disabled: false,
+      });
+    } else {
+      throw err;
+    }
   }
-  const token = authz.replace(/^Bearer\s+/i, "");
-  const decoded = await admin.auth().verifyIdToken(token);
-  const role = (decoded.role || decoded.customClaims?.role || "").toLowerCase();
-  if (!role || !["admin", "owner", "superadmin"].includes(role)) {
-    const e = new Error("Forbidden: requires role >= admin");
-    e.statusCode = 403;
-    throw e;
-  }
-  return decoded;
+  return record;
+}
+
+function normaliseRole(role) {
+  const allowed = ["viewer", "support", "editor", "admin", "owner", "superadmin"];
+  const clean = (role || "viewer").toLowerCase();
+  return allowed.includes(clean) ? clean : "viewer";
 }
 
 exports.handler = async (event) => {
-  // Preflight
   if (event.httpMethod === "OPTIONS") {
-    return { statusCode: 204, headers: CORS, body: "" };
+    return { statusCode: 204, headers: CORS_HEADERS, body: "" };
   }
   if (event.httpMethod !== "POST") {
     return json({ ok: false, error: "Method not allowed" }, 405);
   }
 
   try {
-    await requireAdmin(event);
+    const actor = await requireRole(event, "admin");
+    const actorRole = (actor.role || actor.customClaims?.role || "").toLowerCase();
+    const actorOrgs = new Set(Array.isArray(actor.orgs) ? actor.orgs : []);
 
     const body = JSON.parse(event.body || "{}");
     const email = (body.email || "").trim().toLowerCase();
     const displayName = (body.displayName || "").trim();
-    const role = (body.role || "viewer").trim().toLowerCase();
-    const orgKey = (body.orgKey || "").trim();
+    const role = normaliseRole(body.role);
+    const orgs = parseOrgKeys(body);
+    const primaryOrg = orgs[0] || null;
 
-    if (!email) return json({ ok: false, error: "Missing email" }, 400);
-
-    // Finn/lag bruker
-    let userRecord;
-    try {
-      userRecord = await admin.auth().getUserByEmail(email);
-    } catch {
-      userRecord = null;
-    }
-    if (!userRecord) {
-      userRecord = await admin.auth().createUser({
-        email,
-        emailVerified: false,
-        displayName: displayName || undefined,
-        disabled: false,
-      });
-    } else if (displayName && userRecord.displayName !== displayName) {
-      await admin.auth().updateUser(userRecord.uid, { displayName });
-      userRecord = await admin.auth().getUser(userRecord.uid);
+    if (actorRole !== "superadmin" && orgs.length) {
+      if (!actorOrgs.size) {
+        return json({ ok: false, error: "Du har ikke tilgang til disse organisasjonene" }, 403);
+      }
+      const denied = orgs.filter((key) => !actorOrgs.has(key));
+      if (denied.length) {
+        return json({ ok: false, error: `Ingen tilgang til: ${denied.join(", ")}` }, 403);
+      }
     }
 
-    // Claims (rolle + orgKey)
-    const prevClaims = userRecord.customClaims || {};
-    const newClaims = {
-      ...prevClaims,
-      ...(role ? { role } : {}),
-      ...(orgKey ? { orgKey } : {}),
-    };
-    const changed = JSON.stringify(prevClaims) !== JSON.stringify(newClaims);
-    if (changed) {
-      await admin.auth().setCustomUserClaims(userRecord.uid, newClaims);
+    if (!email) {
+      return json({ ok: false, error: "Missing email" }, 400);
+    }
+
+    const user = await upsertUser(email, displayName);
+    const prevClaims = user.customClaims || {};
+    const nextClaims = { ...prevClaims };
+    nextClaims.role = role;
+    if (orgs.length) {
+      nextClaims.orgs = orgs;
+      nextClaims.orgKey = primaryOrg;
+    } else {
+      delete nextClaims.orgs;
+      delete nextClaims.orgKey;
+    }
+
+    if (JSON.stringify(prevClaims) !== JSON.stringify(nextClaims)) {
+      await admin.auth().setCustomUserClaims(user.uid, nextClaims);
     }
 
     // Lag passordlÃ¸s sign-in link (krever â€œEmail link (passwordless)â€ aktivert i Firebase)
     const continueUrl =
       process.env.INVITE_CONTINUE_URL || "https://nfcking.netlify.app/index.html";
-    const actionCodeSettings = {
-      url: continueUrl,
-      handleCodeInApp: true,
-      // dynamicLinkDomain: process.env.INVITE_DYNAMIC_LINK || undefined,
-    };
 
-    let inviteLink;
+    let inviteLink = null;
     if (typeof admin.auth().generateSignInWithEmailLink === "function") {
-      inviteLink = await admin.auth().generateSignInWithEmailLink(
-        email,
-        actionCodeSettings
-      );
+      inviteLink = await admin.auth().generateSignInWithEmailLink(email, {
+        url: continueUrl,
+        handleCodeInApp: true,
+      });
     } else {
       // Eldre Admin SDK â€“ gi tydelig beskjed, men ikke fail hardt
       return json({
         ok: true,
-        uid: userRecord.uid,
-        emailSent: false,
+        uid: user.uid,
+        role,
+        orgKey: primaryOrg,
+        orgs,
         inviteLink: null,
+        emailSent: false,
         note:
           "Admin SDK mangler generateSignInWithEmailLink(). Oppgrader firebase-admin eller bruk klient-SDK for Ã¥ sende e-postlenke.",
       });
     }
 
-    // E-post: send kun hvis SMTP-variabler finnes. Dynamisk import av nodemailer.
     let emailSent = false;
     const { SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM } = process.env;
 
@@ -150,6 +149,10 @@ exports.handler = async (event) => {
           note:
             "SMTP konfigurert, men 'nodemailer' er ikke installert. Legg til 'nodemailer' i package.json for Ã¥ sende e-post.",
         });
+        emailSent = true;
+      } else {
+        note =
+          "SMTP er ikke konfigurert. Lenken vises her slik at du kan sende invitasjonen manuelt.";
       }
 
       const transporter = nodemailer.createTransport({
@@ -179,15 +182,19 @@ exports.handler = async (event) => {
     // Alltid returnÃ©r inviteLink, sÃ¥ du kan sende den manuelt ved behov
     return json({
       ok: true,
-      uid: userRecord.uid,
-      role: newClaims.role || null,
-      orgKey: newClaims.orgKey || null,
+      uid: user.uid,
+      role,
+      orgKey: primaryOrg,
+      orgs,
       inviteLink,
       emailSent,
-    });
+    };
+    if (note) {
+      response.note = note;
+    }
+    return json(response);
   } catch (err) {
-    const status = err.statusCode || 500;
-    return json({ ok: false, error: err.message || String(err) }, status);
+    return json({ ok: false, error: err.message || "Internal error" }, err.statusCode || 500);
   }
 };
 
