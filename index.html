@@ -3,10 +3,31 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="NFCKINGs adminpanel lar deg bygge, publisere og vedlikeholde NFC-visittkort for organisasjonen din." />
+  <meta property="og:site_name" content="NFCKING" />
+  <meta property="og:title" content="NFCKING adminpanel for NFC-visittkort" />
+  <meta property="og:description" content="Administrer branding, vedlegg og NFC-visittkort fra ett og samme sted." />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://nfcking.no/admin" />
+  <meta property="og:image" content="https://raw.githubusercontent.com/Luckywolf82/vcards-admin-branding/main/assets/NFCKING_dark.png" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="NFCKING adminpanel for NFC-visittkort" />
+  <meta name="twitter:description" content="Administrer branding, vedlegg og NFC-visittkort fra ett og samme sted." />
+  <meta name="twitter:image" content="https://raw.githubusercontent.com/Luckywolf82/vcards-admin-branding/main/assets/NFCKING_dark.png" />
   <title>NFCKING – Adminpanel</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/water.css@2/out/water.css">
   <style>
     body{background:#0b0b10;color:#e9eef5}
+    .site-nav{position:sticky;top:0;z-index:30;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 18px;background:rgba(11,11,16,.94);border-bottom:1px solid #1f2a36;backdrop-filter:blur(12px)}
+    .site-nav__home{display:inline-flex;align-items:center;gap:10px;font-weight:700;color:#cfe3ff;text-decoration:none}
+    .site-nav__home img{height:32px;width:auto;filter:drop-shadow(0 0 6px #3fffd2)}
+    .site-nav__home span{letter-spacing:.04em;text-transform:uppercase;font-size:.85rem}
+    .site-nav__home:hover{color:#fff}
+    .site-nav__links{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+    .site-nav__link{display:inline-flex;align-items:center;justify-content:center;padding:8px 14px;border-radius:999px;text-decoration:none;font-weight:600;background:#1a2432;color:#cfe3ff;border:1px solid #222f3f}
+    .site-nav__link:hover{background:#273449;color:#fff}
+    .site-nav__link[aria-current="page"]{background:#8fd3ff;color:#03101a;border-color:#8fd3ff}
+    .site-nav__link--hidden{display:none !important}
     .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
     @media (max-width:920px){.row{grid-template-columns:1fr}}
     textarea{font-family:monospace}
@@ -54,6 +75,21 @@
 </head>
 
 <body>
+  <header class="site-nav">
+    <a class="site-nav__home" href="/index.html">
+      <img
+        src="/assets/NFCKING_dark.png?v=4"
+        alt="NFCKING logo"
+        onerror="this.onerror=null;this.src='https://raw.githubusercontent.com/Luckywolf82/vcards-admin-branding/main/assets/NFCKING_dark.png?v=4';">
+      <span>NFCKING</span>
+    </a>
+    <nav class="site-nav__links">
+      <a class="site-nav__link" href="/index.html" aria-current="page">Admin</a>
+      <a class="site-nav__link" href="/bestill-kort.html">Bestill kort</a>
+      <a class="site-nav__link" href="/demo.html">Demo</a>
+      <a class="site-nav__link site-nav__link--hidden" href="/admin-super.html" data-nav-superadmin>Superadmin</a>
+    </nav>
+  </header>
   <!-- AUTH: vises før innlogging -->
   <section id="auth" class="card">
     <div class="brand">
@@ -65,7 +101,7 @@
     </div>
     <hr class="brand-rule">
     <button id="btnGoogle" class="btn">Logg inn med Google</button>
-    <p class="note" id="authStatusMessage" style="margin-top:8px">Krever at brukeren finnes i Firestore policy (kan åpnes for alle – nå tillater vi alle innloggede).</p>
+    <p class="note" id="authStatusMessage" role="status" aria-live="polite" aria-atomic="true" style="margin-top:8px">Krever at brukeren finnes i Firestore policy (kan åpnes for alle – nå tillater vi alle innloggede).</p>
   </section>
 
   <!-- APP: skjules til bruker er innlogget -->
@@ -94,6 +130,54 @@
       };
     </script>
 
+    <script>
+      const superNavLink = document.querySelector('[data-nav-superadmin]');
+      function updateSuperNav(isSuper){
+        if (!superNavLink) return;
+        superNavLink.classList.toggle('site-nav__link--hidden', !isSuper);
+        try {
+          if (isSuper) {
+            localStorage.setItem('nfcking:isSuperAdmin', '1');
+          } else {
+            localStorage.removeItem('nfcking:isSuperAdmin');
+          }
+        } catch (err) {
+          /* Ignorer hvis localStorage ikke er tilgjengelig */
+        }
+      }
+      updateSuperNav(false);
+
+      window.setLiveMessage = window.setLiveMessage || function setLiveMessage(el, tone, message, options = {}) {
+        if (!el) return;
+        const { allowHtml = false, focus = false, preventScroll = false } = options;
+        const classes = ['note'];
+        if (tone) classes.push(tone);
+        el.className = classes.join(' ').trim();
+        if (message instanceof Node) {
+          if (typeof el.replaceChildren === 'function') {
+            el.replaceChildren(message);
+          } else {
+            el.innerHTML = '';
+            el.appendChild(message);
+          }
+        } else if (allowHtml && typeof message === 'string') {
+          el.innerHTML = message;
+        } else {
+          el.textContent = message || '';
+        }
+        if (focus && typeof el.focus === 'function') {
+          if (!el.hasAttribute('tabindex')) {
+            el.setAttribute('tabindex', '-1');
+          }
+          try {
+            el.focus({ preventScroll });
+          } catch {
+            el.focus();
+          }
+        }
+      };
+    </script>
+
     <!-- Banner: Siste opplastede filer -->
     <section class="banner" style="margin:0 0 16px">
       <div class="inline" style="justify-content:space-between;align-items:flex-end;gap:8px">
@@ -110,7 +194,7 @@
           <button id="btnRecentMore" class="pill" type="button" style="display:none">Se flere</button>
         </div>
       </div>
-      <div id="recentFilesStatus" class="note" style="margin-top:6px"></div>
+      <div id="recentFilesStatus" class="note" role="status" aria-live="polite" aria-atomic="true" style="margin-top:6px"></div>
       <ul id="recentFilesList" class="file-list"></ul>
     </section>
 
@@ -119,10 +203,10 @@
       <label>Velg organisasjon
         <select id="orgSelect"></select>
       </label>
-      <p class="note" id="orgAccessStatus" style="margin:6px 0 0"></p>
+      <p class="note" id="orgAccessStatus" role="status" aria-live="polite" aria-atomic="true" style="margin:6px 0 0"></p>
       <div class="inline" id="latestCardRow" style="gap:8px;margin-top:6px">
         <button type="button" class="pill" id="btnFetchLatestCard">Hent siste kort</button>
-        <span class="note" id="latestCardStatus"></span>
+        <span class="note" id="latestCardStatus" role="status" aria-live="polite" aria-atomic="true"></span>
       </div>
 
       <div class="inline">
@@ -261,7 +345,7 @@
     <div class="inline" style="gap:10px;align-items:center;margin:12px 0;flex-wrap:wrap">
       <button type="button" id="btnGenerate" class="pill">Generer</button>
       <button type="button" id="btnPublish" class="pill">Publiser</button>
-      <span id="status" class="note"></span>
+      <span id="status" class="note" role="status" aria-live="polite" aria-atomic="true"></span>
     </div>
 
     <h3>Resultat</h3>
@@ -739,7 +823,7 @@
             : (urlValue || '');
           const actions = [];
           if (openHref){
-            actions.push(`<a class="pill" href="${escapeAttr(openHref)}" target="_blank" rel="noopener">Åpne</a>`);
+            actions.push(`<a class="pill" href="${escapeAttr(openHref)}" target="_blank" rel="noopener noreferrer">Åpne</a>`);
           }
           actions.push('<button type="button" class="pill" data-act="remove">Fjern</button>');
           const labelInput = `<label style="display:block;margin-top:6px">Visningsnavn<input data-field="label" value="${escapeAttr(labelValue)}" placeholder="${isFile?'Standard = filnavn':'F.eks. Produktark'}" style="width:100%"></label>`;
@@ -855,18 +939,26 @@
         }
         const ctx = { owner, repo, basePath, orgKey, slug };
         const status = document.getElementById('status');
-        status.textContent = 'Laster opp…';
+        const updateStatus = (tone, message, opts = {}) => {
+          if (typeof window.setLiveMessage === 'function') {
+            window.setLiveMessage(status, tone, message, opts);
+          } else if (status) {
+            status.className = tone ? `note ${tone}` : 'note';
+            status.textContent = message || '';
+          }
+        };
+        updateStatus('', 'Laster opp…');
         try{
           for (const f of files){
             const res = await uploadOneFile(f, ctx);
             const entry = normalizeAttachment({ kind:'file', file: res.name, label:'', sourceUrl: res.url });
             if (entry) window._uploadedAttachments.push(entry);
           }
-          status.innerHTML = '<span class="ok">✅ Opplasting ferdig</span>';
+          updateStatus('ok', '✅ Opplasting ferdig', { focus: true });
           document.getElementById('attachmentsInput').value = '';
           renderAttachments();
         }catch(e){
-          status.innerHTML = '<span class="err">❌ '+(e.message||e)+'</span>';
+          updateStatus('err', `❌ ${e.message || e}`, { focus: true });
         }
       });
     </script>
@@ -918,7 +1010,10 @@
             const val = input.value.trim();
             if (!val) return;
             if (btn.dataset.act === 'copy') navigator.clipboard?.writeText(val);
-            if (btn.dataset.act === 'open') window.open(val, '_blank', 'noopener');
+            if (btn.dataset.act === 'open') {
+              const newWindow = window.open(val, '_blank', 'noopener,noreferrer');
+              if (newWindow) newWindow.opener = null;
+            }
           });
         }
         window.ensureUrlControls = window.ensureUrlControls || ensureUrlControls;
@@ -959,7 +1054,7 @@
             const post = l.post ? `<div class="post" style="margin:4px 0 10px;color:#97a3b6;font-size:.95rem">${escapeHtml(l.post)}</div>` : '';
             const label = escapeHtml(l.label || 'Lenke');
             const href = escapeHtml(l.url || '#');
-            return `<div class="link-block" style="margin-top:10px">${pre}<a class="btn" href="${href}" target="_blank" rel="noopener">${label}</a>${post}</div>`;
+            return `<div class="link-block" style="margin-top:10px">${pre}<a class="btn" href="${href}" target="_blank" rel="noopener noreferrer">${label}</a>${post}</div>`;
           }).join('');
         }
 
@@ -998,7 +1093,7 @@
           const list = Array.isArray(attachments) ? attachments : [];
           if (!list.length) return '';
           const rows = list.map(describeAttachment).filter(Boolean).map(item =>
-            `<li><a class="btn" href="${escapeHtml(item.href)}" download rel="noopener">${escapeHtml(item.label)}</a></li>`
+            `<li><a class="btn" href="${escapeHtml(item.href)}" download rel="noopener noreferrer">${escapeHtml(item.label)}</a></li>`
           ).join('');
           if (!rows) return '';
           return `<section id="downloads" style="margin-top:16px">
@@ -1043,7 +1138,7 @@
     <div class="links">
       <a href="tel:${escapeHtml(d.phone || '')}" class="btn">Ring</a>
       <a href="mailto:${escapeHtml(d.email || '')}" class="btn">E-post</a>
-      <a href="${escapeHtml(d.site || '#')}" class="btn" target="_blank" rel="noopener">Besøk nettside</a>
+      <a href="${escapeHtml(d.site || '#')}" class="btn" target="_blank" rel="noopener noreferrer">Besøk nettside</a>
       <a href="../index.html" class="btn">← Tilbake</a>
     </div>
     ${extras}
@@ -1069,10 +1164,22 @@
 </html>`;
         }
 
-        function showStatus(kind, html){
+        function showStatus(kind, message, options = {}){
           if (!$status) return;
-          $status.className = kind ? `note ${kind}` : 'note';
-          $status.innerHTML = html || '';
+          const opts = { allowHtml: true, ...options };
+          if (opts.focus === undefined && kind === 'err') {
+            opts.focus = true;
+          }
+          if (typeof window.setLiveMessage === 'function') {
+            window.setLiveMessage($status, kind, message || '', opts);
+          } else {
+            $status.className = kind ? `note ${kind}` : 'note';
+            if (opts.allowHtml) {
+              $status.innerHTML = message || '';
+            } else {
+              $status.textContent = message || '';
+            }
+          }
         }
 
         function collectLinks(){
@@ -1264,9 +1371,9 @@
             const repoEnc = encodeURIComponent(repo);
             const dataSegments = [...urls.encodedSegments, 'data.json'];
             const dataLink = `https://raw.githubusercontent.com/${ownerEnc}/${repoEnc}/HEAD/${dataSegments.join('/')}`;
-            const htmlAnchor = `<a href="${urls.htmlUrl}" target="_blank" rel="noopener">index.html</a>`;
-            const vcfAnchor = `<a href="${urls.vcfUrl}" target="_blank" rel="noopener">${escapeHtml(cardData.vcfFilename)}</a>`;
-            const dataAnchor = `<a href="${dataLink}" target="_blank" rel="noopener">data.json</a>`;
+            const htmlAnchor = `<a href="${urls.htmlUrl}" target="_blank" rel="noopener noreferrer">index.html</a>`;
+            const vcfAnchor = `<a href="${urls.vcfUrl}" target="_blank" rel="noopener noreferrer">${escapeHtml(cardData.vcfFilename)}</a>`;
+            const dataAnchor = `<a href="${dataLink}" target="_blank" rel="noopener noreferrer">data.json</a>`;
             const displayPath = [basePath, cardData.orgKey, cardData.slug].filter(Boolean).join('/') || `${cardData.orgKey}/${cardData.slug}`;
 
             try {
@@ -1463,9 +1570,22 @@
         return 'https://github.com/'+owner+'/'+repo+'/tree/HEAD/'+encodeURIComponent(dir);
       }
 
-      function setRecentStatus(cls, msg){
-        $recentStatus.className = 'note ' + (cls||'');
-        $recentStatus.innerHTML = msg || '';
+      function setRecentStatus(cls, msg, options = {}){
+        const message = msg ?? '';
+        const opts = { ...options };
+        if (opts.focus === undefined && cls === 'err') {
+          opts.focus = true;
+        }
+        if (typeof window.setLiveMessage === 'function') {
+          window.setLiveMessage($recentStatus, cls, message, opts);
+        } else if ($recentStatus) {
+          $recentStatus.className = 'note ' + (cls || '');
+          if (opts.allowHtml && typeof message === 'string') {
+            $recentStatus.innerHTML = message;
+          } else {
+            $recentStatus.textContent = message;
+          }
+        }
       }
 
       function cacheKey(){
@@ -1494,10 +1614,10 @@
         function fmt(iso){ try { const d = new Date(iso); return d.toLocaleString('no-NO'); } catch { return iso||''; } }
         $recentList.innerHTML = slice.map(it => {
           if (it.kind === 'card') {
-            const openLink = it.url ? ' <a class="note" href="'+escAttr(it.url)+'" target="_blank" rel="noopener">Åpne</a>' : '';
+            const openLink = it.url ? ' <a class="note" href="'+escAttr(it.url)+'" target="_blank" rel="noopener noreferrer">Åpne</a>' : '';
             return '<li><a href="#" data-recent-card="1" data-slug="'+escAttr(it.slug)+'" data-path="'+escAttr(it.path)+'">'+escHtml(it.file)+'</a>'+openLink+' <span class="note" style="margin-left:6px">'+fmt(it.when)+'</span></li>';
           }
-          return '<li><a href="'+escAttr(it.url)+'" target="_blank" rel="noopener">'+escHtml(it.file)+'</a> <span class="note" style="margin-left:6px">'+fmt(it.when)+'</span></li>';
+          return '<li><a href="'+escAttr(it.url)+'" target="_blank" rel="noopener noreferrer">'+escHtml(it.file)+'</a> <span class="note" style="margin-left:6px">'+fmt(it.when)+'</span></li>';
         }).join('');
 
         if (items.length > slice.length) {
@@ -1608,7 +1728,7 @@
             const dirUrl = _recentMode === 'files'
               ? githubDirUrl(owner, repo, basePath, orgKey, slug||'')
               : 'https://github.com/'+owner+'/'+repo+'/tree/HEAD/'+encodeURIComponent(currentCardsPath());
-            setRecentStatus('', 'Ingen endringer funnet. <a href="'+dirUrl+'" target="_blank" rel="noopener">Se i GitHub</a>.');
+            setRecentStatus('', 'Ingen endringer funnet. <a href="'+dirUrl+'" target="_blank" rel="noopener noreferrer">Se i GitHub</a>.', { allowHtml: true });
             $recentList.innerHTML = '';
             $recentMoreBtn.style.display = 'none';
             return;
@@ -1624,7 +1744,7 @@
             const dirUrl = _recentMode === 'files'
               ? githubDirUrl(owner, repo, basePath, getField('orgKey'), getField('slug')||'')
               : 'https://github.com/'+getField('ghUser')+'/'+getField('ghRepo')+'/tree/HEAD/'+encodeURIComponent(currentCardsPath());
-            setRecentStatus('err','Fant ikke mappen. Sjekk sti/branch. <a href="'+dirUrl+'" target="_blank" rel="noopener">Åpne i GitHub</a>.');
+            setRecentStatus('err','Fant ikke mappen. Sjekk sti/branch. <a href="'+dirUrl+'" target="_blank" rel="noopener noreferrer">Åpne i GitHub</a>.', { allowHtml: true });
           } else {
             setRecentStatus('err','Kunne ikke hente: ' + (e.message || e));
           }
@@ -1991,6 +2111,7 @@
           setOrgAccessMessage('');
           window.ALLOWED_ORGS = { all: false, values: [] };
           setLoginStatus('Logg inn for å bruke adminpanelet.');
+          updateSuperNav(false);
           return;
         }
         toggleAppSections(true);
@@ -2007,7 +2128,9 @@
         if (emailLower && SUPERADMIN_EMAILS.has(emailLower)) {
           role = 'superadmin';
         }
-        const allowAll = role === 'superadmin';
+        const isSuperAdmin = role === 'superadmin';
+        updateSuperNav(isSuperAdmin);
+        const allowAll = isSuperAdmin;
         orgAccessState.set(claimedOrgs, allowAll);
         window.ALLOWED_ORGS = { all: orgAccessState.all, values: [...orgAccessState.values] };
 
@@ -2105,7 +2228,7 @@
       <ul style="margin:0;padding-left:18px">
         ${filesState.map(f => `
           <li>
-            <a href="${f.viewUrl}" target="_blank" rel="noopener">${f.name}</a>
+            <a href="${f.viewUrl}" target="_blank" rel="noopener noreferrer">${f.name}</a>
             <button type="button" class="pill" data-del="${encodeURIComponent(f.path)}" style="margin-left:6px">Slett</button>
           </li>
         `).join("")}
