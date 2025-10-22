@@ -3,7 +3,14 @@ const { db } = require('./_lib/firebaseAdmin');
 const { json, badRequest, serverError } = require('./_lib/http');
 const { requireRole } = require('./_lib/authz');
 const { readFile, GitHubConfigError } = require('./_lib/github');
-const { slugToPath, slugPreviewUrl, extractParts } = require('./_lib/pages');
+const {
+  normalizeSlug,
+  slugToDocId,
+  docIdToSlug,
+  slugToPath,
+  slugPreviewUrl,
+  extractParts
+} = require('./_lib/pages');
 
 exports.handler = async (event) => {
   try {
@@ -11,14 +18,15 @@ exports.handler = async (event) => {
     if (guard.error) return guard.error;
 
     const url = new URL(event.rawUrl);
-    const slug = url.searchParams.get('slug');
+    const slug = normalizeSlug(url.searchParams.get('slug') || '');
     if (!slug) return badRequest('slug is required');
 
-    const doc = await db.collection('pages').doc(slug).get();
-    if (doc.exists) {
+    const docId = slugToDocId(slug);
+    const doc = docId ? await db.collection('pages').doc(docId).get() : null;
+    if (doc && doc.exists) {
       const data = doc.data();
       return json({
-        slug,
+        slug: normalizeSlug(data.slug || docIdToSlug(doc.id) || slug),
         ...data,
         previewUrl: slugPreviewUrl(slug)
       });

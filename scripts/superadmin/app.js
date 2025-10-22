@@ -2959,11 +2959,20 @@
       });
     }
 
+    function sanitizeSlugInput(value){
+      const raw = String(value || '').trim();
+      return raw.replace(/^\/+/, '').replace(/\/+$/, '');
+    }
+
     function collectPage(statusOverride){
       updateBodiesFromBuilder();
       const scheduleValue = el.scheduleAt.value ? new Date(el.scheduleAt.value).toISOString() : null;
+      const slug = sanitizeSlugInput(el.slug.value || '');
+      if (el.slug && el.slug.value !== slug) {
+        el.slug.value = slug;
+      }
       return {
-        slug: (el.slug.value || '').trim(),
+        slug,
         status: statusOverride || el.statusEdit.value || 'draft',
         scheduleAt: scheduleValue,
         orgKey: (el.org.value || '').trim() || null,
