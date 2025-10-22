@@ -3,6 +3,17 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="description" content="NFCKINGs superadminpanel gir innsikt i deploys, tokens og avanserte innstillinger for NFC-plattformen." />
+  <meta property="og:site_name" content="NFCKING" />
+  <meta property="og:title" content="NFCKING – Superadminpanel" />
+  <meta property="og:description" content="Administrer deploys, tokens og avanserte NFCKING-innstillinger fra ett sted." />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://nfcking.no/admin-super" />
+  <meta property="og:image" content="https://raw.githubusercontent.com/Luckywolf82/vcards-admin-branding/main/assets/NFCKING_dark.png" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="NFCKING – Superadminpanel" />
+  <meta name="twitter:description" content="Administrer deploys, tokens og avanserte NFCKING-innstillinger fra ett sted." />
+  <meta name="twitter:image" content="https://raw.githubusercontent.com/Luckywolf82/vcards-admin-branding/main/assets/NFCKING_dark.png" />
   <title>NFCKING – Superadmin</title>
   <meta name="color-scheme" content="dark light" />
   <link rel="icon" href="/favicon.ico" />
@@ -127,7 +138,7 @@
         <a href="/index.html">Admin</a>
         <a href="/demo.html">Demo</a>
         <a href="/bestill-kort.html">Bestill kort</a>
-        <a href="/admin-super.html" aria-current="page">Superadmin</a>
+        <a href="/admin-super.html" aria-current="page" data-nav-superadmin hidden>Superadmin</a>
       </nav>
       <div class="spacer"></div>
       <div id="userBadge" class="status-pill">
@@ -138,6 +149,22 @@
       </div>
     </div>
   </header>
+
+  <script>
+    (function () {
+      try {
+        if (localStorage.getItem('nfcking:isSuperAdmin') === '1') {
+          const navSuper = document.querySelector('[data-nav-superadmin]');
+          if (navSuper) {
+            navSuper.removeAttribute('hidden');
+            navSuper.removeAttribute('aria-hidden');
+          }
+        }
+      } catch (err) {
+        /* Ignorer hvis localStorage er utilgjengelig */
+      }
+    })();
+  </script>
 
   <div id="accessGate" class="gate hidden" role="alert">
     <div class="card">

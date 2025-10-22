@@ -2,7 +2,7 @@
 const { db } = require('./_lib/firebaseAdmin');
 const { json, serverError } = require('./_lib/http');
 const { requireRole } = require('./_lib/authz');
-const { getRepoTree } = require('./_lib/github');
+const { getRepoTree, GitHubConfigError } = require('./_lib/github');
 const { slugFromPath, isSitePagePath, slugPreviewUrl, slugToPath } = require('./_lib/pages');
 
 exports.handler = async (event) => {
@@ -71,8 +71,26 @@ exports.handler = async (event) => {
           }
         });
     } catch (err) {
-      console.warn('pages-list: repo tree lookup failed', err.message);
+      if (err instanceof GitHubConfigError) {
+        console.warn('pages-list: missing GitHub config', err.message);
+      } else {
+        console.warn('pages-list: repo tree lookup failed', err.message);
+      }
     }
+
+    const fallbackSlugs = ['index', 'bestill-kort', 'demo', 'admin-super'];
+    fallbackSlugs.forEach((slug) => {
+      if (!map.has(slug)) {
+        map.set(slug, {
+          slug,
+          status: 'published',
+          title: {},
+          updatedAt: null,
+          path: slugToPath(slug) || '',
+          previewUrl: slugPreviewUrl(slug)
+        });
+      }
+    });
 
     const pages = Array.from(map.values()).sort((a, b) => a.slug.localeCompare(b.slug));
 
