@@ -1,3 +1,5 @@
 
 # Local Netlify folder
 .netlify
+# Ignore Netlify build artefacts
+.netlify/
