@@ -32,9 +32,16 @@ function parseRepoEnv(value) {
 
 const parsedRepo = parseRepoEnv(process.env.GITHUB_REPOSITORY || process.env.REPOSITORY_URL);
 
+function normalizeBranch(value) {
+  if (!value) return 'main';
+  const trimmed = String(value).trim();
+  if (!trimmed) return 'main';
+  return trimmed.replace(/^refs\/heads\//i, '');
+}
+
 const OWNER  = process.env.GITHUB_OWNER || parsedRepo.owner;
 const REPO   = process.env.GITHUB_REPO  || parsedRepo.repo;
-const BRANCH = process.env.GITHUB_BRANCH || process.env.BRANCH || 'main';
+const BRANCH = normalizeBranch(process.env.GITHUB_BRANCH);
 const TOKEN  = (process.env.GITHUB_TOKEN || process.env.GIT_TOKEN || '').trim();
 const API    = 'https://api.github.com';
 const USER_AGENT = 'nfcking-admin-bot/1.0';
