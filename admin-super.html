@@ -138,7 +138,7 @@
         <a href="/index.html">Admin</a>
         <a href="/demo.html">Demo</a>
         <a href="/bestill-kort.html">Bestill kort</a>
-        <a href="/admin-super.html" aria-current="page">Superadmin</a>
+        <a href="/admin-super.html" aria-current="page" data-nav-superadmin hidden>Superadmin</a>
       </nav>
       <div class="spacer"></div>
       <div id="userBadge" class="status-pill">
@@ -149,6 +149,22 @@
       </div>
     </div>
   </header>
+
+  <script>
+    (function () {
+      try {
+        if (localStorage.getItem('nfcking:isSuperAdmin') === '1') {
+          const navSuper = document.querySelector('[data-nav-superadmin]');
+          if (navSuper) {
+            navSuper.removeAttribute('hidden');
+            navSuper.removeAttribute('aria-hidden');
+          }
+        }
+      } catch (err) {
+        /* Ignorer hvis localStorage er utilgjengelig */
+      }
+    })();
+  </script>
 
   <div id="accessGate" class="gate hidden" role="alert">
     <div class="card">

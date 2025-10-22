@@ -3781,12 +3781,25 @@
     const main = document.getElementById('superadminMain');
     const gate = document.getElementById('accessGate');
     const gateRole = document.getElementById('accessRole');
+    const navSuperLink = document.querySelector('[data-nav-superadmin]');
+
+    function setSuperNavVisibility(isSuper) {
+      if (!navSuperLink) return;
+      if (isSuper) {
+        navSuperLink.removeAttribute('hidden');
+        navSuperLink.removeAttribute('aria-hidden');
+      } else {
+        navSuperLink.setAttribute('hidden', '');
+        navSuperLink.setAttribute('aria-hidden', 'true');
+      }
+    }
 
     function enforceAccess(role){
       const allowed = role === 'superadmin';
       if (main) main.classList.toggle('hidden', !allowed);
       if (gate) gate.classList.toggle('hidden', allowed);
       if (gateRole) gateRole.textContent = role || 'ingen';
+      setSuperNavVisibility(allowed);
     }
 
     (function patchFetch(){
@@ -3853,6 +3866,7 @@
         localStorage.removeItem('nfcking.role');
         localStorage.removeItem('nfcking.userName');
         localStorage.removeItem('nfcking.idToken');
+        localStorage.removeItem('nfcking:isSuperAdmin');
         enforceAccess(null);
         document.dispatchEvent(new CustomEvent('nfcking:role', { detail: { role: null } }));
         return;
@@ -3873,6 +3887,12 @@
         localStorage.setItem('nfcking.role', role);
       }
       localStorage.setItem('nfcking.userName', user.email || user.displayName || '');
+
+      if (role === 'superadmin') {
+        localStorage.setItem('nfcking:isSuperAdmin', '1');
+      } else {
+        localStorage.removeItem('nfcking:isSuperAdmin');
+      }
 
       updateBadge(user, role);
       btnLogin?.classList.add('hidden');

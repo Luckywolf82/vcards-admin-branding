@@ -18,6 +18,16 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/water.css@2/out/water.css">
   <style>
     body{background:#0b0b10;color:#e9eef5}
+    .site-nav{position:sticky;top:0;z-index:30;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 18px;background:rgba(11,11,16,.94);border-bottom:1px solid #1f2a36;backdrop-filter:blur(12px)}
+    .site-nav__home{display:inline-flex;align-items:center;gap:10px;font-weight:700;color:#cfe3ff;text-decoration:none}
+    .site-nav__home img{height:32px;width:auto;filter:drop-shadow(0 0 6px #3fffd2)}
+    .site-nav__home span{letter-spacing:.04em;text-transform:uppercase;font-size:.85rem}
+    .site-nav__home:hover{color:#fff}
+    .site-nav__links{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+    .site-nav__link{display:inline-flex;align-items:center;justify-content:center;padding:8px 14px;border-radius:999px;text-decoration:none;font-weight:600;background:#1a2432;color:#cfe3ff;border:1px solid #222f3f}
+    .site-nav__link:hover{background:#273449;color:#fff}
+    .site-nav__link[aria-current="page"]{background:#8fd3ff;color:#03101a;border-color:#8fd3ff}
+    .site-nav__link--hidden{display:none !important}
     .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
     @media (max-width:920px){.row{grid-template-columns:1fr}}
     textarea{font-family:monospace}
@@ -65,6 +75,21 @@
 </head>
 
 <body>
+  <header class="site-nav">
+    <a class="site-nav__home" href="/index.html">
+      <img
+        src="/assets/NFCKING_dark.png?v=4"
+        alt="NFCKING logo"
+        onerror="this.onerror=null;this.src='https://raw.githubusercontent.com/Luckywolf82/vcards-admin-branding/main/assets/NFCKING_dark.png?v=4';">
+      <span>NFCKING</span>
+    </a>
+    <nav class="site-nav__links">
+      <a class="site-nav__link" href="/index.html" aria-current="page">Admin</a>
+      <a class="site-nav__link" href="/bestill-kort.html">Bestill kort</a>
+      <a class="site-nav__link" href="/demo.html">Demo</a>
+      <a class="site-nav__link site-nav__link--hidden" href="/admin-super.html" data-nav-superadmin>Superadmin</a>
+    </nav>
+  </header>
   <!-- AUTH: vises før innlogging -->
   <section id="auth" class="card">
     <div class="brand">
@@ -106,6 +131,22 @@
     </script>
 
     <script>
+      const superNavLink = document.querySelector('[data-nav-superadmin]');
+      function updateSuperNav(isSuper){
+        if (!superNavLink) return;
+        superNavLink.classList.toggle('site-nav__link--hidden', !isSuper);
+        try {
+          if (isSuper) {
+            localStorage.setItem('nfcking:isSuperAdmin', '1');
+          } else {
+            localStorage.removeItem('nfcking:isSuperAdmin');
+          }
+        } catch (err) {
+          /* Ignorer hvis localStorage ikke er tilgjengelig */
+        }
+      }
+      updateSuperNav(false);
+
       window.setLiveMessage = window.setLiveMessage || function setLiveMessage(el, tone, message, options = {}) {
         if (!el) return;
         const { allowHtml = false, focus = false, preventScroll = false } = options;
@@ -2070,6 +2111,7 @@
           setOrgAccessMessage('');
           window.ALLOWED_ORGS = { all: false, values: [] };
           setLoginStatus('Logg inn for å bruke adminpanelet.');
+          updateSuperNav(false);
           return;
         }
         toggleAppSections(true);
@@ -2086,7 +2128,9 @@
         if (emailLower && SUPERADMIN_EMAILS.has(emailLower)) {
           role = 'superadmin';
         }
-        const allowAll = role === 'superadmin';
+        const isSuperAdmin = role === 'superadmin';
+        updateSuperNav(isSuperAdmin);
+        const allowAll = isSuperAdmin;
         orgAccessState.set(claimedOrgs, allowAll);
         window.ALLOWED_ORGS = { all: orgAccessState.all, values: [...orgAccessState.values] };
 

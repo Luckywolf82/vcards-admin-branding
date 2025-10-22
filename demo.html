@@ -19,6 +19,16 @@
   <style>
     :root{--brand:#3fffd2;--ink:#0b0b10;--card:#12121a;--muted:#8ea0b4}
     body{background:var(--ink);color:#eaf2ff}
+    .site-nav{position:sticky;top:0;z-index:30;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 18px;background:rgba(11,11,16,.94);border-bottom:1px solid #1f2a36;backdrop-filter:blur(12px)}
+    .site-nav__home{display:inline-flex;align-items:center;gap:10px;font-weight:700;color:#cfe3ff;text-decoration:none}
+    .site-nav__home img{height:32px;width:auto;filter:drop-shadow(0 0 6px var(--brand))}
+    .site-nav__home span{letter-spacing:.04em;text-transform:uppercase;font-size:.85rem}
+    .site-nav__home:hover{color:#fff}
+    .site-nav__links{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+    .site-nav__link{display:inline-flex;align-items:center;justify-content:center;padding:8px 14px;border-radius:999px;text-decoration:none;font-weight:600;background:#1a2432;color:#cfe3ff;border:1px solid #222f3f}
+    .site-nav__link:hover{background:#273449;color:#fff}
+    .site-nav__link[aria-current="page"]{background:#8fd3ff;color:#03101a;border-color:#8fd3ff}
+    .site-nav__link--hidden{display:none !important}
     .hero{display:grid;gap:18px;align-items:center;grid-template-columns:1.2fr 1fr;margin-top:10px}
     @media(max-width:900px){.hero{grid-template-columns:1fr}}
     .tag{display:inline-block;padding:.25rem .6rem;border-radius:999px;background:#17333a;color:#9ef7ea;font-weight:700}
@@ -53,10 +63,18 @@
   </style>
 </head>
 <body>
-    <nav class="navbar">
-    <a href="/index.html">Adminpanel</a>
-    <a href="/bestill-kort.html">Bestill kort</a>
-  </nav>
+  <header class="site-nav">
+    <a class="site-nav__home" href="/index.html">
+      <img src="/assets/NFCKING_dark.png" alt="NFCKING" class="brandmark">
+      <span>NFCKING</span>
+    </a>
+    <nav class="site-nav__links">
+      <a class="site-nav__link" href="/index.html">Admin</a>
+      <a class="site-nav__link" href="/bestill-kort.html">Bestill kort</a>
+      <a class="site-nav__link" href="/demo.html" aria-current="page">Demo</a>
+      <a class="site-nav__link site-nav__link--hidden" href="/admin-super.html" data-nav-superadmin>Superadmin</a>
+    </nav>
+  </header>
 
 <header class="card" style="display:flex;justify-content:space-between;align-items:center;gap:12px">
   <div class="inline">
@@ -636,6 +654,19 @@ addRow('LinkedIn','https://www.linkedin.com/in/','Følg meg','Oppdateres jevnlig
 previewLogo();
 // initial sync av stil-velgere:
 syncStyleSelects('cardStyleTop','cardStyleDemo');
+</script>
+
+<script>
+  (function(){
+    try {
+      const navSuper = document.querySelector('[data-nav-superadmin]');
+      if (!navSuper) return;
+      const isSuper = localStorage.getItem('nfcking:isSuperAdmin') === '1';
+      navSuper.classList.toggle('site-nav__link--hidden', !isSuper);
+    } catch (err) {
+      /* Ignorer hvis localStorage ikke er tilgjengelig */
+    }
+  })();
 </script>
 
 </body>
