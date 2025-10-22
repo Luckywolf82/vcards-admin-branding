@@ -2,7 +2,7 @@
 const { db } = require('./_lib/firebaseAdmin');
 const { json, badRequest, serverError } = require('./_lib/http');
 const { requireRole } = require('./_lib/authz');
-const { commitFile, BRANCH } = require('./_lib/github');
+const { commitFile, BRANCH, GitHubConfigError } = require('./_lib/github');
 const { slugToPath, slugPreviewUrl } = require('./_lib/pages');
 
 const SITE_ORIGIN = (process.env.SITE_ORIGIN || 'https://nfcking.no').replace(/\/+$/, '');
@@ -171,6 +171,9 @@ exports.handler = async (event) => {
 
     return json({ ok: true, slug, branch: BRANCH, path: `/${path}` });
   } catch (e) {
+    if (e instanceof GitHubConfigError) {
+      return json({ error: 'github_config', message: e.message, missing: e.missing }, 500);
+    }
     return serverError(e);
   }
 };

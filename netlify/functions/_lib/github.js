@@ -2,10 +2,73 @@
 // Bruker GitHub Contents API for å opprette/oppdatere/slette filer.
 // Forutsetter env: GITHUB_TOKEN, GITHUB_OWNER, GITHUB_REPO, (valgfritt) GITHUB_BRANCH
 
-const OWNER  = process.env.GITHUB_OWNER;
-const REPO   = process.env.GITHUB_REPO;
-const BRANCH = process.env.GITHUB_BRANCH || 'main';
+function parseRepoEnv(value) {
+  if (!value) return {};
+  const trimmed = String(value).trim();
+  if (!trimmed) return {};
+  try {
+    if (/^https?:\/\//i.test(trimmed)) {
+      const url = new URL(trimmed);
+      const parts = url.pathname.replace(/^\/+/, '').split('/').filter(Boolean);
+      if (parts.length >= 2) {
+        const [owner, repoRaw] = parts;
+        const repo = repoRaw.replace(/\.git$/, '');
+        return { owner, repo };
+      }
+    }
+  } catch (_) {
+    // ignore parsing errors
+  }
+
+  if (trimmed.includes('/')) {
+    const [owner, repoRaw] = trimmed.split('/');
+    if (owner && repoRaw) {
+      return { owner: owner.trim(), repo: repoRaw.replace(/\.git$/, '').trim() };
+    }
+  }
+
+  return {};
+}
+
+const parsedRepo = parseRepoEnv(process.env.GITHUB_REPOSITORY || process.env.REPOSITORY_URL);
+
+const OWNER  = process.env.GITHUB_OWNER || parsedRepo.owner;
+const REPO   = process.env.GITHUB_REPO  || parsedRepo.repo;
+const BRANCH = process.env.GITHUB_BRANCH || process.env.BRANCH || 'main';
+const TOKEN  = (process.env.GITHUB_TOKEN || process.env.GIT_TOKEN || '').trim();
 const API    = 'https://api.github.com';
+const USER_AGENT = 'nfcking-admin-bot/1.0';
+
+class GitHubConfigError extends Error {
+  constructor(message, missing = []) {
+    super(message);
+    this.name = 'GitHubConfigError';
+    this.missing = missing;
+  }
+}
+
+function ensureConfig({ requireToken = true } = {}) {
+  const missing = [];
+  if (!OWNER) missing.push('GITHUB_OWNER');
+  if (!REPO) missing.push('GITHUB_REPO');
+  if (requireToken && !TOKEN) missing.push('GITHUB_TOKEN');
+  if (missing.length) {
+    throw new GitHubConfigError(`Missing GitHub configuration: ${missing.join(', ')}`, missing);
+  }
+}
+
+function getHeaders(extra = {}, { requireToken = true } = {}) {
+  ensureConfig({ requireToken });
+  const headers = {
+    'Accept': 'application/vnd.github+json',
+    'User-Agent': USER_AGENT,
+    ...extra,
+  };
+  if (TOKEN) {
+    headers.Authorization = `token ${TOKEN}`;
+  }
+  return headers;
+}
 
 function encodePath(path) {
   return String(path)
@@ -14,12 +77,8 @@ function encodePath(path) {
     .join('/');
 }
 
-async function ghFetch(path, init = {}) {
-  const headers = {
-    'Authorization': `token ${process.env.GITHUB_TOKEN}`,
-    'Accept': 'application/vnd.github+json',
-    ...init.headers
-  };
+async function ghFetch(path, init = {}, options = {}) {
+  const headers = getHeaders(init.headers, options);
   const res = await fetch(`${API}${path}`, { ...init, headers });
   if (!res.ok) {
     const text = await res.text().catch(()=> '');
@@ -31,7 +90,7 @@ async function ghFetch(path, init = {}) {
 async function getFileSha(filepath) {
   try {
     const encoded = encodePath(filepath);
-    const data = await ghFetch(`/repos/${OWNER}/${REPO}/contents/${encoded}?ref=${encodeURIComponent(BRANCH)}`);
+    const data = await ghFetch(`/repos/${OWNER}/${REPO}/contents/${encoded}?ref=${encodeURIComponent(BRANCH)}`, {}, { requireToken: Boolean(TOKEN) });
     return data.sha || null;
   } catch (e) {
     // 404 → fil finnes ikke
@@ -44,6 +103,7 @@ async function getFileSha(filepath) {
  * content må være UTF-8 string; base64-encodes her.
  */
 async function commitFile({ path, content, message }) {
+  ensureConfig({ requireToken: true });
   const sha = await getFileSha(path);
   const body = {
     message: message || `chore(publish): ${path}`,
@@ -76,7 +136,7 @@ async function deleteFile({ path, message }) {
 async function readFile(path) {
   try {
     const encoded = encodePath(path);
-    const data = await ghFetch(`/repos/${OWNER}/${REPO}/contents/${encoded}?ref=${encodeURIComponent(BRANCH)}`);
+    const data = await ghFetch(`/repos/${OWNER}/${REPO}/contents/${encoded}?ref=${encodeURIComponent(BRANCH)}`, {}, { requireToken: Boolean(TOKEN) });
     if (!data || !data.content) return null;
     const buff = Buffer.from(data.content, data.encoding || 'base64');
     return buff.toString('utf8');
@@ -87,7 +147,7 @@ async function readFile(path) {
 }
 
 async function getRepoTree() {
-  const tree = await ghFetch(`/repos/${OWNER}/${REPO}/git/trees/${encodeURIComponent(BRANCH)}?recursive=1`);
+  const tree = await ghFetch(`/repos/${OWNER}/${REPO}/git/trees/${encodeURIComponent(BRANCH)}?recursive=1`, {}, { requireToken: Boolean(TOKEN) });
   return Array.isArray(tree.tree) ? tree.tree : [];
 }
 
@@ -100,5 +160,7 @@ module.exports = {
   OWNER,
   REPO,
   BRANCH,
-  encodePath
+  encodePath,
+  GitHubConfigError,
+  ensureConfig
 };

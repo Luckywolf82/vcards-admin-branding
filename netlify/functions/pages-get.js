@@ -2,7 +2,7 @@
 const { db } = require('./_lib/firebaseAdmin');
 const { json, badRequest, serverError } = require('./_lib/http');
 const { requireRole } = require('./_lib/authz');
-const { readFile } = require('./_lib/github');
+const { readFile, GitHubConfigError } = require('./_lib/github');
 const { slugToPath, slugPreviewUrl, extractParts } = require('./_lib/pages');
 
 exports.handler = async (event) => {
@@ -26,7 +26,15 @@ exports.handler = async (event) => {
 
     const path = slugToPath(slug);
     if (!path) return json({ notFound: true }, 404);
-    const html = await readFile(path);
+    let html;
+    try {
+      html = await readFile(path);
+    } catch (err) {
+      if (err instanceof GitHubConfigError) {
+        return json({ error: 'github_config', message: err.message, missing: err.missing }, 500);
+      }
+      throw err;
+    }
     if (!html) return json({ notFound: true }, 404);
 
     const parts = extractParts(html);
