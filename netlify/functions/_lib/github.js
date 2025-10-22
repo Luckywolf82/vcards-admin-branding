@@ -32,16 +32,40 @@ function parseRepoEnv(value) {
 
 const parsedRepo = parseRepoEnv(process.env.GITHUB_REPOSITORY || process.env.REPOSITORY_URL);
 
-function normalizeBranch(value) {
-  if (!value) return 'main';
+function cleanBranch(value) {
+  if (!value) return '';
   const trimmed = String(value).trim();
-  if (!trimmed) return 'main';
+  if (!trimmed) return '';
   return trimmed.replace(/^refs\/heads\//i, '');
+}
+
+function looksLikeSha(value = '') {
+  return /^[0-9a-f]{40}$/i.test(String(value).trim());
+}
+
+function resolveBranch() {
+  const candidates = [
+    process.env.GITHUB_BRANCH,
+    process.env.BRANCH,
+    process.env.GITHUB_REF_NAME,
+    process.env.GITHUB_REF,
+    process.env.HEAD,
+    process.env.GIT_BRANCH
+  ];
+
+  for (const candidate of candidates) {
+    const cleaned = cleanBranch(candidate);
+    if (!cleaned) continue;
+    if (looksLikeSha(cleaned)) continue;
+    return cleaned;
+  }
+
+  return 'main';
 }
 
 const OWNER  = process.env.GITHUB_OWNER || parsedRepo.owner;
 const REPO   = process.env.GITHUB_REPO  || parsedRepo.repo;
-const BRANCH = normalizeBranch(process.env.GITHUB_BRANCH);
+const BRANCH = resolveBranch();
 const TOKEN  = (process.env.GITHUB_TOKEN || process.env.GIT_TOKEN || '').trim();
 const API    = 'https://api.github.com';
 const USER_AGENT = 'nfcking-admin-bot/1.0';
