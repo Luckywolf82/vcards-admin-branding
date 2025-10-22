@@ -3853,6 +3853,7 @@
         localStorage.removeItem('nfcking.role');
         localStorage.removeItem('nfcking.userName');
         localStorage.removeItem('nfcking.idToken');
+        localStorage.removeItem('nfcking:isSuperAdmin');
         enforceAccess(null);
         document.dispatchEvent(new CustomEvent('nfcking:role', { detail: { role: null } }));
         return;
@@ -3873,6 +3874,12 @@
         localStorage.setItem('nfcking.role', role);
       }
       localStorage.setItem('nfcking.userName', user.email || user.displayName || '');
+
+      if (role === 'superadmin') {
+        localStorage.setItem('nfcking:isSuperAdmin', '1');
+      } else {
+        localStorage.removeItem('nfcking:isSuperAdmin');
+      }
 
       updateBadge(user, role);
       btnLogin?.classList.add('hidden');

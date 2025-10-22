@@ -90,7 +90,7 @@
 
     <!-- Link til bestilling -->
     <p class="inline" style="justify-content:flex-end;margin-top:-4px;margin-bottom:16px">
-      <a class="btn btn-ghost" href="bestill-kort.html" target="_self" rel="noopener">Bestill fysiske kort</a>
+      <a class="btn btn-ghost" href="bestill-kort.html" target="_self" rel="noopener noreferrer">Bestill fysiske kort</a>
     </p>
 
     <script>
@@ -637,7 +637,7 @@
       const slice = items.slice(0, limit);
       function fmt(iso){ try { const d = new Date(iso); return d.toLocaleString('no-NO'); } catch { return iso||''; } }
       $recentList.innerHTML = slice.map(it =>
-        '<li><a href="'+it.url+'" target="_blank" rel="noopener">'+it.file+'</a> <span class="note" style="margin-left:6px">'+fmt(it.when)+'</span></li>'
+        '<li><a href="'+it.url+'" target="_blank" rel="noopener noreferrer">'+it.file+'</a> <span class="note" style="margin-left:6px">'+fmt(it.when)+'</span></li>'
       ).join('');
 
       if (items.length > slice.length) {

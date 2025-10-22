@@ -241,7 +241,7 @@
 
     <div class="inline" style="gap:10px">
       <button id="generate" class="btn">Generer & Publiser</button>
-      <a class="btn" href="bestill-kort.html" target="_blank" rel="noopener">Bestill kort</a>
+      <a class="btn" href="bestill-kort.html" target="_blank" rel="noopener noreferrer">Bestill kort</a>
       <span id="status"></span>
     </div>
 
@@ -513,7 +513,7 @@
       return links.map(l=>{
         const pre  = l.pre  ? `<div class="pre"  style="margin:8px 0 4px;color:#bfc8d6">${esc(l.pre)}</div>` : '';
         const post = l.post ? `<div class="post" style="margin:4px 0 10px;color:#97a3b6;font-size:.95rem">${esc(l.post)}</div>` : '';
-        return `<div class="link-block" style="margin-top:10px">${pre}<a class="btn" href="${esc(l.url)}" target="_blank" rel="noopener">${esc(l.label)}</a>${post}</div>`;
+        return `<div class="link-block" style="margin-top:10px">${pre}<a class="btn" href="${esc(l.url)}" target="_blank" rel="noopener noreferrer">${esc(l.label)}</a>${post}</div>`;
       }).join('');
     }
     function makeDownloadsHTML(attachments){
@@ -523,13 +523,13 @@
         if (typeof a === 'string') {
           const name = a.split('/').pop();
           const href = `./files/${encodeURIComponent(name)}`;
-          return `<li><a class="btn" href="${href}" download rel="noopener">${esc(name)}</a></li>`;
+          return `<li><a class="btn" href="${href}" download rel="noopener noreferrer">${esc(name)}</a></li>`;
         }
         const raw  = (a.name || a.url || '').split('/').pop();
         const isAbs = a.url && /^https?:\/\//i.test(a.url);
         const href = isAbs ? a.url : (`./files/${encodeURIComponent(a.url || raw)}`);
         const label = esc(a.name || raw);
-        return `<li><a class="btn" href="${href}" download rel="noopener">${label}</a></li>`;
+        return `<li><a class="btn" href="${href}" download rel="noopener noreferrer">${label}</a></li>`;
       }).join('');
       return `<section id="downloads" style="margin-top:16px">
         <h2 style="margin:0 0 8px">Last ned</h2>
@@ -683,7 +683,7 @@ body{font-family:system-ui,-apple-system,Roboto,Arial;background:#0b0b10;color:#
       const slice = items.slice(0, limit);
       function fmt(iso){ try { const d = new Date(iso); return d.toLocaleString('no-NO'); } catch { return iso||''; } }
       $recentList.innerHTML = slice.map(it =>
-        '<li><a href="'+it.url+'" target="_blank" rel="noopener">'+it.file+'</a> <span class="note" style="margin-left:6px">'+fmt(it.when)+'</span></li>'
+        '<li><a href="'+it.url+'" target="_blank" rel="noopener noreferrer">'+it.file+'</a> <span class="note" style="margin-left:6px">'+fmt(it.when)+'</span></li>'
       ).join('');
 
       if (items.length > slice.length) {
@@ -789,7 +789,7 @@ body{font-family:system-ui,-apple-system,Roboto,Arial;background:#0b0b10;color:#
           const dirUrl = _recentMode === 'files'
             ? githubDirUrl(owner, repo, basePath, orgKey, slug||'')
             : 'https://github.com/'+owner+'/'+repo+'/tree/HEAD/'+encodeURIComponent(currentCardsPath());
-          setRecentStatus('', 'Ingen endringer funnet. <a href="'+dirUrl+'" target="_blank" rel="noopener">Se i GitHub</a>.');
+          setRecentStatus('', 'Ingen endringer funnet. <a href="'+dirUrl+'" target="_blank" rel="noopener noreferrer">Se i GitHub</a>.');
           $recentList.innerHTML = '';
           $recentMoreBtn.style.display = 'none';
           return;
@@ -805,7 +805,7 @@ body{font-family:system-ui,-apple-system,Roboto,Arial;background:#0b0b10;color:#
           const dirUrl = _recentMode === 'files'
             ? githubDirUrl(owner, repo, basePath, getField('orgKey'), getField('slug')||'')
             : 'https://github.com/'+getField('ghUser')+'/'+getField('ghRepo')+'/tree/HEAD/'+encodeURIComponent(currentCardsPath());
-          setRecentStatus('err','Fant ikke mappen. Sjekk sti/branch. <a href="'+dirUrl+'" target="_blank" rel="noopener">Åpne i GitHub</a>.');
+          setRecentStatus('err','Fant ikke mappen. Sjekk sti/branch. <a href="'+dirUrl+'" target="_blank" rel="noopener noreferrer">Åpne i GitHub</a>.');
         } else {
           setRecentStatus('err','Kunne ikke hente: ' + (e.message || e));
         }
