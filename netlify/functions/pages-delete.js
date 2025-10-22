@@ -3,7 +3,7 @@ const { db } = require('./_lib/firebaseAdmin');
 const { json, badRequest, serverError } = require('./_lib/http');
 const { requireRole } = require('./_lib/authz');
 const { deleteFile } = require('./_lib/github');
-const { slugToPath } = require('./_lib/pages');
+const { normalizeSlug, slugToDocId, slugToPath } = require('./_lib/pages');
 
 exports.handler = async (event) => {
   try {
@@ -12,10 +12,13 @@ exports.handler = async (event) => {
 
     if (event.httpMethod !== 'POST') return badRequest('POST only');
     const body = JSON.parse(event.body || '{}');
-    const slug = (body.slug || '').trim();
+    const slug = normalizeSlug(body.slug || '');
     if (!slug) return badRequest('slug is required');
 
-    await db.collection('pages').doc(slug).delete().catch(()=> null);
+    const docId = slugToDocId(slug);
+    if (docId) {
+      await db.collection('pages').doc(docId).delete().catch(()=> null);
+    }
 
     // (Valgfritt) forsøk å slette publisert fil
     const path = slugToPath(slug);

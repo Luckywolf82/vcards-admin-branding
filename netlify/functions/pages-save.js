@@ -1,7 +1,8 @@
 // pages.save.js
-const { db, FieldValue } = require('./_lib/firebaseAdmin');
+const { db } = require('./_lib/firebaseAdmin');
 const { json, badRequest, serverError } = require('./_lib/http');
 const { requireRole } = require('./_lib/authz');
+const { normalizeSlug, slugToDocId } = require('./_lib/pages');
 
 exports.handler = async (event) => {
   try {
@@ -11,8 +12,10 @@ exports.handler = async (event) => {
     if (event.httpMethod !== 'POST') return badRequest('POST only');
     const body = JSON.parse(event.body || '{}');
 
-    const slug = (body.slug || '').trim();
+    const slug = normalizeSlug(body.slug || '');
     if (!slug) return badRequest('slug is required');
+    const docId = slugToDocId(slug);
+    if (!docId) return badRequest('slug is required');
 
     const builder = body.builder && Array.isArray(body.builder.blocks)
       ? { version: body.builder.version || 1, blocks: body.builder.blocks }
@@ -34,7 +37,7 @@ exports.handler = async (event) => {
       updatedBy: guard.uid
     };
 
-    await db.collection('pages').doc(slug).set(doc, { merge: true });
+    await db.collection('pages').doc(docId).set(doc, { merge: true });
     return json({ ok: true, slug, status: doc.status, updatedAt: doc.updatedAt });
   } catch (e) {
     return serverError(e);

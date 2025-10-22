@@ -7,8 +7,30 @@ const SLUG_BLOCKLIST_PREFIX = [
   '.netlify/'
 ];
 
+function normalizeSlug(slug = '') {
+  return String(slug || '')
+    .trim()
+    .replace(/^\/+/, '')
+    .replace(/\/+$/, '');
+}
+
+function slugToDocId(slug = '') {
+  const safe = normalizeSlug(slug);
+  if (!safe) return null;
+  return encodeURIComponent(safe);
+}
+
+function docIdToSlug(id = '') {
+  if (!id) return '';
+  try {
+    return normalizeSlug(decodeURIComponent(id));
+  } catch (err) {
+    return normalizeSlug(id);
+  }
+}
+
 function slugToPath(slug = '') {
-  const safe = String(slug || '').trim().replace(/^\/+/,'').replace(/\/+$/, '');
+  const safe = normalizeSlug(slug);
   if (!safe) return null;
   if (safe === 'index') return 'index.html';
   if (safe.endsWith('.html')) return safe;
@@ -17,7 +39,7 @@ function slugToPath(slug = '') {
 }
 
 function slugPreviewUrl(slug = '') {
-  const safe = String(slug || '').trim().replace(/^\/+/,'').replace(/\/+$/, '');
+  const safe = normalizeSlug(slug);
   if (!safe || safe === 'index') return '/';
   return `/${safe}`;
 }
@@ -53,6 +75,9 @@ function extractParts(html = '') {
 }
 
 module.exports = {
+  normalizeSlug,
+  slugToDocId,
+  docIdToSlug,
   slugToPath,
   slugPreviewUrl,
   slugFromPath,

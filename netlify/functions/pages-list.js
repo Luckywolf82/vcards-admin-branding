@@ -3,7 +3,14 @@ const { db } = require('./_lib/firebaseAdmin');
 const { json, serverError } = require('./_lib/http');
 const { requireRole } = require('./_lib/authz');
 const { getRepoTree, GitHubConfigError } = require('./_lib/github');
-const { slugFromPath, isSitePagePath, slugPreviewUrl, slugToPath } = require('./_lib/pages');
+const {
+  normalizeSlug,
+  docIdToSlug,
+  slugFromPath,
+  isSitePagePath,
+  slugPreviewUrl,
+  slugToPath
+} = require('./_lib/pages');
 
 exports.handler = async (event) => {
   try {
@@ -25,14 +32,16 @@ exports.handler = async (event) => {
     const map = new Map();
     snap.forEach(doc => {
       const d = doc.data();
+      const resolvedSlug = normalizeSlug(d.slug || docIdToSlug(doc.id));
+      if (!resolvedSlug) return;
       if (q) {
         const blob = [
-          doc.id, d.slug, d.status,
+          doc.id, resolvedSlug, d.status,
           (d.title?.nb || ''), (d.title?.en || '')
         ].join(' ').toLowerCase();
         if (!blob.includes(q)) return;
       }
-      const slug = d.slug || doc.id;
+      const slug = resolvedSlug;
       map.set(slug, {
         slug,
         status: d.status || 'draft',

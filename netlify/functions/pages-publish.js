@@ -3,7 +3,7 @@ const { db } = require('./_lib/firebaseAdmin');
 const { json, badRequest, serverError } = require('./_lib/http');
 const { requireRole } = require('./_lib/authz');
 const { commitFile, BRANCH, GitHubConfigError } = require('./_lib/github');
-const { slugToPath, slugPreviewUrl } = require('./_lib/pages');
+const { normalizeSlug, slugToDocId, slugToPath, slugPreviewUrl } = require('./_lib/pages');
 
 const SITE_ORIGIN = (process.env.SITE_ORIGIN || 'https://nfcking.no').replace(/\/+$/, '');
 const DEFAULT_OG_IMAGE = process.env.DEFAULT_OG_IMAGE
@@ -138,10 +138,13 @@ exports.handler = async (event) => {
 
     if (event.httpMethod !== 'POST') return badRequest('POST only');
     const body = JSON.parse(event.body || '{}');
-    const slug = (body.slug || '').trim();
+    const slug = normalizeSlug(body.slug || '');
     if (!slug) return badRequest('slug is required');
 
-    const doc = await db.collection('pages').doc(slug).get();
+    const docId = slugToDocId(slug);
+    if (!docId) return badRequest('slug is required');
+
+    const doc = await db.collection('pages').doc(docId).get();
     if (!doc.exists) return badRequest('page not found');
 
     const d = doc.data();
@@ -163,7 +166,7 @@ exports.handler = async (event) => {
     });
 
     // oppdatér status i Firestore
-    await db.collection('pages').doc(slug).set({
+    await db.collection('pages').doc(docId).set({
       status: 'published',
       updatedAt: Date.now(),
       updatedBy: guard.uid
