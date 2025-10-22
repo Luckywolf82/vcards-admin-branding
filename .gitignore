@@ -3,3 +3,10 @@
 .netlify
 # Ignore Netlify build artefacts
 .netlify/
+
+# Node dependencies
+node_modules/
+
+# Lokale hjelpefiler som ikke skal i repoet
+index.final.html
+test.html

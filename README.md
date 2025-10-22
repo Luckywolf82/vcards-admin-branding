@@ -31,3 +31,5 @@ https://<owner>.github.io/<repo>/Vcards/<OrgKey>/<slug>/<vcf>
 ## Codex tilgangstest
 - Denne commiten bekrefter at Codex har skrive- og commit-tilgang til repoet.
 - Endringen fungerer som en røyk-test for at automatiske PR-er kan genereres fra agenten.
+
+Codex test OK ✅

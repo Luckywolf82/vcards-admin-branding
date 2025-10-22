@@ -2810,17 +2810,40 @@
     async function token(){
       return localStorage.getItem('nfcking.idToken') || '';
     }
+    async function buildApiError(res, fallback){
+      let message = fallback;
+      let payload = null;
+      try {
+        const text = await res.text();
+        if (text) {
+          try {
+            payload = JSON.parse(text);
+          } catch {
+            if (text.trim()) message = text.trim();
+          }
+        }
+        if (payload) {
+          const msg = payload.message || payload.error;
+          if (typeof msg === 'string' && msg.trim()) message = msg.trim();
+        }
+      } catch (_) {}
+      const err = new Error(message || fallback);
+      err.status = res.status;
+      if (payload && payload.error) err.code = payload.error;
+      if (payload && payload.missing) err.missing = payload.missing;
+      return err;
+    }
     async function apiGet(url, params={}){
       const tk = await token();
       const qs = new URLSearchParams(params).toString();
       const res = await fetch(url + (qs?`?${qs}`:''), { headers: { Authorization: tk?`Bearer ${tk}`:'' } });
-      if(!res.ok) throw new Error(`GET ${url} ${res.status}`);
+      if(!res.ok) throw await buildApiError(res, `GET ${url} ${res.status}`);
       return res.json();
     }
     async function apiPost(url, body){
       const tk = await token();
       const res = await fetch(url, { method:'POST', headers:{'Content-Type':'application/json', Authorization: tk?`Bearer ${tk}`:''}, body: JSON.stringify(body||{}) });
-      if(!res.ok) throw new Error(`POST ${url} ${res.status}`);
+      if(!res.ok) throw await buildApiError(res, `POST ${url} ${res.status}`);
       return res.json();
     }
 
@@ -2852,7 +2875,10 @@
             await apiPost(API.publish, { slug:p.slug });
             setMsg(`Publisert: /${p.slug}`);
             await loadPages();
-          }catch{ setMsg('Publisering feilet.'); }
+          }catch(err){
+            const msg = err?.message ? `Publisering feilet: ${err.message}` : 'Publisering feilet.';
+            setMsg(msg);
+          }
         };
         const previewUrl = p.previewUrl || (p.slug === 'index' ? '/' : `/${p.slug.replace(/^\/+/, '')}`);
         bPrev.onclick = ()=> window.open(previewUrl, '_blank');
@@ -2863,7 +2889,10 @@
             await apiPost(API.del, { slug:p.slug });
             setMsg(`Slettet /${p.slug}`);
             await loadPages();
-          }catch{ setMsg('Sletting feilet.'); }
+          }catch(err){
+            const msg = err?.message ? `Sletting feilet: ${err.message}` : 'Sletting feilet.';
+            setMsg(msg);
+          }
         };
 
         actions.append(bEdit,bPub,bPrev,bDel);
@@ -2880,8 +2909,9 @@
         const data = await apiGet(API.list, { q: el.search.value || '', status: el.status.value || '', limit: 100 });
         renderPages(data.pages || []);
         setMsg(`Fant ${data.count ?? (data.pages||[]).length} sider.`);
-      }catch{
-        setMsg('Kunne ikke hente sider.');
+      }catch(err){
+        const msg = err?.message ? `Kunne ikke hente sider: ${err.message}` : 'Kunne ikke hente sider.';
+        setMsg(msg);
       }
     }
 
@@ -2923,7 +2953,10 @@
         setEditMsg('');
         el.editor.classList.remove('hidden');
         setMsg('');
-      }).catch(()=> setMsg('Kunne ikke åpne side.'));
+      }).catch((err)=> {
+        const msg = err?.message ? `Kunne ikke åpne side: ${err.message}` : 'Kunne ikke åpne side.';
+        setMsg(msg);
+      });
     }
 
     function collectPage(statusOverride){
@@ -2951,7 +2984,10 @@
         await apiPost(API.save, doc);
         setEditMsg('Kladd lagret.');
         await loadPages();
-      }catch{ setEditMsg('Lagring feilet.'); }
+      }catch(err){
+        const msg = err?.message ? `Lagring feilet: ${err.message}` : 'Lagring feilet.';
+        setEditMsg(msg);
+      }
     }
 
     async function publishNow(){
@@ -2963,7 +2999,10 @@
         await apiPost(API.publish, { slug: doc.slug });
         setEditMsg(`Publisert: /${doc.slug}`);
         await loadPages();
-      }catch{ setEditMsg('Publisering feilet.'); }
+      }catch(err){
+        const msg = err?.message ? `Publisering feilet: ${err.message}` : 'Publisering feilet.';
+        setEditMsg(msg);
+      }
     }
 
     el.refresh.addEventListener('click', loadPages);
@@ -3781,12 +3820,25 @@
     const main = document.getElementById('superadminMain');
     const gate = document.getElementById('accessGate');
     const gateRole = document.getElementById('accessRole');
+    const navSuperLink = document.querySelector('[data-nav-superadmin]');
+
+    function setSuperNavVisibility(isSuper) {
+      if (!navSuperLink) return;
+      if (isSuper) {
+        navSuperLink.removeAttribute('hidden');
+        navSuperLink.removeAttribute('aria-hidden');
+      } else {
+        navSuperLink.setAttribute('hidden', '');
+        navSuperLink.setAttribute('aria-hidden', 'true');
+      }
+    }
 
     function enforceAccess(role){
       const allowed = role === 'superadmin';
       if (main) main.classList.toggle('hidden', !allowed);
       if (gate) gate.classList.toggle('hidden', allowed);
       if (gateRole) gateRole.textContent = role || 'ingen';
+      setSuperNavVisibility(allowed);
     }
 
     (function patchFetch(){
@@ -3853,6 +3905,7 @@
         localStorage.removeItem('nfcking.role');
         localStorage.removeItem('nfcking.userName');
         localStorage.removeItem('nfcking.idToken');
+        localStorage.removeItem('nfcking:isSuperAdmin');
         enforceAccess(null);
         document.dispatchEvent(new CustomEvent('nfcking:role', { detail: { role: null } }));
         return;
@@ -3873,6 +3926,12 @@
         localStorage.setItem('nfcking.role', role);
       }
       localStorage.setItem('nfcking.userName', user.email || user.displayName || '');
+
+      if (role === 'superadmin') {
+        localStorage.setItem('nfcking:isSuperAdmin', '1');
+      } else {
+        localStorage.removeItem('nfcking:isSuperAdmin');
+      }
 
       updateBadge(user, role);
       btnLogin?.classList.add('hidden');

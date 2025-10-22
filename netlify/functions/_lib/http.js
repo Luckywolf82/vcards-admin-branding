@@ -17,6 +17,9 @@ function forbidden(message = 'Insufficient role') {
 }
 function serverError(err, requestId = null) {
   console.error('[server_error]', err);
-  return json({ error: 'server_error', message: 'Unexpected error', requestId }, 500);
+  const message = err && typeof err.message === 'string' && err.message
+    ? err.message
+    : 'Unexpected error';
+  return json({ error: 'server_error', message, requestId }, 500);
 }
 module.exports = { json, badRequest, unauthorized, forbidden, serverError };
