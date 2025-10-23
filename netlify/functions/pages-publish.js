@@ -2,8 +2,8 @@
 const { db } = require('./_lib/firebaseAdmin');
 const { json, badRequest, serverError } = require('./_lib/http');
 const { requireRole } = require('./_lib/authz');
-const { commitFile, BRANCH, GitHubConfigError } = require('./_lib/github');
-const { normalizeSlug, slugToDocId, slugToPath, slugPreviewUrl } = require('./_lib/pages');
+const { commitFile, BRANCH, GitHubConfigError, readFile } = require('./_lib/github');
+const { normalizeSlug, slugToDocId, slugToPath, slugPreviewUrl, extractParts } = require('./_lib/pages');
 
 const SITE_ORIGIN = (process.env.SITE_ORIGIN || 'https://nfcking.no').replace(/\/+$/, '');
 const DEFAULT_OG_IMAGE = process.env.DEFAULT_OG_IMAGE
@@ -131,6 +131,55 @@ ${contentHtml}
 }
 function escapeHtml(s=''){ return s.replace(/[&<>"']/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m])); }
 
+function stripNavAndScript(body = '') {
+  if (!body) return '';
+  let cleaned = String(body);
+  cleaned = cleaned.replace(/<header\s+class="site-nav"[\s\S]*?<\/header>/i, '').trim();
+  cleaned = cleaned.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, (snippet) => (
+    /(nfcking:isSuperAdmin|data-nav-superadmin)/i.test(snippet) ? '' : snippet
+  )).trim();
+  return cleaned.trim();
+}
+
+async function loadFallbackDoc(slug, path) {
+  let html;
+  try {
+    html = await readFile(path);
+  } catch (err) {
+    if (err instanceof GitHubConfigError) throw err;
+    throw err;
+  }
+  if (!html) return null;
+
+  const parts = extractParts(html);
+  const canonical = slugPreviewUrl(slug);
+  const cleanedBody = stripNavAndScript(parts.body || '');
+  const bodyHtml = (cleanedBody || parts.body || '').trim();
+  const title = parts.title || slug;
+  const description = parts.description || '';
+
+  return {
+    bodyHtml,
+    storeData: {
+      slug,
+      status: 'published',
+      scheduleAt: null,
+      orgKey: null,
+      title: { nb: title, en: title },
+      body: { nb: bodyHtml, en: bodyHtml },
+      seo: {
+        title,
+        description,
+        ogImage: '',
+        canonical
+      },
+      menu: { show: true, order: 10 },
+      builder: { version: 1, blocks: [] },
+      source: { origin: 'repo', path }
+    }
+  };
+}
+
 exports.handler = async (event) => {
   try {
     const guard = await requireRole(event, ['admin','superadmin']);
@@ -144,21 +193,31 @@ exports.handler = async (event) => {
     const docId = slugToDocId(slug);
     if (!docId) return badRequest('slug is required');
 
-    const doc = await db.collection('pages').doc(docId).get();
-    if (!doc.exists) return badRequest('page not found');
+    const path = slugToPath(slug);
+    if (!path) return badRequest('invalid slug');
 
-    const d = doc.data();
+    const docRef = db.collection('pages').doc(docId);
+    const docSnap = await docRef.get();
+    let data = docSnap.exists ? docSnap.data() : null;
+    let fallback = null;
+
+    if (!data) {
+      fallback = await loadFallbackDoc(slug, path);
+      if (!fallback) return badRequest('page not found');
+      data = fallback.storeData;
+    }
+
     // velg norsk som default hvis finnes
-    const title = d.seo?.title || d.title?.nb || d.title?.en || slug;
-    const desc  = d.seo?.description || '';
-    const og    = d.seo?.ogImage || '';
-    const canonical = d.seo?.canonical || slugPreviewUrl(slug);
-    const bodyHtml = d.body?.nb || d.body?.en || '';
+    const title = data.seo?.title || data.title?.nb || data.title?.en
+      || fallback?.storeData?.title?.nb || slug;
+    const desc  = data.seo?.description
+      || fallback?.storeData?.seo?.description || '';
+    const og    = data.seo?.ogImage || fallback?.storeData?.seo?.ogImage || '';
+    const canonical = data.seo?.canonical || fallback?.storeData?.seo?.canonical || slugPreviewUrl(slug);
+    const bodyHtml = data.body?.nb || data.body?.en || fallback?.bodyHtml || '';
 
     const html = htmlTemplate({ slug, title, desc, bodyHtml, og, canonical });
 
-    const path = slugToPath(slug);
-    if (!path) return badRequest('invalid slug');
     await commitFile({
       path,
       content: html,
@@ -166,11 +225,20 @@ exports.handler = async (event) => {
     });
 
     // oppdatér status i Firestore
-    await db.collection('pages').doc(docId).set({
-      status: 'published',
-      updatedAt: Date.now(),
-      updatedBy: guard.uid
-    }, { merge: true });
+    const updatePayload = fallback
+      ? {
+          ...fallback.storeData,
+          status: 'published',
+          updatedAt: Date.now(),
+          updatedBy: guard.uid
+        }
+      : {
+          status: 'published',
+          updatedAt: Date.now(),
+          updatedBy: guard.uid
+        };
+
+    await docRef.set(updatePayload, { merge: true });
 
     return json({ ok: true, slug, branch: BRANCH, path: `/${path}` });
   } catch (e) {
