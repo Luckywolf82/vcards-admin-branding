@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="no">
 <head>
   <meta charset="utf-8" />
@@ -131,6 +131,7 @@
     firebase.initializeApp(firebaseConfig);
   </script>
 </head>
+<body>
   <header class="nav">
     <div class="nav-inner">
       <div class="brand"><span class="dot"></span> NFCKING Superadmin</div>
@@ -593,7 +594,7 @@
     </section>
 
     <!-- Stripe -->
-    <section id="tab-stripe" class="" role="tabpanel">
+    <section id="tab-stripe" class="hidden" role="tabpanel">
   <div class="grid cols-2">
     <!-- Konfig -->
     <div class="card">
@@ -741,7 +742,7 @@
 
 
     <!-- Ordrer -->
-    <section id="tab-orders" class="" role="tabpanel">
+    <section id="tab-orders" class="hidden" role="tabpanel">
   <div class="card" style="margin-bottom:12px">
     <h2>Ordrer</h2>
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
@@ -838,7 +839,7 @@
 
 
     <!-- NFC -->
-    <section id="tab-nfc" class="" role="tabpanel">
+    <section id="tab-nfc" class="hidden" role="tabpanel">
   <div class="card" style="margin-bottom:12px">
     <h2>NFC-batcher</h2>
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
