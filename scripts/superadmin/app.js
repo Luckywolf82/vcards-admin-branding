@@ -2873,7 +2873,8 @@
           setMsg('Publiserer …');
           try{
             const publishRes = await apiPost(API.publish, { slug:p.slug });
-            const displayUrl = publishRes?.previewUrl
+            const displayUrl = publishRes?.redirect?.to
+              || publishRes?.previewUrl
               || (Array.isArray(publishRes?.urls) && publishRes.urls[0])
               || `/${p.slug}`;
             const absoluteUrl = displayUrl.startsWith('http')
@@ -2886,7 +2887,10 @@
             setMsg(msg);
           }
         };
-        const previewUrl = p.previewUrl || (p.slug === 'index' ? '/' : `/${p.slug.replace(/^\/+/, '')}`);
+        const rawPreview = p.previewUrl || (p.slug === 'index' ? '/' : `/${p.slug.replace(/^\/+/, '')}`);
+        const previewUrl = (!rawPreview.endsWith('/') && !rawPreview.endsWith('.html'))
+          ? `${rawPreview.replace(/\/$/, '')}/`
+          : rawPreview;
         bPrev.onclick = ()=> window.open(previewUrl, '_blank');
         bDel.onclick = async ()=>{
           if(!confirm(`Slette side /${p.slug}?`)) return;

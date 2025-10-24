@@ -4,6 +4,7 @@ const { json, badRequest, serverError } = require('./_lib/http');
 const { requireRole } = require('./_lib/authz');
 const { commitFile, BRANCH, GitHubConfigError, readFile } = require('./_lib/github');
 const { normalizeSlug, slugToDocId, slugToPaths, slugPreviewUrl, extractParts } = require('./_lib/pages');
+const { ensureCleanUrlRedirect } = require('./_lib/redirects');
 
 const SITE_ORIGIN = (process.env.SITE_ORIGIN || 'https://nfcking.no').replace(/\/+$/, '');
 const DEFAULT_OG_IMAGE = process.env.DEFAULT_OG_IMAGE
@@ -236,6 +237,13 @@ exports.handler = async (event) => {
       committedPaths.push(path);
     }
 
+    let redirectInfo = null;
+    try {
+      redirectInfo = await ensureCleanUrlRedirect(slug);
+    } catch (redirectErr) {
+      console.warn('pages-publish: failed to ensure redirect', redirectErr.message);
+    }
+
     // oppdatér status i Firestore
     const updatePayload = fallback
       ? {
@@ -262,7 +270,8 @@ exports.handler = async (event) => {
       paths: committedPaths,
       urls: fileUrls,
       previewUrl,
-      fallbackPath: usedFallbackPath || null
+      fallbackPath: usedFallbackPath || null,
+      redirect: redirectInfo
     });
   } catch (e) {
     if (e instanceof GitHubConfigError) {

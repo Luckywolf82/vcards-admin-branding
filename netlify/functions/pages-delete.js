@@ -4,6 +4,7 @@ const { json, badRequest, serverError } = require('./_lib/http');
 const { requireRole } = require('./_lib/authz');
 const { deleteFile } = require('./_lib/github');
 const { normalizeSlug, slugToDocId, slugToPaths } = require('./_lib/pages');
+const { removeCleanUrlRedirect } = require('./_lib/redirects');
 
 exports.handler = async (event) => {
   try {
@@ -28,6 +29,12 @@ exports.handler = async (event) => {
       } catch (e) {
         console.warn('GitHub delete failed (ok to ignore):', e.message);
       }
+    }
+
+    try {
+      await removeCleanUrlRedirect(slug);
+    } catch (redirectErr) {
+      console.warn('pages-delete: failed to remove redirect', redirectErr.message);
     }
 
     return json({ ok: true, slug });
