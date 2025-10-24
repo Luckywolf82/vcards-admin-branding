@@ -70,6 +70,28 @@ const TOKEN  = (process.env.GITHUB_TOKEN || process.env.GIT_TOKEN || '').trim();
 const API    = 'https://api.github.com';
 const USER_AGENT = 'nfcking-admin-bot/1.0';
 
+const BRANCH_HINTS = [
+  process.env.GITHUB_DEFAULT_BRANCH,
+  process.env.REPOSITORY_BRANCH,
+  process.env.DEFAULT_BRANCH,
+  process.env.NETLIFY_DEFAULT_BRANCH,
+  'main',
+  'master'
+];
+
+function branchCandidates(...preferred) {
+  return Array.from(new Set([
+    ...preferred,
+    BRANCH,
+    ...BRANCH_HINTS
+  ].filter(Boolean)));
+}
+
+function shouldRetryBranch(err) {
+  if (!err || typeof err.message !== 'string') return false;
+  return /GitHub\s+(404|422)/.test(err.message);
+}
+
 class GitHubConfigError extends Error {
   constructor(message, missing = []) {
     super(message);
@@ -118,10 +140,14 @@ async function ghFetch(path, init = {}, options = {}) {
   return res.json();
 }
 
-async function getFileSha(filepath) {
+async function getFileSha(filepath, branch = BRANCH) {
   try {
     const encoded = encodePath(filepath);
-    const data = await ghFetch(`/repos/${OWNER}/${REPO}/contents/${encoded}?ref=${encodeURIComponent(BRANCH)}`, {}, { requireToken: Boolean(TOKEN) });
+    const data = await ghFetch(
+      `/repos/${OWNER}/${REPO}/contents/${encoded}?ref=${encodeURIComponent(branch)}`,
+      {},
+      { requireToken: Boolean(TOKEN) }
+    );
     return data.sha || null;
   } catch (e) {
     // 404 → fil finnes ikke
@@ -135,51 +161,116 @@ async function getFileSha(filepath) {
  */
 async function commitFile({ path, content, message }) {
   ensureConfig({ requireToken: true });
-  const sha = await getFileSha(path);
-  const body = {
-    message: message || `chore(publish): ${path}`,
-    content: Buffer.from(content, 'utf8').toString('base64'),
-    branch: BRANCH,
-    ...(sha ? { sha } : {})
-  };
   const encoded = encodePath(path);
-  const resp = await ghFetch(`/repos/${OWNER}/${REPO}/contents/${encoded}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body)
-  });
-  return resp;
+  const content64 = Buffer.from(content, 'utf8').toString('base64');
+  const branches = branchCandidates();
+  let lastError = null;
+
+  for (const branch of branches) {
+    try {
+      const sha = await getFileSha(path, branch);
+      const body = {
+        message: message || `chore(publish): ${path}`,
+        content: content64,
+        branch,
+        ...(sha ? { sha } : {})
+      };
+      const resp = await ghFetch(`/repos/${OWNER}/${REPO}/contents/${encoded}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      return resp;
+    } catch (err) {
+      if (!shouldRetryBranch(err)) {
+        throw err;
+      }
+      lastError = err;
+    }
+  }
+
+  if (lastError) throw lastError;
+  throw new Error('GitHub branch lookup failed');
 }
 
 async function deleteFile({ path, message }) {
-  const sha = await getFileSha(path);
-  if (!sha) return { skipped: true };
-  const body = { message: message || `chore(delete): ${path}`, sha, branch: BRANCH };
   const encoded = encodePath(path);
-  const resp = await ghFetch(`/repos/${OWNER}/${REPO}/contents/${encoded}`, {
-    method: 'DELETE',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body)
-  });
-  return resp;
-}
+  const branches = branchCandidates();
+  let lastError = null;
 
-async function readFile(path) {
-  try {
-    const encoded = encodePath(path);
-    const data = await ghFetch(`/repos/${OWNER}/${REPO}/contents/${encoded}?ref=${encodeURIComponent(BRANCH)}`, {}, { requireToken: Boolean(TOKEN) });
-    if (!data || !data.content) return null;
-    const buff = Buffer.from(data.content, data.encoding || 'base64');
-    return buff.toString('utf8');
-  } catch (err) {
-    if (/GitHub 404/.test(err.message)) return null;
-    throw err;
+  for (const branch of branches) {
+    try {
+      const sha = await getFileSha(path, branch);
+      if (!sha) continue;
+      const body = { message: message || `chore(delete): ${path}`, sha, branch };
+      const resp = await ghFetch(`/repos/${OWNER}/${REPO}/contents/${encoded}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      return resp;
+    } catch (err) {
+      if (!shouldRetryBranch(err)) {
+        throw err;
+      }
+      lastError = err;
+    }
   }
+
+  if (lastError) throw lastError;
+  return { skipped: true };
 }
 
-async function getRepoTree() {
-  const tree = await ghFetch(`/repos/${OWNER}/${REPO}/git/trees/${encodeURIComponent(BRANCH)}?recursive=1`, {}, { requireToken: Boolean(TOKEN) });
-  return Array.isArray(tree.tree) ? tree.tree : [];
+async function readFile(path, { branches } = {}) {
+  const encoded = encodePath(path);
+  const preferred = (branches === undefined || branches === null)
+    ? []
+    : (Array.isArray(branches) ? branches : [branches]);
+  const branchList = preferred.length ? branchCandidates(...preferred) : branchCandidates();
+
+  for (const branch of branchList) {
+    try {
+      const data = await ghFetch(
+        `/repos/${OWNER}/${REPO}/contents/${encoded}?ref=${encodeURIComponent(branch)}`,
+        {},
+        { requireToken: Boolean(TOKEN) }
+      );
+      if (!data || !data.content) continue;
+      const buff = Buffer.from(data.content, data.encoding || 'base64');
+      return buff.toString('utf8');
+    } catch (err) {
+      if (shouldRetryBranch(err)) {
+        continue;
+      }
+      if (/GitHub 404/.test(err.message)) continue;
+      throw err;
+    }
+  }
+
+  return null;
+}
+
+async function getRepoTree(branchOverride) {
+  const branchList = branchOverride
+    ? branchCandidates(branchOverride)
+    : branchCandidates();
+
+  for (const branch of branchList) {
+    try {
+      const tree = await ghFetch(
+        `/repos/${OWNER}/${REPO}/git/trees/${encodeURIComponent(branch)}?recursive=1`,
+        {},
+        { requireToken: Boolean(TOKEN) }
+      );
+      return Array.isArray(tree.tree) ? tree.tree : [];
+    } catch (err) {
+      if (!shouldRetryBranch(err)) {
+        throw err;
+      }
+    }
+  }
+
+  return [];
 }
 
 module.exports = {
