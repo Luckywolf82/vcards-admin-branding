@@ -3,7 +3,8 @@ const { db } = require('./_lib/firebaseAdmin');
 const { json, badRequest, serverError } = require('./_lib/http');
 const { requireRole } = require('./_lib/authz');
 const { deleteFile } = require('./_lib/github');
-const { normalizeSlug, slugToDocId, slugToPath } = require('./_lib/pages');
+const { normalizeSlug, slugToDocId, slugToPaths } = require('./_lib/pages');
+const { removeCleanUrlRedirect } = require('./_lib/redirects');
 
 exports.handler = async (event) => {
   try {
@@ -21,13 +22,19 @@ exports.handler = async (event) => {
     }
 
     // (Valgfritt) forsøk å slette publisert fil
-    const path = slugToPath(slug);
-    if (path) {
+    const paths = slugToPaths(slug);
+    for (const path of paths) {
       try {
         await deleteFile({ path, message: `delete page: ${slug}` });
       } catch (e) {
         console.warn('GitHub delete failed (ok to ignore):', e.message);
       }
+    }
+
+    try {
+      await removeCleanUrlRedirect(slug);
+    } catch (redirectErr) {
+      console.warn('pages-delete: failed to remove redirect', redirectErr.message);
     }
 
     return json({ ok: true, slug });

@@ -2872,15 +2872,25 @@
         bPub.onclick  = async ()=>{
           setMsg('Publiserer …');
           try{
-            await apiPost(API.publish, { slug:p.slug });
-            setMsg(`Publisert: /${p.slug}`);
+            const publishRes = await apiPost(API.publish, { slug:p.slug });
+            const displayUrl = publishRes?.redirect?.to
+              || publishRes?.previewUrl
+              || (Array.isArray(publishRes?.urls) && publishRes.urls[0])
+              || `/${p.slug}`;
+            const absoluteUrl = displayUrl.startsWith('http')
+              ? displayUrl
+              : new URL(displayUrl, location.origin).href;
+            setMsg(`Publisert: ${absoluteUrl}`);
             await loadPages();
           }catch(err){
             const msg = err?.message ? `Publisering feilet: ${err.message}` : 'Publisering feilet.';
             setMsg(msg);
           }
         };
-        const previewUrl = p.previewUrl || (p.slug === 'index' ? '/' : `/${p.slug.replace(/^\/+/, '')}`);
+        const rawPreview = p.previewUrl || (p.slug === 'index' ? '/' : `/${p.slug.replace(/^\/+/, '')}`);
+        const previewUrl = (!rawPreview.endsWith('/') && !rawPreview.endsWith('.html'))
+          ? `${rawPreview.replace(/\/$/, '')}/`
+          : rawPreview;
         bPrev.onclick = ()=> window.open(previewUrl, '_blank');
         bDel.onclick = async ()=>{
           if(!confirm(`Slette side /${p.slug}?`)) return;
@@ -3005,8 +3015,14 @@
       setEditMsg('Publiserer …');
       try{
         await apiPost(API.save, doc);
-        await apiPost(API.publish, { slug: doc.slug });
-        setEditMsg(`Publisert: /${doc.slug}`);
+        const publishRes = await apiPost(API.publish, { slug: doc.slug });
+        const displayUrl = publishRes?.previewUrl
+          || (Array.isArray(publishRes?.urls) && publishRes.urls[0])
+          || `/${doc.slug}`;
+        const absoluteUrl = displayUrl.startsWith('http')
+          ? displayUrl
+          : new URL(displayUrl, location.origin).href;
+        setEditMsg(`Publisert: ${absoluteUrl}`);
         await loadPages();
       }catch(err){
         const msg = err?.message ? `Publisering feilet: ${err.message}` : 'Publisering feilet.';
