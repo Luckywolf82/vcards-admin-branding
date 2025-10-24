@@ -3,7 +3,7 @@ const { db } = require('./_lib/firebaseAdmin');
 const { json, badRequest, serverError } = require('./_lib/http');
 const { requireRole } = require('./_lib/authz');
 const { deleteFile } = require('./_lib/github');
-const { normalizeSlug, slugToDocId, slugToPath } = require('./_lib/pages');
+const { normalizeSlug, slugToDocId, slugToPaths } = require('./_lib/pages');
 
 exports.handler = async (event) => {
   try {
@@ -21,8 +21,8 @@ exports.handler = async (event) => {
     }
 
     // (Valgfritt) forsøk å slette publisert fil
-    const path = slugToPath(slug);
-    if (path) {
+    const paths = slugToPaths(slug);
+    for (const path of paths) {
       try {
         await deleteFile({ path, message: `delete page: ${slug}` });
       } catch (e) {

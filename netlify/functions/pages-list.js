@@ -9,7 +9,7 @@ const {
   slugFromPath,
   isSitePagePath,
   slugPreviewUrl,
-  slugToPath
+  slugToPaths
 } = require('./_lib/pages');
 
 exports.handler = async (event) => {
@@ -42,12 +42,14 @@ exports.handler = async (event) => {
         if (!blob.includes(q)) return;
       }
       const slug = resolvedSlug;
+      const paths = slugToPaths(slug);
       map.set(slug, {
         slug,
         status: d.status || 'draft',
         title: d.title || {},
         updatedAt: d.updatedAt || null,
-        path: slugToPath(slug) || '',
+        path: paths[0] || '',
+        paths,
         previewUrl: slugPreviewUrl(slug)
       });
     });
@@ -71,11 +73,14 @@ exports.handler = async (event) => {
               title: {},
               updatedAt: null,
               path: node.path,
+              paths: [node.path],
               previewUrl: slugPreviewUrl(slug)
             });
           } else {
             const existing = map.get(slug);
             if (!existing.path) existing.path = node.path;
+            if (!existing.paths) existing.paths = [];
+            if (!existing.paths.includes(node.path)) existing.paths.push(node.path);
             if (!existing.previewUrl) existing.previewUrl = slugPreviewUrl(slug);
           }
         });
@@ -90,12 +95,14 @@ exports.handler = async (event) => {
     const fallbackSlugs = ['index', 'bestill-kort', 'demo', 'admin-super'];
     fallbackSlugs.forEach((slug) => {
       if (!map.has(slug)) {
+        const paths = slugToPaths(slug);
         map.set(slug, {
           slug,
           status: 'published',
           title: {},
           updatedAt: null,
-          path: slugToPath(slug) || '',
+          path: paths[0] || '',
+          paths,
           previewUrl: slugPreviewUrl(slug)
         });
       }

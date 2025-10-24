@@ -3,7 +3,7 @@ const { db } = require('./_lib/firebaseAdmin');
 const { json, badRequest, serverError } = require('./_lib/http');
 const { requireRole } = require('./_lib/authz');
 const { commitFile, BRANCH, GitHubConfigError, readFile } = require('./_lib/github');
-const { normalizeSlug, slugToDocId, slugToPath, slugPreviewUrl, extractParts } = require('./_lib/pages');
+const { normalizeSlug, slugToDocId, slugToPaths, slugPreviewUrl, extractParts } = require('./_lib/pages');
 
 const SITE_ORIGIN = (process.env.SITE_ORIGIN || 'https://nfcking.no').replace(/\/+$/, '');
 const DEFAULT_OG_IMAGE = process.env.DEFAULT_OG_IMAGE
@@ -193,16 +193,24 @@ exports.handler = async (event) => {
     const docId = slugToDocId(slug);
     if (!docId) return badRequest('slug is required');
 
-    const path = slugToPath(slug);
-    if (!path) return badRequest('invalid slug');
+    const paths = slugToPaths(slug);
+    if (!paths.length) return badRequest('invalid slug');
 
     const docRef = db.collection('pages').doc(docId);
     const docSnap = await docRef.get();
     let data = docSnap.exists ? docSnap.data() : null;
     let fallback = null;
 
+    let usedFallbackPath = null;
     if (!data) {
-      fallback = await loadFallbackDoc(slug, path);
+      for (const candidate of paths) {
+        const loaded = await loadFallbackDoc(slug, candidate);
+        if (loaded) {
+          fallback = loaded;
+          usedFallbackPath = candidate;
+          break;
+        }
+      }
       if (!fallback) return badRequest('page not found');
       data = fallback.storeData;
     }
@@ -218,11 +226,15 @@ exports.handler = async (event) => {
 
     const html = htmlTemplate({ slug, title, desc, bodyHtml, og, canonical });
 
-    await commitFile({
-      path,
-      content: html,
-      message: `publish: ${slug}`
-    });
+    const committedPaths = [];
+    for (const path of paths) {
+      await commitFile({
+        path,
+        content: html,
+        message: `publish: ${slug}`
+      });
+      committedPaths.push(path);
+    }
 
     // oppdatér status i Firestore
     const updatePayload = fallback
@@ -240,7 +252,18 @@ exports.handler = async (event) => {
 
     await docRef.set(updatePayload, { merge: true });
 
-    return json({ ok: true, slug, branch: BRANCH, path: `/${path}` });
+    const fileUrls = committedPaths.map((path) => `/${String(path || '').replace(/^\/+/, '')}`);
+    const previewUrl = slugPreviewUrl(slug);
+
+    return json({
+      ok: true,
+      slug,
+      branch: BRANCH,
+      paths: committedPaths,
+      urls: fileUrls,
+      previewUrl,
+      fallbackPath: usedFallbackPath || null
+    });
   } catch (e) {
     if (e instanceof GitHubConfigError) {
       return json({ error: 'github_config', message: e.message, missing: e.missing }, 500);

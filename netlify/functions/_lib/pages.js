@@ -38,6 +38,19 @@ function slugToPath(slug = '') {
   return `${safe}.html`;
 }
 
+function slugToPaths(slug = '') {
+  const primary = slugToPath(slug);
+  if (!primary) return [];
+
+  const safe = normalizeSlug(slug);
+  const extras = [];
+  if (safe && !safe.includes('/') && !safe.endsWith('.html') && safe !== 'index') {
+    extras.push(`${safe}/index.html`);
+  }
+
+  return Array.from(new Set([primary, ...extras]));
+}
+
 function slugPreviewUrl(slug = '') {
   const safe = normalizeSlug(slug);
   if (!safe || safe === 'index') return '/';
@@ -79,6 +92,7 @@ module.exports = {
   slugToDocId,
   docIdToSlug,
   slugToPath,
+  slugToPaths,
   slugPreviewUrl,
   slugFromPath,
   isSitePagePath,

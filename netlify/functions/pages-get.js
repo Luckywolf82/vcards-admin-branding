@@ -7,7 +7,7 @@ const {
   normalizeSlug,
   slugToDocId,
   docIdToSlug,
-  slugToPath,
+  slugToPaths,
   slugPreviewUrl,
   extractParts
 } = require('./_lib/pages');
@@ -32,17 +32,26 @@ exports.handler = async (event) => {
       });
     }
 
-    const path = slugToPath(slug);
-    if (!path) return json({ notFound: true }, 404);
-    let html;
-    try {
-      html = await readFile(path);
-    } catch (err) {
-      if (err instanceof GitHubConfigError) {
-        return json({ error: 'github_config', message: err.message, missing: err.missing }, 500);
+    const paths = slugToPaths(slug);
+    if (!paths.length) return json({ notFound: true }, 404);
+
+    let html = null;
+    let foundPath = null;
+    for (const path of paths) {
+      try {
+        html = await readFile(path);
+      } catch (err) {
+        if (err instanceof GitHubConfigError) {
+          return json({ error: 'github_config', message: err.message, missing: err.missing }, 500);
+        }
+        throw err;
       }
-      throw err;
+      if (html) {
+        foundPath = path;
+        break;
+      }
     }
+
     if (!html) return json({ notFound: true }, 404);
 
     const parts = extractParts(html);
@@ -61,7 +70,7 @@ exports.handler = async (event) => {
       },
       menu: { show: true, order: 10 },
       previewUrl: slugPreviewUrl(slug),
-      source: { path, origin: 'repo' }
+      source: { path: foundPath || paths[0], origin: 'repo' }
     });
   } catch (e) {
     return serverError(e);
