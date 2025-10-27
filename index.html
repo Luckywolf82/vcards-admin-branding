@@ -28,8 +28,27 @@
     .site-nav__link:hover{background:#273449;color:#fff}
     .site-nav__link[aria-current="page"]{background:#8fd3ff;color:#03101a;border-color:#8fd3ff}
     .site-nav__link--hidden{display:none !important}
-    .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .site-nav__toggle{display:none;align-items:center;gap:10px;padding:8px 14px;border-radius:999px;border:1px solid #222f3f;background:#1a2432;color:#cfe3ff;font-weight:600;cursor:pointer;transition:background .2s ease, color .2s ease}
+    .site-nav__toggle:hover{background:#273449;color:#fff}
+    .site-nav__toggle:focus-visible{outline:2px solid #8fd3ff;outline-offset:2px}
+    .site-nav__toggle-icon{position:relative;width:18px;height:2px;border-radius:999px;background:currentColor;display:block}
+    .site-nav__toggle-icon::before,.site-nav__toggle-icon::after{content:"";position:absolute;left:0;width:18px;height:2px;border-radius:999px;background:currentColor;transition:transform .2s ease}
+    .site-nav__toggle-icon::before{top:-6px}
+    .site-nav__toggle-icon::after{top:6px}
+    .site-nav__toggle[aria-expanded="true"] .site-nav__toggle-icon{background:transparent}
+    .site-nav__toggle[aria-expanded="true"] .site-nav__toggle-icon::before{transform:translateY(6px) rotate(45deg)}
+    .site-nav__toggle[aria-expanded="true"] .site-nav__toggle-icon::after{transform:translateY(-6px) rotate(-45deg)}
+    .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+    .row{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
+    .card{max-width:1100px;margin:0 auto;padding:0 18px 32px}
     @media (max-width:920px){.row{grid-template-columns:1fr}}
+    @media (max-width:720px){
+      .site-nav{align-items:flex-start;flex-wrap:wrap}
+      .site-nav__links{width:100%;flex-direction:column;align-items:stretch;display:none;padding:10px;border-radius:14px;background:rgba(13,17,23,.92);border:1px solid #1f2a36}
+      .site-nav__links.site-nav__links--open{display:flex}
+      .site-nav__link{width:100%;justify-content:flex-start}
+      .site-nav__toggle{display:inline-flex}
+    }
     textarea{font-family:monospace}
     .ok{color:#21c36a;font-weight:700}
     .err{color:#ff6b6b;font-weight:700}
@@ -50,7 +69,6 @@
     .brand-rule{border:0;height:2px;background:linear-gradient(90deg,#8fd3ff,#52a3ff);opacity:.7;margin:10px 0 16px}
     #nfcLog{background:#0d1117;color:#cfe3ff;padding:10px;border-radius:8px;white-space:pre-wrap;max-height:220px;overflow:auto;margin-top:10px}
     .hide{display:none}
-    .card{max-width:1100px;margin:0 auto}
     .banner{background:#0f141a;border:1px solid #283246;padding:12px;border-radius:10px}
     .banner h3{margin:0 0 6px}
     .banner ul{margin:8px 0 0 18px}
@@ -71,6 +89,14 @@
     /* Vedlegg-listen */
     #attachmentsList li { margin: 4px 0; }
     #attachmentsList a { text-decoration: none; }
+    .table-scroll{width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
+    .table-scroll::-webkit-scrollbar{height:8px}
+    .table-scroll::-webkit-scrollbar-thumb{background:#273449;border-radius:999px}
+    @media (max-width:640px){
+      .card{padding:0 12px 28px}
+      .banner .actions{flex-wrap:wrap;justify-content:flex-start;width:100%}
+      .banner .actions .pill{flex:1;justify-content:center}
+    }
   </style>
 </head>
 
@@ -83,13 +109,46 @@
         onerror="this.onerror=null;this.src='https://raw.githubusercontent.com/Luckywolf82/vcards-admin-branding/main/assets/NFCKING_dark.png?v=4';">
       <span>NFCKING</span>
     </a>
-    <nav class="site-nav__links">
+    <button class="site-nav__toggle" type="button" aria-expanded="false" aria-controls="siteNavLinks" data-nav-toggle>
+      <span class="site-nav__toggle-icon" aria-hidden="true"></span>
+      Meny
+      <span class="sr-only">Åpne navigasjonsmeny</span>
+    </button>
+    <nav id="siteNavLinks" class="site-nav__links site-nav__links--open">
       <a class="site-nav__link" href="/index.html" aria-current="page">Admin</a>
       <a class="site-nav__link" href="/bestill-kort.html">Bestill kort</a>
       <a class="site-nav__link" href="/demo.html">Demo</a>
       <a class="site-nav__link site-nav__link--hidden" href="/admin-super.html" data-nav-superadmin>Superadmin</a>
     </nav>
   </header>
+  <script>
+    (function(){
+      const toggle = document.querySelector('[data-nav-toggle]');
+      const nav = document.getElementById('siteNavLinks');
+      if (!toggle || !nav) return;
+
+      const mq = window.matchMedia('(min-width: 721px)');
+      const syncFromMedia = (event) => {
+        const expanded = !!(event && event.matches);
+        toggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+        nav.classList.toggle('site-nav__links--open', expanded);
+      };
+
+      syncFromMedia(mq);
+      if (typeof mq.addEventListener === 'function') {
+        mq.addEventListener('change', syncFromMedia);
+      } else if (typeof mq.addListener === 'function') {
+        mq.addListener(syncFromMedia);
+      }
+
+      toggle.addEventListener('click', () => {
+        const expanded = toggle.getAttribute('aria-expanded') === 'true';
+        const next = !expanded;
+        toggle.setAttribute('aria-expanded', next ? 'true' : 'false');
+        nav.classList.toggle('site-nav__links--open', next);
+      });
+    })();
+  </script>
   <!-- AUTH: vises før innlogging -->
   <section id="auth" class="card">
     <div class="brand">
@@ -290,10 +349,12 @@
       </div>
     </div>
 
-    <table class="links-table" id="linksTable">
-      <thead><tr><th>Label</th><th>URL</th><th>Tekst over</th><th>Tekst under</th><th></th></tr></thead>
-      <tbody></tbody>
-    </table>
+    <div class="table-scroll">
+      <table class="links-table" id="linksTable">
+        <thead><tr><th>Label</th><th>URL</th><th>Tekst over</th><th>Tekst under</th><th></th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
     <div class="row">
       <label>Ny label<input id="newLabel" placeholder="LinkedIn"></label>
       <label>Ny URL<input id="newUrl" placeholder="https://linkedin.com/in/..."></label>
